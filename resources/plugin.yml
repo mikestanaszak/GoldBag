@@ -1,0 +1,28 @@
+name: GoldBag
+version: ${project.version}
+main: goldbag.goldbag.GoldBag
+api-version: 1.17
+authors: [ mikerwow ]
+description: GoldBag
+commands:
+  purse:
+    usage: /purse
+    description: Opens your purse
+    permission: goldpurse.use
+  balance:
+    usage: /balance
+    description: Returns current balance of your purse
+    permission: goldpurse.use
+    aliases: money
+  purse give:
+    usage: /purse give [ign] [amount]
+    description: Adds currency to purse
+    permission: goldpurse.admin
+  purse take:
+    usage: /purse take [ign] [amount]
+    description: Removes currency from purse
+    permission: goldpurse.admin
+  purse set:
+    usage: /purse set [ign] [amount]
+    description: Sets currency in purse
+    permission: goldpurse.admin
