@@ -114,5 +114,4 @@ public class ChatParser extends ChatInputStuff {
     public void cleanup() {
 
     }
-
 }
