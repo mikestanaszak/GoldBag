@@ -1,5 +1,5 @@
 # GoldBag
-Bukkit Requested Plugin
+<a href="https://bukkit.org/threads/economy-gold-purse.491667/">Bukkit Requested Plugin</a>
 
 Did this to practice Java as well as to learn Minecraft/Spigot plugin writing. <br>
 Interesting format, very event based and intuitive. <br> 
