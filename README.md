@@ -10,3 +10,4 @@ Creating a development environment and the correct editor was probably the only 
    - Add creation of tables in MySQL
    - Add creation of default config/values files in data folder
    - Need to complete some quality improvements as well, however mostly done.
+- Could add flatfile functionality, not a fan of it though
