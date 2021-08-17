@@ -1,0 +1,2 @@
+# GoldBag
+Bukkit Requested Plugin
