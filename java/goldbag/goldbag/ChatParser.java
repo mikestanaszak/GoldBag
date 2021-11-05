@@ -13,6 +13,8 @@ import org.bukkit.scheduler.BukkitRunnable;
 import java.util.ArrayList;
 import java.util.List;
 
+import static org.bukkit.Bukkit.*;
+
 public class ChatParser extends ChatInputStuff {
     private int prompt;
     private int amount;
@@ -28,6 +30,7 @@ public class ChatParser extends ChatInputStuff {
                 //PAY CASE
                 switch(stage){
                     case 0:
+                        Player p = Bukkit.getPlayer(username);
                         try {
                             amount = Integer.parseInt(message);
                         } catch (Exception e){
@@ -36,7 +39,7 @@ public class ChatParser extends ChatInputStuff {
                             event.getPlayer().sendMessage("§r§6§l[GoldBag]§6: §4Please input a correct amount of money... No extra characters");
                             return;
                         }
-                        if(amount <= databaseHandler.getBalance(username) && amount > 0){
+                        if(amount <= databaseHandler.getBalance(p.getUniqueId()) && amount > 0){
                             stage++;
                             event.getPlayer().sendMessage("§r§6§l[GoldBag]§6: Who would you like to send this to?");
                         }
@@ -46,9 +49,10 @@ public class ChatParser extends ChatInputStuff {
                         }
                         return;
                     case 1:
-                        if(databaseHandler.userExists(message)){
-                            databaseHandler.addBalance(message, amount);
-                            databaseHandler.removeBalance(username, amount);
+                        Player p1 = Bukkit.getPlayer(message);
+                        if(databaseHandler.userExists(p1.getUniqueId())){
+                            databaseHandler.addBalance(p1.getUniqueId(), amount);
+                            databaseHandler.removeBalance(p1.getUniqueId(), amount);
                             Bukkit.getPlayer(username).sendMessage("§r§6§l[GoldBag]§6: Payment sent!");
                             if(Bukkit.getPlayer(message) != null){
                                 Bukkit.getPlayer(message).sendMessage("§r§6§l[GoldBag]§6: " + username + " has sent you " + amount);
@@ -61,6 +65,7 @@ public class ChatParser extends ChatInputStuff {
                         return;
                 }
             case 2:
+                Player p = Bukkit.getPlayer(username);
                 //CREATE NOTE CASE
                 try {
                     amount = Integer.parseInt(message);
@@ -75,9 +80,9 @@ public class ChatParser extends ChatInputStuff {
                     Bukkit.getPlayer(username).sendMessage("§r§6§l[GoldBag]§6: §4Please input a positive number.");
                     return;
                 }
-                if(amount <= databaseHandler.getBalance(username)){
+                if(amount <= databaseHandler.getBalance(p.getUniqueId())){
                     map.removePlayer(username);
-                    databaseHandler.removeBalance(username, amount);
+                    databaseHandler.removeBalance(p.getUniqueId(), amount);
                     ItemStack note =  new ItemStack(Material.PAPER);
                     ItemMeta meta = note.getItemMeta();
                     meta.setDisplayName("§r§6** Bank note **");
@@ -85,7 +90,7 @@ public class ChatParser extends ChatInputStuff {
                     lore.add(String.valueOf(amount));
                     meta.setLore(lore);
                     note.setItemMeta(meta);
-                    Player p = event.getPlayer();
+                    p = event.getPlayer();
                     spawnEntity(p, note);
                 }
                 else{

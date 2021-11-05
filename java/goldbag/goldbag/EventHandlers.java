@@ -64,7 +64,7 @@ public class EventHandlers implements Listener {
                 } else if (!p.getName().equalsIgnoreCase(resultSet.getString("IGN"))) {
                     PreparedStatement update = con.prepareStatement("UPDATE `players` SET `IGN`=? WHERE `USERID`=?");
                     update.setString(1, p.getName());
-                    update.setString(1, p.getUniqueId().toString());
+                    update.setString(2, p.getUniqueId().toString());
                     update.executeUpdate();
                     update.close();
                 }
@@ -112,7 +112,8 @@ public class EventHandlers implements Listener {
                          */
                         case "§6§lCreate Note":
                             p.sendMessage("§r§6§l[GoldBag]§6: How much would you like to create a note for?");
-                            p.sendMessage("§r§6§l[GoldBag]§6: Current balance: " + databaseHandler.getBalance(p.getDisplayName()));
+                            Player d = getPlayer(p.getDisplayName());
+                            p.sendMessage("§r§6§l[GoldBag]§6: Current balance: " + databaseHandler.getBalance(p.getUniqueId()));
                             cis.addToMap(p, new ChatParser(2));
                             p.closeInventory();
                             return;
@@ -234,7 +235,7 @@ public class EventHandlers implements Listener {
                             meta.setDisplayName("§6§lWithdraw");
                             lore = new ArrayList<>();
                             lore.add("Click to remove specific item");
-                            lore.add("Current balance: " + databaseHandler.getBalance(p.getDisplayName()));
+                            lore.add("Current balance: " + databaseHandler.getBalance(p.getUniqueId()));
                             meta.setLore(lore);
                             info.setItemMeta(meta);
                             withdrawGUI.setItem(49, info);
@@ -247,7 +248,7 @@ public class EventHandlers implements Listener {
                          */
                         case "§6§lPay":
                             p.sendMessage("§r§6§l[GoldBag]§6: How much would you like to pay?");
-                            p.sendMessage("§r§6§l[GoldBag]§6: Current balance: " + databaseHandler.getBalance(p.getDisplayName()));
+                            p.sendMessage("§r§6§l[GoldBag]§6: Current balance: " + databaseHandler.getBalance(p.getUniqueId()));
                             cis.addToMap(p, new ChatParser(1));
                             p.closeInventory();
                             return;
@@ -317,7 +318,7 @@ public class EventHandlers implements Listener {
                         };
                         returnItems.forEach(consumer);
                         if (depositAmount > 0){
-                            databaseHandler.addBalance(p.getDisplayName(), depositAmount);
+                            databaseHandler.addBalance(p.getUniqueId(), depositAmount);
                             p.sendMessage("§r§6§l[GoldBag]§6: Deposited " + depositAmount);
                             p.performCommand("balance");
                         }
@@ -351,7 +352,7 @@ public class EventHandlers implements Listener {
                         ItemMeta meta = i.getItemMeta();
                         Player p = (Player) event.getViewers().get(0);
                         DatabaseHandler databaseHandler = new DatabaseHandler();
-                        if(Integer.parseInt(meta.getLore().get(0)) > databaseHandler.getBalance(p.getDisplayName())){
+                        if(Integer.parseInt(meta.getLore().get(0)) > databaseHandler.getBalance(p.getUniqueId())){
                             p.sendMessage("§r§6§l[GoldBag]§6: §4You do not have enough money to buy this!");
                             p.closeInventory();
                         }
@@ -362,13 +363,13 @@ public class EventHandlers implements Listener {
                             else{
                                 p.getWorld().dropItem(p.getLocation(), new ItemStack(i.getType()));
                             }
-                            databaseHandler.removeBalance(p.getDisplayName(), Integer.parseInt(meta.getLore().get(0)));
+                            databaseHandler.removeBalance(p.getUniqueId(), Integer.parseInt(meta.getLore().get(0)));
                             ItemStack info = new ItemStack(Material.MAP);
                             meta = info.getItemMeta();
                             meta.setDisplayName("§6§lWithdraw");
                             ArrayList<String> lore = new ArrayList<>();
                             lore.add("Click to remove specific item");
-                            lore.add("Current balance: " + databaseHandler.getBalance(p.getDisplayName()));
+                            lore.add("Current balance: " + databaseHandler.getBalance(p.getUniqueId()));
                             meta.setLore(lore);
                             info.setItemMeta(meta);
                             event.getClickedInventory().setItem(49, info);
@@ -391,7 +392,7 @@ public class EventHandlers implements Listener {
                 ItemMeta meta = p.getInventory().getItemInMainHand().getItemMeta();
                 String amount = meta.getLore().get(0);
                 DatabaseHandler databaseHandler = new DatabaseHandler();
-                databaseHandler.addBalance(p.getDisplayName(), Integer.parseInt(amount) * p.getInventory().getItemInMainHand().getAmount());
+                databaseHandler.addBalance(p.getUniqueId(), Integer.parseInt(amount) * p.getInventory().getItemInMainHand().getAmount());
                 p.sendMessage("§r§6§l[GoldBag]§6: You have claimed: " + Integer.parseInt(amount) * p.getInventory().getItemInMainHand().getAmount());
                 p.getInventory().getItemInMainHand().setAmount(0);
                 p.performCommand("balance");

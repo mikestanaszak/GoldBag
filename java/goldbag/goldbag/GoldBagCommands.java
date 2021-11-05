@@ -14,6 +14,8 @@ import org.bukkit.plugin.Plugin;
 
 import java.util.List;
 
+import static org.bukkit.Bukkit.getPlayer;
+
 public class GoldBagCommands implements CommandExecutor {
 
     @Override
@@ -26,12 +28,13 @@ public class GoldBagCommands implements CommandExecutor {
             if(command.getName().equalsIgnoreCase("purse")){
                 if(sender.hasPermission("goldpurse.admin")){
                     if(args.length == 3){
+                        Player p = getPlayer(args[1]);
                         int bal;
                         switch (args[0]){
                             case "give":
-                                if(databaseHandler.userExists(args[1])){
+                                if(databaseHandler.userExists(p.getUniqueId())){
                                     bal = Integer.parseInt(args[2]);
-                                    databaseHandler.addBalance(args[1], bal);
+                                    databaseHandler.addBalance(p.getUniqueId(), bal);
                                     sender.sendMessage("§r§6§l[GoldBag]§6: Gave " + args[1] + " " + bal);
                                 } else {
                                     sender.sendMessage("§r§6§l[GoldBag]§6: §4User does not exist");
@@ -39,18 +42,18 @@ public class GoldBagCommands implements CommandExecutor {
                                 return true;
                             case "take":
                                 // take balance from args[1] of amount args[2]
-                                if(databaseHandler.userExists(args[1])){
+                                if(databaseHandler.userExists(p.getUniqueId())){
                                     bal = Integer.parseInt(args[2]);
-                                    databaseHandler.removeBalance(args[1], bal);
+                                    databaseHandler.removeBalance(p.getUniqueId(), bal);
                                     sender.sendMessage("§r§6§l[GoldBag]§6: Removed " + bal + " from " + args[1]);
                                 } else {
                                     sender.sendMessage("§r§6§l[GoldBag]§6: §4User does not exist");
                                 }
                                 return true;
                             case "set":
-                                if(databaseHandler.userExists(args[1])){
+                                if(databaseHandler.userExists(p.getUniqueId())){
                                     bal = Integer.parseInt(args[2]);
-                                    databaseHandler.setBalance(args[1], bal);
+                                    databaseHandler.setBalance(p.getUniqueId(), bal);
                                     sender.sendMessage("§r§6§l[GoldBag]§6: Set " + args[1] + " balance to " + bal);
                                 } else {
                                     sender.sendMessage("§r§6§l[GoldBag]§6: §4User does not exist");
@@ -85,11 +88,11 @@ public class GoldBagCommands implements CommandExecutor {
             else if(aliases.contains("money") || command.getName().equalsIgnoreCase("balance")){
                 if(config.getString("savetype").equalsIgnoreCase("mysql")){
                     if(args.length == 0){
-                        sender.sendMessage("§r§6§l[GoldBag]§6: Your balance is: " + databaseHandler.getBalance(sender.getName()));
+                        sender.sendMessage("§r§6§l[GoldBag]§6: Your balance is: " + databaseHandler.getBalance(((Player) sender).getUniqueId()));
                         return true;
                     } else if (args.length >= 1){
-                        if(databaseHandler.userExists(args[0])){
-                            sender.sendMessage("§r§6§l[GoldBag]§6: " + args[0] + " balance is: " + databaseHandler.getBalance(args[0]));
+                        if(databaseHandler.userExists(getPlayer(args[0]).getUniqueId())){
+                            sender.sendMessage("§r§6§l[GoldBag]§6: " + args[0] + " balance is: " + databaseHandler.getBalance(getPlayer(args[0]).getUniqueId()));
                         }
                         else{
                             sender.sendMessage("§r§6§l[GoldBag]§6: §4User does not exist");
@@ -119,7 +122,7 @@ class PurseGUI{
         i.setItem(3, temp);
         temp = new ItemStack(Material.RAW_GOLD);
         meta = temp.getItemMeta();
-        meta.setDisplayName("§r§6§lBalance: " + dataBaseHandler.getBalance(player.getName()));
+        meta.setDisplayName("§r§6§lBalance: " + dataBaseHandler.getBalance(player.getUniqueId()));
         temp.setItemMeta(meta);
         i.setItem(4, temp);
         temp = new ItemStack(Material.WRITABLE_BOOK);
