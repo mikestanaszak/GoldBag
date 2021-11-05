@@ -2,6 +2,7 @@ package goldbag.goldbag;
 
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
@@ -28,9 +29,9 @@ public class ChatParser extends ChatInputStuff {
         switch(prompt){
             case 1:
                 //PAY CASE
+                OfflinePlayer p = Bukkit.getOfflinePlayer(username);
                 switch(stage){
                     case 0:
-                        Player p = Bukkit.getPlayer(username);
                         try {
                             amount = Integer.parseInt(message);
                         } catch (Exception e){
@@ -49,10 +50,10 @@ public class ChatParser extends ChatInputStuff {
                         }
                         return;
                     case 1:
-                        Player p1 = Bukkit.getPlayer(message);
+                        OfflinePlayer p1 = Bukkit.getOfflinePlayer(message);
                         if(databaseHandler.userExists(p1.getUniqueId())){
                             databaseHandler.addBalance(p1.getUniqueId(), amount);
-                            databaseHandler.removeBalance(p1.getUniqueId(), amount);
+                            databaseHandler.removeBalance(p.getUniqueId(), amount);
                             Bukkit.getPlayer(username).sendMessage("§r§6§l[GoldBag]§6: Payment sent!");
                             if(Bukkit.getPlayer(message) != null){
                                 Bukkit.getPlayer(message).sendMessage("§r§6§l[GoldBag]§6: " + username + " has sent you " + amount);
@@ -65,7 +66,7 @@ public class ChatParser extends ChatInputStuff {
                         return;
                 }
             case 2:
-                Player p = Bukkit.getPlayer(username);
+                Player player = Bukkit.getPlayer(username);
                 //CREATE NOTE CASE
                 try {
                     amount = Integer.parseInt(message);
@@ -80,9 +81,9 @@ public class ChatParser extends ChatInputStuff {
                     Bukkit.getPlayer(username).sendMessage("§r§6§l[GoldBag]§6: §4Please input a positive number.");
                     return;
                 }
-                if(amount <= databaseHandler.getBalance(p.getUniqueId())){
+                if(amount <= databaseHandler.getBalance(player.getUniqueId())){
                     map.removePlayer(username);
-                    databaseHandler.removeBalance(p.getUniqueId(), amount);
+                    databaseHandler.removeBalance(player.getUniqueId(), amount);
                     ItemStack note =  new ItemStack(Material.PAPER);
                     ItemMeta meta = note.getItemMeta();
                     meta.setDisplayName("§r§6** Bank note **");
@@ -91,7 +92,7 @@ public class ChatParser extends ChatInputStuff {
                     meta.setLore(lore);
                     note.setItemMeta(meta);
                     p = event.getPlayer();
-                    spawnEntity(p, note);
+                    spawnEntity(player, note);
                 }
                 else{
                     map.removePlayer(username);

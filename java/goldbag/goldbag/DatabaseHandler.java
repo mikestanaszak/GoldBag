@@ -8,6 +8,7 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.UUID;
 
 public class DatabaseHandler {
@@ -118,5 +119,24 @@ public class DatabaseHandler {
             }
         }
         return false;
+    }
+
+    public ArrayList<String> getAllUsers() {
+        if(config.getString("savetype").equalsIgnoreCase("mysql")){
+            Connection con = ((GoldBag) pl).getConnection();
+            try {
+                PreparedStatement sql = con.prepareStatement("SELECT IGN FROM players");
+                ResultSet results = sql.executeQuery();
+                ArrayList<String> returnList = new ArrayList<String>();
+                while(results.next()){
+                    returnList.add(results.getString("IGN"));
+                }
+                return returnList;
+            } catch (SQLException throwables) {
+                throwables.printStackTrace();
+            }
+        }
+        ArrayList<String> returnList = new ArrayList<String>();
+        return returnList;
     }
 }

@@ -21,6 +21,10 @@ public class GoldBagTabComplete implements TabCompleter {
                         tabComplete.add("set");
                         return tabComplete;
                     }
+                    else if(args.length == 2) {
+                        DatabaseHandler db = new DatabaseHandler();
+                        return db.getAllUsers();
+                    }
                     else if(args.length == 3 ){ return tabComplete; }
                     else { return null; }
                 }
