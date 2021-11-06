@@ -8,24 +8,21 @@ import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.entity.HumanEntity;
-import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
 
 import java.io.FileReader;
 import java.sql.*;
+import java.text.DecimalFormat;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiConsumer;
@@ -183,14 +180,14 @@ public class EventHandlers implements Listener {
                          *
                          */
                         case "§6§lWithdraw":
-                            TreeMap<String, Integer> map = new TreeMap<>();
+                            TreeMap<String, Double> map = new TreeMap<>();
                             try {
                                 FileReader fileReader = new FileReader(pl.getDataFolder() + "/values.json");
                                 JsonParser jsonParser = new JsonParser();
                                 JsonElement element = jsonParser.parse(fileReader);
                                 JsonObject obj = element.getAsJsonObject();
                                 JsonArray array = obj.getAsJsonArray("currency");
-                                Consumer<JsonElement> consumer = (x) ->  map.put(x.getAsJsonObject().get("material").toString().replace("\"", ""), Integer.parseInt(String.valueOf(x.getAsJsonObject().get("value"))));
+                                Consumer<JsonElement> consumer = (x) ->  map.put(x.getAsJsonObject().get("material").toString().replace("\"", ""), Double.parseDouble(String.valueOf(x.getAsJsonObject().get("value"))));
                                 array.forEach(consumer);
                             } catch (Exception e) {
                                 e.printStackTrace();
@@ -212,7 +209,7 @@ public class EventHandlers implements Listener {
                             }
                             AtomicInteger row = new AtomicInteger(1);
                             AtomicInteger col = new AtomicInteger(1);
-                            BiConsumer<String, Integer> biConsumer = (x, y) -> {
+                            BiConsumer<String, Double> biConsumer = (x, y) -> {
                               ItemStack itemStack = new ItemStack(Material.valueOf(x.toUpperCase()));
                               ItemMeta itemMeta = itemStack.getItemMeta();
                               itemMeta.setDisplayName("§6§l" + x.toUpperCase());
@@ -280,25 +277,25 @@ public class EventHandlers implements Listener {
                 if(event.getCurrentItem().getType() == Material.YELLOW_STAINED_GLASS_PANE || event.getCurrentItem().getType() == Material.MAP || event.getCurrentItem().getType() == Material.LIME_STAINED_GLASS_PANE){
                     if(event.getCurrentItem().getType() == Material.LIME_STAINED_GLASS_PANE){
                         ItemStack[] items = event.getClickedInventory().getContents();
-                        Map<String, Integer> map = new HashMap<>();
+                        Map<String, Double> map = new HashMap<>();
                         try {
                             FileReader fileReader = new FileReader(pl.getDataFolder() + "/values.json");
                             JsonParser jsonParser = new JsonParser();
                             JsonElement element = jsonParser.parse(fileReader);
                             JsonObject obj = element.getAsJsonObject();
                             JsonArray array = obj.getAsJsonArray("currency");
-                            Consumer<JsonElement> consumer = (x) ->  map.put(x.getAsJsonObject().get("material").toString().replace("\"", ""), Integer.parseInt(String.valueOf(x.getAsJsonObject().get("value"))));
+                            Consumer<JsonElement> consumer = (x) ->  map.put(x.getAsJsonObject().get("material").toString().replace("\"", ""), Double.parseDouble(String.valueOf(x.getAsJsonObject().get("value"))));
                             array.forEach(consumer);
                         } catch (Exception e) {
                             e.printStackTrace();
                         }
                         ArrayList<ItemStack> returnItems = new ArrayList<>();
-                        int depositAmount = 0;
+                        double depositAmount = 0;
                         for(int i = 0; i < items.length; i++){
                             if(items[i] != null) {
                                 ItemStack item = items[i];
                                 if(map.containsKey(item.getType().toString().toLowerCase(Locale.ROOT))){
-                                    int value = map.get(item.getType().toString().toLowerCase(Locale.ROOT));
+                                    Double value = map.get(item.getType().toString().toLowerCase(Locale.ROOT));
                                     depositAmount += item.getAmount() * value;
                                 }
                                 else{
@@ -321,8 +318,9 @@ public class EventHandlers implements Listener {
                         };
                         returnItems.forEach(consumer);
                         if (depositAmount > 0){
+                            DecimalFormat df = new DecimalFormat("0.00");
                             databaseHandler.addBalance(p.getUniqueId(), depositAmount);
-                            p.sendMessage("§r§6§l[GoldBag]§6: Deposited " + depositAmount);
+                            p.sendMessage("§r§6§l[GoldBag]§6: Deposited " + df.format(depositAmount));
                             p.performCommand("balance");
                         }
                         return;
@@ -359,7 +357,7 @@ public class EventHandlers implements Listener {
                         ItemMeta meta = i.getItemMeta();
                         Player p = (Player) event.getViewers().get(0);
                         DatabaseHandler databaseHandler = new DatabaseHandler();
-                        if(Integer.parseInt(meta.getLore().get(0)) > databaseHandler.getBalance(p.getUniqueId())){
+                        if(Double.parseDouble(meta.getLore().get(0)) > databaseHandler.getBalance(p.getUniqueId())){
                             p.sendMessage("§r§6§l[GoldBag]§6: §4You do not have enough money to buy this!");
                             p.closeInventory();
                         }
@@ -370,7 +368,7 @@ public class EventHandlers implements Listener {
                             else{
                                 p.getWorld().dropItem(p.getLocation(), new ItemStack(i.getType()));
                             }
-                            databaseHandler.removeBalance(p.getUniqueId(), Integer.parseInt(meta.getLore().get(0)));
+                            databaseHandler.removeBalance(p.getUniqueId(), Double.parseDouble(meta.getLore().get(0)));
                             ItemStack info = new ItemStack(Material.MAP);
                             meta = info.getItemMeta();
                             meta.setDisplayName("§6§lWithdraw");
@@ -399,8 +397,8 @@ public class EventHandlers implements Listener {
                 ItemMeta meta = p.getInventory().getItemInMainHand().getItemMeta();
                 String amount = meta.getLore().get(0);
                 DatabaseHandler databaseHandler = new DatabaseHandler();
-                databaseHandler.addBalance(p.getUniqueId(), Integer.parseInt(amount) * p.getInventory().getItemInMainHand().getAmount());
-                p.sendMessage("§r§6§l[GoldBag]§6: You have claimed: " + Integer.parseInt(amount) * p.getInventory().getItemInMainHand().getAmount());
+                databaseHandler.addBalance(p.getUniqueId(), Double.parseDouble(amount) * p.getInventory().getItemInMainHand().getAmount());
+                p.sendMessage("§r§6§l[GoldBag]§6: You have claimed: " + Double.parseDouble(amount) * p.getInventory().getItemInMainHand().getAmount());
                 p.getInventory().getItemInMainHand().setAmount(0);
                 p.performCommand("balance");
                 return;

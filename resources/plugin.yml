@@ -26,3 +26,7 @@ commands:
     usage: /purse set [ign] [amount]
     description: Sets currency in purse
     permission: goldpurse.admin
+  pursetop:
+    usage: /pursetop
+    description: Gets top balances
+    permission: goldpurse.use

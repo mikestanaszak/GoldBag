@@ -34,6 +34,7 @@ public final class GoldBag extends JavaPlugin {
         this.getCommand("purse").setExecutor(new GoldBagCommands());
         this.getCommand("balance").setTabCompleter(new GoldBagTabComplete());
         this.getCommand("purse").setTabCompleter(new GoldBagTabComplete());
+        this.getCommand("pursetop").setExecutor(new GoldBagCommands());
         getServer().getPluginManager().registerEvents(new EventHandlers(), this);
         super.onEnable();
     }

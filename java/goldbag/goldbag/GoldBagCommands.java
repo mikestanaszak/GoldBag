@@ -12,7 +12,9 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.function.Consumer;
 
 import static org.bukkit.Bukkit.getPlayer;
 
@@ -100,6 +102,18 @@ public class GoldBagCommands implements CommandExecutor {
                         return true;
                     }
                 }
+            }
+            else if(command.getName().equalsIgnoreCase("pursetop")){
+                if(config.getString("savetype").equalsIgnoreCase("mysql")){
+                    ArrayList<String> list = databaseHandler.topPurses();
+                    list.forEach(new Consumer<String>() {
+                        @Override
+                        public void accept(String s) {
+                            sender.sendMessage(s);
+                        }
+                    });
+                }
+                return true;
             }
         }
         return false;
