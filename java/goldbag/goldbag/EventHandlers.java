@@ -8,10 +8,12 @@ import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -31,6 +33,8 @@ import java.util.function.Consumer;
 import static org.bukkit.Bukkit.*;
 
 public class EventHandlers implements Listener {
+
+    Map<String, Boolean> deposit = new HashMap<>();
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event){
@@ -128,6 +132,7 @@ public class EventHandlers implements Listener {
                          *
                          */
                         case "§6§lDeposit":
+                            deposit.put(p.getName(), true);
                             ItemStack pane = new ItemStack(Material.YELLOW_STAINED_GLASS_PANE);
                             ItemMeta meta = pane.getItemMeta();
                             meta.setDisplayName(" ");
@@ -276,6 +281,7 @@ public class EventHandlers implements Listener {
             if(event.getCurrentItem() != null && event.getCurrentItem().getType() != Material.AIR){
                 if(event.getCurrentItem().getType() == Material.YELLOW_STAINED_GLASS_PANE || event.getCurrentItem().getType() == Material.MAP || event.getCurrentItem().getType() == Material.LIME_STAINED_GLASS_PANE){
                     if(event.getCurrentItem().getType() == Material.LIME_STAINED_GLASS_PANE){
+                        event.setCancelled(true);
                         ItemStack[] items = event.getClickedInventory().getContents();
                         Map<String, Double> map = new HashMap<>();
                         try {
@@ -306,8 +312,8 @@ public class EventHandlers implements Listener {
                             }
                         }
                         Player p = (Player) event.getViewers().get(0);
+                        deposit.remove(p.getName());
                         p.closeInventory();
-                        event.setCancelled(true);
                         Consumer<ItemStack> consumer = (x) -> {
                             if(p.getInventory().firstEmpty() != -1){
                                 p.getInventory().addItem(x);
@@ -403,6 +409,33 @@ public class EventHandlers implements Listener {
                 p.performCommand("balance");
                 return;
             }
+        }
+    }
+
+    @EventHandler
+    public void onInventoryClose(InventoryCloseEvent event) {
+        HumanEntity p = event.getPlayer();
+        if(event.getView().getTitle() == "§6§lDeposit" && deposit.containsKey(p.getName())){
+            ArrayList<ItemStack> returnItems = new ArrayList<>();
+            ItemStack[] items = event.getInventory().getContents();
+            for(int i = 0; i < items.length; i++){
+                if(items[i] != null) {
+                    ItemStack item = items[i];
+                    if(item.getType() != Material.YELLOW_STAINED_GLASS_PANE && item.getType() != Material.LIME_STAINED_GLASS_PANE && item.getType() != Material.MAP){
+                        returnItems.add(items[i]);
+                    }
+                }
+            }
+            Consumer<ItemStack> consumer = (x) -> {
+                if(p.getInventory().firstEmpty() != -1){
+                    p.getInventory().addItem(x);
+                }
+                else{
+                    p.getWorld().dropItem(p.getLocation(), x);
+                }
+            };
+            returnItems.forEach(consumer);
+            return;
         }
     }
 }
