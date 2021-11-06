@@ -8,15 +8,18 @@ import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.entity.HumanEntity;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.Inventory;
+import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
@@ -275,7 +278,6 @@ public class EventHandlers implements Listener {
             DatabaseHandler databaseHandler = new DatabaseHandler();
             if(event.getCurrentItem() != null && event.getCurrentItem().getType() != Material.AIR){
                 if(event.getCurrentItem().getType() == Material.YELLOW_STAINED_GLASS_PANE || event.getCurrentItem().getType() == Material.MAP || event.getCurrentItem().getType() == Material.LIME_STAINED_GLASS_PANE){
-                    event.setCancelled(true);
                     if(event.getCurrentItem().getType() == Material.LIME_STAINED_GLASS_PANE){
                         ItemStack[] items = event.getClickedInventory().getContents();
                         Map<String, Integer> map = new HashMap<>();
@@ -308,6 +310,7 @@ public class EventHandlers implements Listener {
                         }
                         Player p = (Player) event.getViewers().get(0);
                         p.closeInventory();
+                        event.setCancelled(true);
                         Consumer<ItemStack> consumer = (x) -> {
                             if(p.getInventory().firstEmpty() != -1){
                                 p.getInventory().addItem(x);
@@ -322,6 +325,10 @@ public class EventHandlers implements Listener {
                             p.sendMessage("§r§6§l[GoldBag]§6: Deposited " + depositAmount);
                             p.performCommand("balance");
                         }
+                        return;
+                    }
+                    else {
+                        event.setCancelled(true);
                         return;
                     }
                 }
@@ -400,5 +407,4 @@ public class EventHandlers implements Listener {
             }
         }
     }
-
 }
