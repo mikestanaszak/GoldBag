@@ -26,6 +26,10 @@ commands:
     usage: /purse set [ign] [amount]
     description: Sets currency in purse
     permission: goldpurse.admin
+  withdraw:
+    usage: /withdraw [amount]
+    description: Removes currency in a note from purse
+    permission: goldpurse.use
   pursetop:
     usage: /pursetop
     description: Gets top balances

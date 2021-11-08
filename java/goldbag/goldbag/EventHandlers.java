@@ -116,7 +116,6 @@ public class EventHandlers implements Listener {
                          */
                         case "§6§lCreate Note":
                             p.sendMessage("§r§6§l[GoldBag]§6: How much would you like to create a note for?");
-                            Player d = getPlayer(p.getDisplayName());
                             p.sendMessage("§r§6§l[GoldBag]§6: Current balance: " + databaseHandler.getBalance(p.getUniqueId()));
                             cis.addToMap(p, new ChatParser(2));
                             p.closeInventory();
@@ -185,7 +184,7 @@ public class EventHandlers implements Listener {
                          *
                          */
                         case "§6§lWithdraw":
-                            TreeMap<String, Double> map = new TreeMap<>();
+                            LinkedHashMap<String, Double> map = new LinkedHashMap<String, Double>();
                             try {
                                 FileReader fileReader = new FileReader(pl.getDataFolder() + "/values.json");
                                 JsonParser jsonParser = new JsonParser();
@@ -224,7 +223,7 @@ public class EventHandlers implements Listener {
                               itemStack.setItemMeta(itemMeta);
                               withdrawGUI.setItem(row.get() * 9 + col.get(), itemStack);
                               col.getAndIncrement();
-                              if(col.get() == 8){
+                              if(col.get() == 7){
                                   col.set(1);
                                   row.incrementAndGet();
                               }
@@ -403,9 +402,9 @@ public class EventHandlers implements Listener {
                 ItemMeta meta = p.getInventory().getItemInMainHand().getItemMeta();
                 String amount = meta.getLore().get(0);
                 DatabaseHandler databaseHandler = new DatabaseHandler();
-                databaseHandler.addBalance(p.getUniqueId(), Double.parseDouble(amount) * p.getInventory().getItemInMainHand().getAmount());
-                p.sendMessage("§r§6§l[GoldBag]§6: You have claimed: " + Double.parseDouble(amount) * p.getInventory().getItemInMainHand().getAmount());
-                p.getInventory().getItemInMainHand().setAmount(0);
+                databaseHandler.addBalance(p.getUniqueId(), Double.parseDouble(amount));
+                p.sendMessage("§r§6§l[GoldBag]§6: You have claimed: " + Double.parseDouble(amount));
+                p.getInventory().getItemInMainHand().setAmount(p.getInventory().getItemInMainHand().getAmount() - 1);
                 p.performCommand("balance");
                 return;
             }

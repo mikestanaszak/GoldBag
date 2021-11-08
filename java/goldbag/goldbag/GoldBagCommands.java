@@ -11,6 +11,7 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.plugin.Plugin;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -114,6 +115,49 @@ public class GoldBagCommands implements CommandExecutor {
                     });
                 }
                 return true;
+            }
+            else if(command.getName().equalsIgnoreCase("withdraw")){
+                if(args.length == 1){
+                    double amount = 0;
+                    try {
+                        amount = Double.parseDouble(args[0]);
+                    } catch (Exception e){
+                        e.printStackTrace();
+                        sender.sendMessage("§r§6§l[GoldBag]§6: §4Please input a correct amount of money... No extra characters");
+                        return true;
+                    }
+                    if(amount <= 0){
+                        sender.sendMessage("§r§6§l[GoldBag]§6: §4Please input a positive number.");
+                        return true;
+                    }
+                    if(amount <= databaseHandler.getBalance(((Player) sender).getUniqueId())){
+                        databaseHandler.removeBalance(((Player) sender).getUniqueId(), amount);
+                        ItemStack note =  new ItemStack(Material.PAPER);
+                        ItemMeta meta = note.getItemMeta();
+                        meta.setDisplayName("§r§6** Bank note **");
+                        ArrayList<String> lore = new ArrayList();
+                        lore.add(String.valueOf(amount));
+                        meta.setLore(lore);
+                        note.setItemMeta(meta);
+                        if(((Player) sender).getInventory().firstEmpty() != -1){
+                            ((Player) sender).getInventory().addItem(note);
+                        }
+                        else {
+                            new BukkitRunnable() {
+                                @Override
+                                public void run() {
+                                    ((Player) sender).getWorld().dropItem(((Player) sender).getLocation(), note);
+                                }
+                            }.runTask(Bukkit.getPluginManager().getPlugin("GoldBag"));
+                        }
+                        sender.sendMessage("§r§6§l[GoldBag]§6: Withdrawn " + amount + " successfully.");
+                        ((Player) sender).performCommand("balance");
+                    }
+                    else{
+                        sender.sendMessage("§r§6§l[GoldBag]§6: §4You do not have enough money!");
+                    }
+                    return true;
+                }
             }
         }
         return false;
