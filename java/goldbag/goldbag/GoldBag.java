@@ -1,10 +1,7 @@
 package goldbag.goldbag;
 
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.io.*;
@@ -91,6 +88,12 @@ public final class GoldBag extends JavaPlugin {
                 password = configConfig.getString("databaseDetails.password");
                 String url = "jdbc:mysql://" + host + "/" + database;
                 connection = DriverManager.getConnection(url, username, password);
+                DatabaseHandler db = new DatabaseHandler();
+                try {
+                    db.CreateTables();
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
             }
         } catch (Exception e) {
                 e.printStackTrace();

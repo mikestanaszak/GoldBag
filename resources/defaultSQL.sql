@@ -1,0 +1,11 @@
+CREATE TABLE IF NOT EXISTS `players` (
+	`id` INT NOT NULL AUTO_INCREMENT,
+    `IGN` varchar(30),
+    `USERID` varchar(40),
+    `PURSEID` int(30),
+    PRIMARY KEY(`id`));
+
+CREATE TABLE IF NOT EXISTS `purses` (
+	`id` INT NOT NULL AUTO_INCREMENT,
+    `BALANCE` DOUBLE(30,2),
+    PRIMARY KEY(`id`));

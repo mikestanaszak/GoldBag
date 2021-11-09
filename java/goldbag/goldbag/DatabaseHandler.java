@@ -4,10 +4,9 @@ import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.plugin.Plugin;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.io.IOException;
+import java.io.InputStream;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.UUID;
 
@@ -160,5 +159,40 @@ public class DatabaseHandler {
         }
         ArrayList<String> returnList = new ArrayList<String>();
         return returnList;
+    }
+
+    public void CreateTables() throws SQLException, IOException {
+        if(config.getString("savetype").equalsIgnoreCase("mysql")) {
+            Connection con = ((GoldBag) pl).getConnection();
+            InputStream input = pl.getResource("defaultSQL.sql");
+            StringBuilder sb = new StringBuilder();
+            for( int ch; (ch = input.read()) != -1;) {
+                sb.append((char) ch);
+            }
+            String[] databaseStructure = sb.toString().split(";");
+            Statement statement = null;
+
+            try {
+                con.setAutoCommit(false);
+                statement = con.createStatement();
+                for (String query : databaseStructure) {
+                    query = query.trim();
+
+                    if (query.isEmpty()) {
+                        continue;
+                    }
+                    statement.execute(query);
+                }
+                con.commit();
+            } catch (SQLException throwables) {
+                throwables.printStackTrace();
+            } finally {
+                con.setAutoCommit(true);
+
+                if (statement != null && !statement.isClosed()) {
+                    statement.close();
+                }
+            }
+        }
     }
 }
