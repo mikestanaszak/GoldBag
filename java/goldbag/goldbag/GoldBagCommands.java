@@ -17,6 +17,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
 
+import static org.bukkit.Bukkit.getOfflinePlayer;
 import static org.bukkit.Bukkit.getPlayer;
 
 public class GoldBagCommands implements CommandExecutor {
@@ -94,8 +95,8 @@ public class GoldBagCommands implements CommandExecutor {
                         sender.sendMessage("§r§6§l[GoldBag]§6: Your balance is: " + databaseHandler.getBalance(((Player) sender).getUniqueId()));
                         return true;
                     } else if (args.length >= 1){
-                        if(databaseHandler.userExists(getPlayer(args[0]).getUniqueId())){
-                            sender.sendMessage("§r§6§l[GoldBag]§6: " + args[0] + " balance is: " + databaseHandler.getBalance(getPlayer(args[0]).getUniqueId()));
+                        if(databaseHandler.userExists(getOfflinePlayer(args[0]).getUniqueId())){
+                            sender.sendMessage("§r§6§l[GoldBag]§6: " + args[0] + "'s balance is: " + databaseHandler.getBalance(getOfflinePlayer(args[0]).getUniqueId()));
                         }
                         else{
                             sender.sendMessage("§r§6§l[GoldBag]§6: §4User does not exist");
