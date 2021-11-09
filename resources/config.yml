@@ -1,0 +1,6 @@
+savetype: "mysql"
+databaseDetails:
+  url: "localhost:3306"
+  database: "players"
+  user: "administrator"
+  password: "123"

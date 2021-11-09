@@ -1,0 +1,40 @@
+{
+  "currency": [{
+    "material": "coal",
+    "value": 0.2
+  }, {
+    "material": "coal_block",
+    "value": 1.8
+  }, {
+    "material": "redstone",
+    "value": 1
+  }, {
+    "material": "redstone_block",
+    "value": 9
+  }, {
+    "material": "lapis_lazuli",
+    "value": 1
+  }, {
+    "material": "lapis_block",
+    "value": 9
+  }, {
+    "material": "raw_copper",
+    "value": 1
+  }, {
+    "material": "raw_copper_block",
+    "value": 9
+  }, {
+    "material": "raw_iron",
+    "value": 2
+  }, {
+    "material": "raw_iron_block",
+    "value": 18
+  }, {
+    "material": "raw_gold",
+    "value": 5
+  }, {
+    "material": "raw_gold_block",
+    "value": 45
+  }
+  ]
+}

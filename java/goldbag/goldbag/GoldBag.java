@@ -7,7 +7,7 @@ import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.PluginManager;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.io.File;
+import java.io.*;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -26,6 +26,25 @@ public final class GoldBag extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        if(getDataFolder().listFiles().length != 2){
+            getLogger().info("Missing files!");
+            File n = new File(getDataFolder(), "/config.yml");
+            if(!n.exists()){
+                getLogger().info("Creating default config");
+                this.saveDefaultConfig();
+            }
+            n = new File(getDataFolder(), "/values.json");
+            if(!n.exists()){
+                try {
+                    getLogger().info("Creating default values file");
+                    n.createNewFile();
+                    InputStream defaultValues = this.getResource("defaultValues.json");
+                    copyFileUsingStream(defaultValues, n);
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }
         config = new File(getDataFolder(), "config.yml");
         configConfig = YamlConfiguration.loadConfiguration(config);
         setupMySQL();
@@ -75,6 +94,22 @@ public final class GoldBag extends JavaPlugin {
             }
         } catch (Exception e) {
                 e.printStackTrace();
+        }
+    }
+
+    private static void copyFileUsingStream(InputStream source, File dest) throws IOException {
+        InputStream is = source;
+        OutputStream os = null;
+        try {
+            os = new FileOutputStream(dest);
+            byte[] buffer = new byte[1024];
+            int length;
+            while ((length = is.read(buffer)) > 0) {
+                os.write(buffer, 0, length);
+            }
+        } finally {
+            is.close();
+            os.close();
         }
     }
 }
