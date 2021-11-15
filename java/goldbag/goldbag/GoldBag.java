@@ -1,8 +1,10 @@
 package goldbag.goldbag;
 
+import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitRunnable;
 
 import java.io.*;
 import java.sql.Connection;
@@ -93,6 +95,20 @@ public final class GoldBag extends JavaPlugin {
                     db.CreateTables();
                 } catch (SQLException e) {
                     e.printStackTrace();
+                }
+                if(configConfig.getBoolean("interest.enabled")){
+                    final boolean[] firstTime = {true};
+                    Bukkit.getServer().getScheduler().scheduleSyncRepeatingTask(this, new Runnable() {
+                        @Override
+                        public void run() {
+                            if(firstTime[0]){
+                                firstTime[0] = false;
+                            }
+                            else{
+                                db.IncurrInterest(configConfig.getDouble("interest.rate"), getLogger());
+                            }
+                        }
+                    }, 100, 86400*20);
                 }
             }
         } catch (Exception e) {

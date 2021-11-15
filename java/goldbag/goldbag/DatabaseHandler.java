@@ -9,6 +9,7 @@ import java.io.InputStream;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.UUID;
+import java.util.logging.Logger;
 
 public class DatabaseHandler {
 
@@ -193,6 +194,18 @@ public class DatabaseHandler {
                     statement.close();
                 }
             }
+        }
+    }
+
+    public void IncurrInterest(double rate, Logger logger) {
+        Connection con = ((GoldBag) pl).getConnection();
+        try {
+            PreparedStatement sql = con.prepareStatement("UPDATE PURSES SET BALANCE = (BALANCE * ?);");
+            sql.setDouble(1, rate + 1);
+            int result = sql.executeUpdate();
+            logger.info("Incurred Interest for GoldBag purses: " + result + " rows updated.");
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
     }
 }
