@@ -10,6 +10,7 @@ import java.io.*;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.util.Properties;
 
 
 //Todo: Get redis working locally as well as MySQL,
@@ -89,7 +90,11 @@ public final class GoldBag extends JavaPlugin {
                 username = configConfig.getString("databaseDetails.user");
                 password = configConfig.getString("databaseDetails.password");
                 String url = "jdbc:mysql://" + host + "/" + database;
-                connection = DriverManager.getConnection(url, username, password);
+                Properties prop = new Properties();
+                prop.setProperty("user", username);
+                prop.setProperty("password", password);
+                prop.setProperty("autoReconnect", "true");
+                connection = DriverManager.getConnection(url, prop);
                 DatabaseHandler db = new DatabaseHandler();
                 try {
                     db.CreateTables();
