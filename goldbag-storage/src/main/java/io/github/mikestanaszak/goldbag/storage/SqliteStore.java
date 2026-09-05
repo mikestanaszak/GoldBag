@@ -19,8 +19,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 
 /** Serialized, transactional SQLite repository for GoldBag money and durable physical operations. */
 public final class SqliteStore implements AutoCloseable {
@@ -94,56 +92,205 @@ public final class SqliteStore implements AutoCloseable {
     }
 
     public synchronized Receipt adjust(UUID op, UUID actor, UUID target, long delta, String reason) {
-        checkOp(op); checkUuid(target,"target account"); checkReason(reason); if(delta==0) throw new IllegalArgumentException("Adjustment cannot be zero");
-        String fingerprint=fingerprint("ADJUST",actor,target,delta,reason);
+        checkOp(op);
+        checkUuid(target, "target account");
+        checkReason(reason);
+        if (delta == 0) throw new IllegalArgumentException("Adjustment cannot be zero");
+        String fingerprint = StoreFingerprint.of("ADJUST", actor, target, delta, reason);
         ensureOpen();
         return transaction(() -> {
-            Receipt replay=existingReceipt(op,fingerprint); if(replay!=null)return replay; rejectExistingOperation(op);
-            Account current=accountRequired(target); rejectBlocked(target); long next=checkedBalance(current.balance(),delta);
-            insertOperation(op,"ADJUST",fingerprint,actor,target,null,null,null,null,delta,delta,null,reason,"FINAL"); updateBalance(target,next);
-            insertEntry(op,target,current.balance(),next,delta); return receipt(op,Map.of(target,next),false);
+            Receipt replay = existingReceipt(op, fingerprint);
+            if (replay != null) return replay;
+            rejectExistingOperation(op);
+            Account current = accountRequired(target);
+            rejectBlocked(target);
+            long next = checkedBalance(current.balance(), delta);
+            insertOperation(op, "ADJUST", fingerprint, actor, target, null, null, null, null,
+                    delta, delta, null, reason, "FINAL");
+            updateBalance(target, next);
+            insertEntry(op, target, current.balance(), next, delta, current.revision() + 1);
+            return receipt(op, Map.of(target, next), false);
         });
     }
 
     public synchronized Receipt setBalance(UUID op, UUID actor, UUID target, long amount, String reason) {
-        checkOp(op); checkUuid(target,"target account"); checkReason(reason); checkAmountWithinMax(amount,"balance");
-        String fingerprint=fingerprint("SET_BALANCE",actor,target,amount,reason); ensureOpen();
-        return transaction(() -> { Receipt replay=existingReceipt(op,fingerprint); if(replay!=null)return replay; rejectExistingOperation(op); Account current=accountRequired(target); rejectBlocked(target); long delta=amount-current.balance(); insertOperation(op,"SET_BALANCE",fingerprint,actor,target,null,null,null,null,amount,delta,null,reason,"FINAL"); if(delta!=0)updateBalance(target,amount); insertEntry(op,target,current.balance(),amount,delta); return receipt(op,Map.of(target,amount),false); });
+        checkOp(op);
+        checkUuid(target, "target account");
+        checkReason(reason);
+        checkAmountWithinMax(amount, "balance");
+        String fingerprint = StoreFingerprint.of("SET_BALANCE", actor, target, amount, reason);
+        ensureOpen();
+        return transaction(() -> {
+            Receipt replay = existingReceipt(op, fingerprint);
+            if (replay != null) return replay;
+            rejectExistingOperation(op);
+            Account current = accountRequired(target);
+            rejectBlocked(target);
+            long delta = amount - current.balance();
+            insertOperation(op, "SET_BALANCE", fingerprint, actor, target, null, null, null, null,
+                    amount, delta, null, reason, "FINAL");
+            updateBalance(target, amount);
+            insertEntry(op, target, current.balance(), amount, delta, current.revision() + 1);
+            return receipt(op, Map.of(target, amount), false);
+        });
     }
 
     public synchronized Receipt transfer(UUID op, UUID from, UUID to, long amount) {
-        checkOp(op); checkUuid(from,"sender"); checkUuid(to,"recipient"); if(from.equals(to))throw new IllegalArgumentException("Cannot transfer to the same account"); checkPositive(amount,"transfer amount");
-        String fingerprint=fingerprint("TRANSFER",from,to,amount,null); ensureOpen();
-        return transaction(() -> { Receipt replay=existingReceipt(op,fingerprint); if(replay!=null)return replay; rejectExistingOperation(op); rejectBlocked(from); rejectBlocked(to); Account sender=accountRequired(from), receiver=accountRequired(to); if(sender.balance()<amount)throw new IllegalStateException("Insufficient balance"); long credited=checkedBalance(receiver.balance(),amount); insertOperation(op,"TRANSFER",fingerprint,from,null,from,to,null,null,amount,-amount,null,"transfer","FINAL"); updateBalance(from, sender.balance()-amount); updateBalance(to,credited); insertEntry(op,from,sender.balance(),sender.balance()-amount,-amount); insertEntry(op,to,receiver.balance(),credited,amount); Map<UUID,Long> balances=new LinkedHashMap<>(); balances.put(from,sender.balance()-amount); balances.put(to,credited); return receipt(op,balances,false); });
+        checkOp(op);
+        checkUuid(from, "sender");
+        checkUuid(to, "recipient");
+        if (from.equals(to)) throw new IllegalArgumentException("Cannot transfer to the same account");
+        checkPositive(amount, "transfer amount");
+        String fingerprint = StoreFingerprint.of("TRANSFER", from, to, amount, null);
+        ensureOpen();
+        return transaction(() -> {
+            Receipt replay = existingReceipt(op, fingerprint);
+            if (replay != null) return replay;
+            rejectExistingOperation(op);
+            rejectBlocked(from);
+            rejectBlocked(to);
+            Account sender = accountRequired(from);
+            Account receiver = accountRequired(to);
+            if (sender.balance() < amount) throw new IllegalStateException("Insufficient balance");
+            long credited = checkedBalance(receiver.balance(), amount);
+            insertOperation(op, "TRANSFER", fingerprint, from, null, from, to, null, null,
+                    amount, -amount, null, "transfer", "FINAL");
+            updateBalance(from, sender.balance() - amount);
+            updateBalance(to, credited);
+            insertEntry(op, from, sender.balance(), sender.balance() - amount, -amount,
+                    sender.revision() + 1);
+            insertEntry(op, to, receiver.balance(), credited, amount, receiver.revision() + 1);
+            Map<UUID, Long> balances = new LinkedHashMap<>();
+            balances.put(from, sender.balance() - amount);
+            balances.put(to, credited);
+            return receipt(op, balances, false);
+        });
     }
 
     public synchronized Pending prepare(UUID op, UUID player, Kind kind, long amount, String payload, UUID noteId) {
-        checkOp(op); checkUuid(player,"player"); if(kind==null || kind==Kind.NOTE_REDEEM)throw new IllegalArgumentException("Invalid prepare kind"); checkPositive(amount,"pending amount"); if(noteId==null && kind==Kind.NOTE_ISSUE)throw new IllegalArgumentException("Note issue requires a note id"); if(noteId!=null)checkUuid(noteId,"note id");
-        String fingerprint=fingerprint("PREPARE",player,kind,amount,payload,noteId); ensureOpen();
-        return transaction(() -> { Pending existing=existingPending(op,fingerprint); if(existing!=null)return existing; rejectExistingOperation(op); Account a=accountRequired(player); rejectBlocked(player); if(kind==Kind.WITHDRAW || kind==Kind.NOTE_ISSUE){ long reserved=reservedOutgoing(player); if(amount> a.balance()-reserved)throw new IllegalStateException("Insufficient available balance"); } else if(kind==Kind.DEPOSIT && checkedBalance(a.balance(),amount)>maxBalance)throw new IllegalStateException("Balance exceeds maximum");
-            if(kind==Kind.NOTE_ISSUE){ if(noteId==null)throw new IllegalArgumentException("Note issue requires a note id"); if(noteExists(noteId))throw new IllegalStateException("Note id already exists"); }
-            insertOperation(op,"PREPARE",fingerprint,null,null,null,null,player,noteId,amount,null,payload,null,"PREPARED"); insertPending(op,player,kind,amount,payload,noteId,"PREPARED"); if(kind==Kind.NOTE_ISSUE)insertNote(noteId,amount,"RESERVED",player,op); return new Pending(op,player,kind,amount,payload,noteId,"PREPARED"); });
+        checkOp(op);
+        checkUuid(player, "player");
+        if (kind == null || kind == Kind.NOTE_REDEEM) throw new IllegalArgumentException("Invalid prepare kind");
+        checkPositive(amount, "pending amount");
+        if (kind == Kind.NOTE_ISSUE && noteId == null) throw new IllegalArgumentException("Note issue requires a note id");
+        if (noteId != null) checkUuid(noteId, "note id");
+        String fingerprint = StoreFingerprint.of("PREPARE", player, kind, amount, payload, noteId);
+        ensureOpen();
+        return transaction(() -> {
+            Pending existing = existingPending(op, fingerprint);
+            if (existing != null) return existing;
+            rejectExistingOperation(op);
+            Account account = accountRequired(player);
+            rejectBlocked(player);
+            validatePrepareBalance(kind, amount, account);
+            if (kind == Kind.NOTE_ISSUE && noteExists(noteId)) throw new IllegalStateException("Note id already exists");
+            insertOperation(op, "PREPARE", fingerprint, null, null, null, null, player, noteId,
+                    amount, null, payload, null, "PREPARED");
+            if (kind == Kind.NOTE_ISSUE) insertNote(noteId, amount, "RESERVED", player, op);
+            insertPending(op, player, kind, amount, payload, noteId, "PREPARED");
+            return new Pending(op, player, kind, amount, payload, noteId, "PREPARED");
+        });
     }
 
     public synchronized Pending prepareRedemption(UUID op, UUID player, UUID note, String payload) {
-        checkOp(op); checkUuid(player,"player"); checkUuid(note,"note id"); String fingerprint=fingerprint("PREPARE_REDEEM",player,note,payload); ensureOpen();
-        return transaction(() -> { Pending existing=existingPending(op,fingerprint); if(existing!=null)return existing; rejectExistingOperation(op); Account a=accountRequired(player); rejectBlocked(player); NoteData n=noteData(note); if(n==null)throw new IllegalStateException("Unknown banknote"); if(!"ISSUED".equals(n.status))throw new IllegalStateException("Banknote is not redeemable"); if(notePending(note))throw new IllegalStateException("Banknote redemption is already pending"); if(checkedBalance(a.balance(),n.amount)>maxBalance)throw new IllegalStateException("Balance exceeds maximum"); insertOperation(op,"PREPARE",fingerprint,null,null,null,null,player,note, n.amount,null,payload,null,"PREPARED"); insertPending(op,player,Kind.NOTE_REDEEM,n.amount,payload,note,"PREPARED"); return new Pending(op,player,Kind.NOTE_REDEEM,n.amount,payload,note,"PREPARED"); });
+        checkOp(op);
+        checkUuid(player, "player");
+        checkUuid(note, "note id");
+        String fingerprint = StoreFingerprint.of("PREPARE_REDEEM", player, note, payload);
+        ensureOpen();
+        return transaction(() -> {
+            Pending existing = existingPending(op, fingerprint);
+            if (existing != null) return existing;
+            rejectExistingOperation(op);
+            Account account = accountRequired(player);
+            rejectBlocked(player);
+            NoteData noteData = noteData(note);
+            if (noteData == null) throw new IllegalStateException("Unknown banknote");
+            if (!"ISSUED".equals(noteData.status)) throw new IllegalStateException("Banknote is not redeemable");
+            if (notePending(note)) throw new IllegalStateException("Banknote redemption is already pending");
+            if (checkedBalance(account.balance(), noteData.amount) > maxBalance) throw new IllegalStateException("Balance exceeds maximum");
+            insertOperation(op, "PREPARE", fingerprint, null, null, null, null, player, note,
+                    noteData.amount, null, payload, null, "PREPARED");
+            insertPending(op, player, Kind.NOTE_REDEEM, noteData.amount, payload, note, "PREPARED");
+            return new Pending(op, player, Kind.NOTE_REDEEM, noteData.amount, payload, note, "PREPARED");
+        });
     }
 
     public synchronized void markApplying(UUID op) {
-        checkOp(op); ensureOpen(); transaction(() -> { PendingData p=pendingData(op); if(p==null)throw new IllegalStateException("Unknown pending operation"); if("APPLYING".equals(p.state))return null; if(!"PREPARED".equals(p.state))throw new IllegalStateException("Operation is not PREPARED"); updatePendingState(op.toString(),"APPLYING"); updateOperationState(op.toString(),"APPLYING"); return null; });
+        checkOp(op);
+        ensureOpen();
+        transaction(() -> {
+            PendingData pending = pendingData(op);
+            if (pending == null) throw new IllegalStateException("Unknown pending operation");
+            if ("APPLYING".equals(pending.state)) return null;
+            if (!"PREPARED".equals(pending.state)) throw new IllegalStateException("Operation is not PREPARED");
+            updatePendingState(op.toString(), "APPLYING");
+            updateOperationState(op.toString(), "APPLYING");
+            return null;
+        });
     }
 
     public synchronized Receipt complete(UUID op) {
-        checkOp(op); ensureOpen(); return transaction(() -> { PendingData p=pendingData(op); if(p==null) { OperationState o=operationState(op); if(o!=null && "FINAL".equals(o.state)) return receipt(op,operationBalances(op),true); throw new IllegalStateException("Unknown pending operation"); } if("COMPLETED".equals(p.state))return receipt(op,operationBalances(op),true); if(!"APPLYING".equals(p.state))throw new IllegalStateException("Operation must be APPLYING before completion"); return applyPending(p,false,null,null); });
+        checkOp(op);
+        ensureOpen();
+        return transaction(() -> {
+            PendingData pending = pendingData(op);
+            if (pending == null) {
+                OperationState operation = operationState(op);
+                if (operation != null && "FINAL".equals(operation.state)) return receipt(op, operationBalances(op), true);
+                throw new IllegalStateException("Unknown pending operation");
+            }
+            if ("COMPLETED".equals(pending.state)) return receipt(op, operationBalances(op), true);
+            if (!"APPLYING".equals(pending.state)) throw new IllegalStateException("Operation must be APPLYING before completion");
+            return applyPending(pending, false, null, null);
+        });
     }
 
     public synchronized void cancelPrepared(UUID op, String reason) {
-        checkOp(op); checkReason(reason); ensureOpen(); transaction(() -> { PendingData p=pendingData(op); if(p==null || "CANCELLED".equals(p.state)){ OperationState state=operationState(op); if(state!=null && "CANCELLED".equals(state.state) && operationAuditMatches(op,"CANCEL",null,reason))return null; if(p==null)throw new IllegalStateException("Unknown pending operation"); } if(!"PREPARED".equals(p.state))throw new IllegalStateException("Only PREPARED operations can be cancelled"); updatePendingState(op.toString(),"CANCELLED"); updateOperationState(op.toString(),"CANCELLED"); if(p.note!=null && "NOTE_ISSUE".equals(p.kind))updateNoteStatus(p.note,"CANCELLED",null); insertAudit(op,null,"CANCEL",reason); return null; });
+        checkOp(op);
+        checkReason(reason);
+        ensureOpen();
+        transaction(() -> {
+            PendingData pending = pendingData(op);
+            if (pending == null || "CANCELLED".equals(pending.state)) {
+                OperationState operation = operationState(op);
+                if (operation != null && "CANCELLED".equals(operation.state) && operationAuditMatches(op, "CANCEL", null, reason)) return null;
+                if (pending == null) throw new IllegalStateException("Unknown pending operation");
+            }
+            if (!"PREPARED".equals(pending.state)) throw new IllegalStateException("Only PREPARED operations can be cancelled");
+            updatePendingState(op.toString(), "CANCELLED");
+            updateOperationState(op.toString(), "CANCELLED");
+            if (pending.note != null && "NOTE_ISSUE".equals(pending.kind)) updateNoteStatus(pending.note, "CANCELLED", null);
+            insertAudit(op, null, "CANCEL", reason);
+            return null;
+        });
     }
 
     public synchronized Receipt resolve(UUID op, boolean apply, UUID actor, String reason) {
-        checkOp(op); checkUuid(actor,"resolution actor"); checkReason(reason); ensureOpen(); return transaction(() -> { PendingData p=pendingData(op); if(p==null || "COMPLETED".equals(p.state) || "CANCELLED".equals(p.state)){ OperationState state=operationState(op); if(state!=null && ("FINAL".equals(state.state)||"CANCELLED".equals(state.state)) && operationAuditMatches(op,apply?"RESOLVE_APPLY":"RESOLVE_CANCEL",actor,reason)){ return "FINAL".equals(state.state)?receipt(op,operationBalances(op),true):receipt(op,currentBalances(state.player),true); } if(p==null)throw new IllegalStateException("Unknown pending operation"); } if(!"APPLYING".equals(p.state))throw new IllegalStateException("Only APPLYING operations require resolution"); insertAudit(op,actor,apply?"RESOLVE_APPLY":"RESOLVE_CANCEL",reason); if(apply)return applyPending(p,true,actor,reason); updatePendingState(op.toString(),"CANCELLED"); updateOperationState(op.toString(),"CANCELLED"); if(p.note!=null && "NOTE_ISSUE".equals(p.kind))updateNoteStatus(p.note,"CANCELLED",null); return receipt(op,currentBalances(p.player),false); });
+        checkOp(op);
+        checkUuid(actor, "resolution actor");
+        checkReason(reason);
+        ensureOpen();
+        return transaction(() -> {
+            PendingData pending = pendingData(op);
+            if (pending == null || "COMPLETED".equals(pending.state) || "CANCELLED".equals(pending.state)) {
+                OperationState operation = operationState(op);
+                String action = apply ? "RESOLVE_APPLY" : "RESOLVE_CANCEL";
+                if (operation != null && ("FINAL".equals(operation.state) || "CANCELLED".equals(operation.state)) && operationAuditMatches(op, action, actor, reason)) {
+                    return "FINAL".equals(operation.state)
+                            ? receipt(op, operationBalances(op), true)
+                            : receipt(op, currentBalances(operation.player), true);
+                }
+                if (pending == null) throw new IllegalStateException("Unknown pending operation");
+            }
+            if (!"APPLYING".equals(pending.state)) throw new IllegalStateException("Only APPLYING operations require resolution");
+            insertAudit(op, actor, apply ? "RESOLVE_APPLY" : "RESOLVE_CANCEL", reason);
+            if (apply) return applyPending(pending, true, actor, reason);
+            updatePendingState(op.toString(), "CANCELLED");
+            updateOperationState(op.toString(), "CANCELLED");
+            if (pending.note != null && "NOTE_ISSUE".equals(pending.kind)) updateNoteStatus(pending.note, "CANCELLED", null);
+            return receipt(op, currentBalances(pending.player), false);
+        });
     }
 
     public synchronized List<Pending> pending() {
@@ -165,7 +312,7 @@ public final class SqliteStore implements AutoCloseable {
 
     private Receipt applyPending(PendingData p, boolean resolved, UUID actor, String reason) throws SQLException {
         Account a=accountRequired(UUID.fromString(p.player)); long delta=("DEPOSIT".equals(p.kind)||"NOTE_REDEEM".equals(p.kind))?p.amount:-p.amount; long next=checkedBalance(a.balance(),delta); if(delta<0 && a.balance()<p.amount)throw new IllegalStateException("Insufficient balance at completion");
-        updateBalance(UUID.fromString(p.player),next); insertEntry(UUID.fromString(p.operation),UUID.fromString(p.player),a.balance(),next,delta);
+        updateBalance(UUID.fromString(p.player),next); insertEntry(UUID.fromString(p.operation),UUID.fromString(p.player),a.balance(),next,delta,a.revision()+1);
         if("NOTE_ISSUE".equals(p.kind)) { NoteData n=noteData(UUID.fromString(p.note)); if(n==null||!"RESERVED".equals(n.status))throw new IllegalStateException("Reserved note is missing"); updateNoteStatus(p.note,"ISSUED",null); }
         if("NOTE_REDEEM".equals(p.kind)) { NoteData n=noteData(UUID.fromString(p.note)); if(n==null||!"ISSUED".equals(n.status))throw new IllegalStateException("Banknote is no longer redeemable"); updateNoteStatus(p.note,"REDEEMED",p.operation); }
         updatePendingState(p.operation,"COMPLETED"); updateOperationState(p.operation,"FINAL"); return receipt(UUID.fromString(p.operation),Map.of(UUID.fromString(p.player),next),false);
@@ -174,7 +321,7 @@ public final class SqliteStore implements AutoCloseable {
     private void insertImport(StoreJson.ExportDocument d) throws SQLException {
         try(PreparedStatement s=connection.prepareStatement("INSERT INTO accounts(id,name,balance,revision,updated_at) VALUES(?,?,?,?,?)")){for(StoreJson.AccountData a:d.accounts){s.setString(1,a.id);s.setString(2,a.name);s.setLong(3,StoreJson.amount(a.balance,"account balance"));s.setLong(4,StoreJson.amount(a.revision,"account revision"));s.setLong(5,now());s.addBatch();}s.executeBatch();}
         try(PreparedStatement s=connection.prepareStatement("INSERT INTO operations(op_id,kind,fingerprint,actor_id,target_id,from_id,to_id,player_id,note_id,amount,delta,payload,reason,state,created_at,resolved_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")){for(StoreJson.OperationData o:d.operations){s.setString(1,o.id);s.setString(2,o.kind);s.setString(3,o.fingerprint);setNullable(s,4,o.actor);setNullable(s,5,o.target);setNullable(s,6,o.from);setNullable(s,7,o.to);setNullable(s,8,o.player);setNullable(s,9,o.note);setNullableLong(s,10,o.amount);setNullableLong(s,11,o.delta);setNullable(s,12,o.payload);setNullable(s,13,o.reason);s.setString(14,o.state);s.setLong(15,o.createdAt);if(o.resolvedAt==null)s.setObject(16,null);else s.setLong(16,o.resolvedAt);s.addBatch();}s.executeBatch();}
-        try(PreparedStatement s=connection.prepareStatement("INSERT INTO operation_entries(op_id,account_id,before_balance,after_balance,delta) VALUES(?,?,?,?,?)")){for(StoreJson.EntryData e:d.entries){s.setString(1,e.operation);s.setString(2,e.account);s.setLong(3,StoreJson.amount(e.before,"entry before"));s.setLong(4,StoreJson.amount(e.after,"entry after"));s.setLong(5,StoreJson.signed(e.delta,"entry delta"));s.addBatch();}s.executeBatch();}
+        try(PreparedStatement s=connection.prepareStatement("INSERT INTO operation_entries(op_id,account_id,before_balance,after_balance,delta,account_revision) VALUES(?,?,?,?,?,?)")){for(StoreJson.EntryData e:d.entries){s.setString(1,e.operation);s.setString(2,e.account);s.setLong(3,StoreJson.amount(e.before,"entry before"));s.setLong(4,StoreJson.amount(e.after,"entry after"));s.setLong(5,StoreJson.signed(e.delta,"entry delta"));s.setLong(6,StoreJson.amount(e.accountRevision,"entry revision"));s.addBatch();}s.executeBatch();}
         try(PreparedStatement s=connection.prepareStatement("INSERT INTO notes(note_id,amount,status,issuer_id,issue_op,redeem_op) VALUES(?,?,?,?,?,?)")){for(StoreJson.NoteData n:d.notes){s.setString(1,n.id);s.setLong(2,StoreJson.amount(n.amount,"note amount"));s.setString(3,n.status);s.setString(4,n.issuer);s.setString(5,n.issueOperation);setNullable(s,6,n.redeemOperation);s.addBatch();}s.executeBatch();}
         try(PreparedStatement s=connection.prepareStatement("INSERT INTO pending_operations(op_id,player_id,kind,amount,payload,note_id,state,created_at) VALUES(?,?,?,?,?,?,?,?)")){for(StoreJson.PendingData p:d.pending){s.setString(1,p.operation);s.setString(2,p.player);s.setString(3,p.kind);s.setLong(4,StoreJson.amount(p.amount,"pending amount"));setNullable(s,5,p.payload);setNullable(s,6,p.note);s.setString(7,p.state);s.setLong(8,p.createdAt);s.addBatch();}s.executeBatch();}
         try(PreparedStatement s=connection.prepareStatement("INSERT INTO operation_audit(op_id,actor_id,action,reason,created_at) VALUES(?,?,?,?,?)")){for(StoreJson.AuditData a:d.audit){s.setString(1,a.operation);setNullable(s,2,a.actor);s.setString(3,a.action);s.setString(4,a.reason);s.setLong(5,a.createdAt);s.addBatch();}s.executeBatch();}
@@ -184,7 +331,7 @@ public final class SqliteStore implements AutoCloseable {
     private void insertOperation(UUID op,String kind,String fp,UUID actor,UUID target,UUID from,UUID to,UUID player,UUID note,long amount,Long delta,String payload,String reason,String state)throws SQLException{try(PreparedStatement s=connection.prepareStatement("INSERT INTO operations(op_id,kind,fingerprint,actor_id,target_id,from_id,to_id,player_id,note_id,amount,delta,payload,reason,state,created_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")){s.setString(1,op.toString());s.setString(2,kind);s.setString(3,fp);setNullable(s,4,actor==null?null:actor.toString());setNullable(s,5,target==null?null:target.toString());setNullable(s,6,from==null?null:from.toString());setNullable(s,7,to==null?null:to.toString());setNullable(s,8,player==null?null:player.toString());setNullable(s,9,note==null?null:note.toString());s.setLong(10,amount);if(delta==null)s.setObject(11,null);else s.setLong(11,delta);setNullable(s,12,payload);setNullable(s,13,reason);s.setString(14,state);s.setLong(15,now());s.executeUpdate();}}
     private void insertPending(UUID op,UUID player,Kind kind,long amount,String payload,UUID note,String state)throws SQLException{try(PreparedStatement s=connection.prepareStatement("INSERT INTO pending_operations(op_id,player_id,kind,amount,payload,note_id,state,created_at) VALUES(?,?,?,?,?,?,?,?)")){s.setString(1,op.toString());s.setString(2,player.toString());s.setString(3,kind.name());s.setLong(4,amount);setNullable(s,5,payload);setNullable(s,6,note==null?null:note.toString());s.setString(7,state);s.setLong(8,now());s.executeUpdate();}}
     private void insertNote(UUID id,long amount,String status,UUID issuer,UUID issueOp)throws SQLException{try(PreparedStatement s=connection.prepareStatement("INSERT INTO notes(note_id,amount,status,issuer_id,issue_op) VALUES(?,?,?,?,?)")){s.setString(1,id.toString());s.setLong(2,amount);s.setString(3,status);s.setString(4,issuer.toString());s.setString(5,issueOp.toString());s.executeUpdate();}}
-    private void insertEntry(UUID op,UUID account,long before,long after,long delta)throws SQLException{try(PreparedStatement s=connection.prepareStatement("INSERT INTO operation_entries(op_id,account_id,before_balance,after_balance,delta) VALUES(?,?,?,?,?)")){s.setString(1,op.toString());s.setString(2,account.toString());s.setLong(3,before);s.setLong(4,after);s.setLong(5,delta);s.executeUpdate();}}
+    private void insertEntry(UUID op,UUID account,long before,long after,long delta,long revision)throws SQLException{try(PreparedStatement s=connection.prepareStatement("INSERT INTO operation_entries(op_id,account_id,before_balance,after_balance,delta,account_revision) VALUES(?,?,?,?,?,?)")){s.setString(1,op.toString());s.setString(2,account.toString());s.setLong(3,before);s.setLong(4,after);s.setLong(5,delta);s.setLong(6,revision);s.executeUpdate();}}
     private void insertAudit(UUID op,UUID actor,String action,String reason)throws SQLException{try(PreparedStatement s=connection.prepareStatement("INSERT INTO operation_audit(op_id,actor_id,action,reason,created_at) VALUES(?,?,?,?,?)")){s.setString(1,op.toString());setNullable(s,2,actor==null?null:actor.toString());s.setString(3,action);s.setString(4,reason);s.setLong(5,now());s.executeUpdate();}}
     private void updatePendingState(String op,String state)throws SQLException{try(PreparedStatement s=connection.prepareStatement("UPDATE pending_operations SET state=? WHERE op_id=?")){s.setString(1,state);s.setString(2,op);s.executeUpdate();}}
     private void updateOperationState(String op,String state)throws SQLException{try(PreparedStatement s=connection.prepareStatement("UPDATE operations SET state=?,resolved_at=? WHERE op_id=?")){s.setString(1,state);s.setLong(2,now());s.setString(3,op);s.executeUpdate();}}
@@ -218,8 +365,15 @@ public final class SqliteStore implements AutoCloseable {
     private static void checkName(String name){if(name==null||name.isBlank()||name.length()>64)throw new IllegalArgumentException("Account name is invalid");}
     private static void checkReason(String reason){if(reason==null||reason.isBlank()||reason.length()>500)throw new IllegalArgumentException("Reason is required");}
     private void rejectBlocked(UUID player)throws SQLException{if(isBlocked(player))throw new IllegalStateException("Account has an unresolved pending operation");}
+    private void validatePrepareBalance(Kind kind, long amount, Account account) throws SQLException {
+        if (kind == Kind.WITHDRAW || kind == Kind.NOTE_ISSUE) {
+            long reserved = reservedOutgoing(account.id());
+            if (amount > account.balance() - reserved) throw new IllegalStateException("Insufficient available balance");
+        } else if (kind == Kind.DEPOSIT) {
+            checkedBalance(account.balance(), amount);
+        }
+    }
     private static long now(){return Instant.now().toEpochMilli();}
-    private static String fingerprint(Object... values){StringBuilder b=new StringBuilder();for(Object v:values)b.append(v==null?"<null>":v.toString()).append('\u001f');try{byte[] bytes=MessageDigest.getInstance("SHA-256").digest(b.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));StringBuilder h=new StringBuilder();for(byte x:bytes)h.append(String.format("%02x",x));return h.toString();}catch(NoSuchAlgorithmException e){throw new AssertionError(e);}}
     private static void setNullable(PreparedStatement s,int index,String value)throws SQLException{if(value==null)s.setObject(index,null);else s.setString(index,value);}
     private static void setNullableLong(PreparedStatement s,int index,String value)throws SQLException{if(value==null)s.setObject(index,null);else s.setLong(index,StoreJson.signed(value,"amount"));}
     private boolean operationAuditMatches(UUID op,String action,UUID actor,String reason)throws SQLException{try(PreparedStatement s=connection.prepareStatement("SELECT actor_id,reason FROM operation_audit WHERE op_id=? AND action=? ORDER BY id DESC LIMIT 1")){s.setString(1,op.toString());s.setString(2,action);try(ResultSet r=s.executeQuery()){if(!r.next())return false;String savedActor=r.getString(1);return (actor==null?savedActor==null:actor.toString().equals(savedActor))&&reason.equals(r.getString(2));}}}

@@ -28,4 +28,28 @@ Final focused checkpoint:
 
 Remaining integration risk: the Bukkit consumer is not yet implemented, so plugin-side scheduling and inventory evidence must continue to honor the `PREPARED`/`APPLYING`/`pending()` recovery contract. No Git staging or commits performed; controller owns integration.
 
-Known scope gap: import validates IDs, relationships, states, amounts, and row consistency, but does not independently recompute a complete historical balance from every journal entry; SQLite account rows remain authoritative after a validated restore.
+
+## Round 1 review remediation checkpoint
+
+The review findings are being fixed in this working tree. Regression tests were added before implementation and initially reproduced the findings: signed transfer/debit export rejection, forged balances/revisions, malformed note pending rows, null/literal-null and separator fingerprint collisions, and unversioned database adoption.
+
+Implemented in the current chunk:
+
+- Schema version is now 2 for this unreleased prototype. Each operation entry stores an `account_revision`; fresh databases use the v2 shape. Existing v1 or unversioned/nonempty databases are refused with an explicit diagnostic. Required table columns are checked at startup.
+- Import now accepts signed adjustment/transfer fields and recomputes every account ledger from zero in contiguous revision order, requiring final balance and revision equality. Finalized operation entry cardinality and semantics are checked.
+- Note issue/redeem pending rows require note IDs and matching operations/status transitions; note references have SQLite foreign keys where feasible. Typed, length-prefixed fingerprints distinguish null, literal strings, and embedded separators.
+- Public mutation paths were started on a normal multiline/named-helper layout for reviewability.
+
+Verification checkpoint after these changes: `mvn -B -f goldbag-storage/pom.xml test` passes 11 tests, 0 failures, 0 errors. The suite includes signed round trips, forged balance/revision rejection, malformed note import rollback, fingerprint collision rejection, and unversioned database refusal.
+
+Second remediation checkpoint: all 12 focused tests pass after adding forged note-status and missing-ledger-entry rejection. The public mutation methods and major import validators are now multiline and delegate to named validation helpers. Schema v2 startup now validates existing table shape before enabling a versioned database; only a truly empty file is initialized.
+
+Final round 1 checkpoint: all six review findings are addressed. Signed transfer/debit/set exports round-trip; imports replay every account ledger from zero and require contiguous `account_revision` values, matching final balance/revision, and operation-specific entry cardinality; note rows and pending note operations enforce complete lifecycle relationships; fingerprints use typed length-prefixed encoding; unversioned and incompatible schema shapes are refused; and public mutation/import paths are multiline with named validators.
+
+Final verification:
+
+- `mvn -B -f goldbag-storage/pom.xml test` — PASS, 12 tests, 0 failures, 0 errors.
+- `mvn -B -f goldbag-storage/pom.xml verify` — PASS, 12 tests, 0 failures, 0 errors; packaged `goldbag-storage-2.0.0-SNAPSHOT.jar`.
+- `javap` contract audit — exact planned `SqliteStore` constructor, nested records/enums, and public methods are present; no Bukkit/core dependency added.
+
+Schema v2 is intentional: the controller authorized rejecting the unreleased v1 prototype rather than guessing historical entry order. No Git staging or commits performed; controller owns integration.

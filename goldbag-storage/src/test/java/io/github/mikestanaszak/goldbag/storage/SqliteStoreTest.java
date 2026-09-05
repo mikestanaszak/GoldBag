@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.sql.DriverManager;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -48,7 +49,7 @@ class SqliteStoreTest {
             store.prepare(issue,issuer,SqliteStore.Kind.NOTE_ISSUE,2500,"paper",note); store.markApplying(issue); store.complete(issue); assertEquals("ISSUED",store.note(note).orElseThrow().status());
             store.prepareRedemption(redeem,redeemer,note,"paper"); store.markApplying(redeem); store.complete(redeem); assertEquals("REDEEMED",store.note(note).orElseThrow().status());
             assertThrows(IllegalStateException.class,()->store.prepareRedemption(UUID.randomUUID(),issuer,note,"forged"));
-            exported=store.exportJson(); JsonObject root=JsonParser.parseString(exported).getAsJsonObject(); assertEquals(1,root.get("schemaVersion").getAsInt()); assertTrue(root.getAsJsonArray("accounts").get(0).getAsJsonObject().get("balance").isJsonPrimitive());
+            exported=store.exportJson(); JsonObject root=JsonParser.parseString(exported).getAsJsonObject(); assertEquals(2,root.get("schemaVersion").getAsInt()); assertTrue(root.getAsJsonArray("accounts").get(0).getAsJsonObject().get("balance").isJsonPrimitive());
         }
         Path restore=temp.resolve("restore.db"); try(SqliteStore restored=new SqliteStore(restore,10000)) { restored.importJson(exported); assertEquals(2500,restored.account(redeemer).orElseThrow().balance()); assertEquals("REDEEMED",restored.note(note).orElseThrow().status()); assertThrows(IllegalArgumentException.class,()->restored.importJson("{}")); assertEquals(2500,restored.account(redeemer).orElseThrow().balance()); }
     }
@@ -77,5 +78,84 @@ class SqliteStoreTest {
         try(SqliteStore restored=new SqliteStore(temp.resolve("destination-pending.db"),10000)) {
             restored.importJson(exported); assertEquals(1,restored.pending().size()); assertTrue(restored.isBlocked(player)); assertEquals(120,restored.pending().get(0).amount());
         }
+    }
+
+    @Test void signedOperationsRoundTripThroughExportImport() {
+        UUID account=UUID.randomUUID(), other=UUID.randomUUID(); String exported;
+        try(SqliteStore store=new SqliteStore(temp.resolve("signed-source.db"),10000)) {
+            store.ensureAccount(account,"Account"); store.ensureAccount(other,"Other");
+            store.adjust(UUID.randomUUID(),null,account,5000,"seed");
+            store.adjust(UUID.randomUUID(),null,account,-500,"debit");
+            store.setBalance(UUID.randomUUID(),null,account,4000,"set lower");
+            store.transfer(UUID.randomUUID(),account,other,1000);
+            exported=store.exportJson();
+        }
+        try(SqliteStore restored=new SqliteStore(temp.resolve("signed-destination.db"),10000)) {
+            assertDoesNotThrow(()->restored.importJson(exported));
+            assertEquals(3000,restored.account(account).orElseThrow().balance());
+            assertEquals(1000,restored.account(other).orElseThrow().balance());
+        }
+    }
+
+    @Test void forgedBalanceOrRevisionCannotBeImported() {
+        UUID account=UUID.randomUUID(); String exported;
+        try(SqliteStore store=new SqliteStore(temp.resolve("forged-source.db"),10000)) {
+            store.ensureAccount(account,"Account"); exported=store.exportJson();
+        }
+        String forgedBalance=exported.replace("\"balance\":\"0\"","\"balance\":\"999\"");
+        String forgedRevision=exported.replace("\"revision\":\"0\"","\"revision\":\"1\"");
+        try(SqliteStore restored=new SqliteStore(temp.resolve("forged-destination.db"),10000)) {
+            assertThrows(IllegalArgumentException.class,()->restored.importJson(forgedBalance));
+            assertTrue(restored.top(1).isEmpty());
+            assertThrows(IllegalArgumentException.class,()->restored.importJson(forgedRevision));
+            assertTrue(restored.top(1).isEmpty());
+        }
+    }
+
+    @Test void malformedNotePendingRowsAreRejectedBeforeWrite() {
+        UUID player=UUID.randomUUID(), note=UUID.randomUUID(), op=UUID.randomUUID(); String exported;
+        try(SqliteStore store=new SqliteStore(temp.resolve("bad-note-source.db"),10000)) {
+            store.ensureAccount(player,"Player"); store.adjust(UUID.randomUUID(),null,player,500,"seed"); store.prepare(op,player,SqliteStore.Kind.NOTE_ISSUE,100,"paper",note); exported=store.exportJson();
+        }
+        String missingNote=exported.replace("\"note\":\""+note+"\"","\"note\":null");
+        try(SqliteStore restored=new SqliteStore(temp.resolve("bad-note-destination.db"),10000)) {
+            assertThrows(IllegalArgumentException.class,()->restored.importJson(missingNote));
+            assertTrue(restored.top(1).isEmpty());
+        }
+    }
+
+    @Test void forgedNoteStatusAndMissingLedgerEntryAreRejected() {
+        UUID player=UUID.randomUUID(), note=UUID.randomUUID(), issue=UUID.randomUUID(); String exported;
+        try(SqliteStore store=new SqliteStore(temp.resolve("forged-note-source.db"),10000)) {
+            store.ensureAccount(player,"Player"); store.adjust(UUID.randomUUID(),null,player,500,"seed"); store.prepare(issue,player,SqliteStore.Kind.NOTE_ISSUE,100,"paper",note); store.markApplying(issue); store.complete(issue); exported=store.exportJson();
+        }
+        String forgedStatus=exported.replace("\"status\":\"ISSUED\"","\"status\":\"REDEEMED\"");
+        String forgedEntries=exported.replaceFirst("\"entries\":\\[[^]]*\\]", "\"entries\":[]");
+        try(SqliteStore restored=new SqliteStore(temp.resolve("forged-note-destination.db"),10000)) {
+            assertThrows(IllegalArgumentException.class,()->restored.importJson(forgedStatus));
+            assertTrue(restored.top(1).isEmpty());
+            assertThrows(IllegalArgumentException.class,()->restored.importJson(forgedEntries));
+            assertTrue(restored.top(1).isEmpty());
+        }
+    }
+
+    @Test void typedFingerprintsDistinguishNullLiteralAndSeparators() {
+        UUID player=UUID.randomUUID(), first=UUID.randomUUID(), second=UUID.randomUUID();
+        try(SqliteStore store=new SqliteStore(temp.resolve("fingerprints.db"),10000)) {
+            store.ensureAccount(player,"Player");
+            store.prepare(first,player,SqliteStore.Kind.DEPOSIT,10,null,null);
+            assertThrows(IllegalStateException.class,()->store.prepare(first,player,SqliteStore.Kind.DEPOSIT,10,"<null>",null));
+            store.cancelPrepared(first,"cleanup");
+            store.prepare(second,player,SqliteStore.Kind.DEPOSIT,10,"a\u001fb",null);
+            assertThrows(IllegalStateException.class,()->store.prepare(second,player,SqliteStore.Kind.DEPOSIT,10,"a",null));
+        }
+    }
+
+    @Test void existingUnversionedDatabaseIsRejected() throws Exception {
+        Path db=temp.resolve("legacy.db");
+        try(var connection=DriverManager.getConnection("jdbc:sqlite:"+db)) {
+            connection.createStatement().execute("CREATE TABLE accounts (id TEXT PRIMARY KEY, name TEXT, balance INTEGER, revision INTEGER, updated_at INTEGER)");
+        }
+        assertThrows(IllegalStateException.class,()->new SqliteStore(db,10000));
     }
 }

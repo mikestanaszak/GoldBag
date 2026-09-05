@@ -16,6 +16,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Comparator;
 import java.util.Set;
 import java.util.UUID;
 
@@ -43,8 +44,8 @@ final class StoreJson {
                 while (r.next()) { OperationData o = new OperationData(); o.id=r.getString(1); o.kind=r.getString(2); o.fingerprint=r.getString(3); o.actor=r.getString(4); o.target=r.getString(5); o.from=r.getString(6); o.to=r.getString(7); o.player=r.getString(8); o.note=r.getString(9); o.amount=nullableAmount(r,10); o.delta=nullableAmount(r,11); o.payload=r.getString(12); o.reason=r.getString(13); o.state=r.getString(14); o.createdAt=r.getLong(15); o.resolvedAt=r.getObject(16)==null?null:r.getLong(16); d.operations.add(o); }
             }
         }
-        try (PreparedStatement s = c.prepareStatement("SELECT op_id,account_id,before_balance,after_balance,delta FROM operation_entries ORDER BY op_id,account_id")) {
-            try (ResultSet r = s.executeQuery()) { while (r.next()) { EntryData e=new EntryData(); e.operation=r.getString(1); e.account=r.getString(2); e.before=Long.toString(r.getLong(3)); e.after=Long.toString(r.getLong(4)); e.delta=Long.toString(r.getLong(5)); d.entries.add(e); } }
+        try (PreparedStatement s = c.prepareStatement("SELECT op_id,account_id,before_balance,after_balance,delta,account_revision FROM operation_entries ORDER BY account_id,account_revision,op_id")) {
+            try (ResultSet r = s.executeQuery()) { while (r.next()) { EntryData e=new EntryData(); e.operation=r.getString(1); e.account=r.getString(2); e.before=Long.toString(r.getLong(3)); e.after=Long.toString(r.getLong(4)); e.delta=Long.toString(r.getLong(5)); e.accountRevision=Long.toString(r.getLong(6)); d.entries.add(e); } }
         }
         try (PreparedStatement s = c.prepareStatement("SELECT note_id,amount,status,issuer_id,issue_op,redeem_op FROM notes ORDER BY note_id")) {
             try (ResultSet r = s.executeQuery()) { while (r.next()) { NoteData n=new NoteData(); n.id=r.getString(1); n.amount=Long.toString(r.getLong(2)); n.status=r.getString(3); n.issuer=r.getString(4); n.issueOperation=r.getString(5); n.redeemOperation=r.getString(6); d.notes.add(n); } }
@@ -79,43 +80,101 @@ final class StoreJson {
         Set<String> accounts = new HashSet<>();
         for (AccountData a : d.accounts) {
             UUID id = uuid(a.id, "account id");
-            if (!accounts.add(id.toString()) || a.name == null || a.name.isBlank()) throw new IllegalArgumentException("Invalid or duplicate account");
-            long balance = amount(a.balance, "account balance"); long revision = amount(a.revision, "account revision");
-            if (balance < 0 || balance > maxBalance || revision < 0) throw new IllegalArgumentException("Invalid account values");
+            if (!accounts.add(id.toString()) || a.name == null || a.name.isBlank()) {
+                throw new IllegalArgumentException("Invalid or duplicate account");
+            }
+            long balance = amount(a.balance, "account balance");
+            long revision = amount(a.revision, "account revision");
+            if (balance > maxBalance) throw new IllegalArgumentException("Invalid account values");
         }
         Set<String> operations = new HashSet<>();
         Map<String, OperationData> operationById = new HashMap<>();
         for (OperationData o : d.operations) {
-            UUID id=uuid(o.id,"operation id"); if (!operations.add(id.toString()) || o.kind == null || o.fingerprint == null || o.state == null) throw new IllegalArgumentException("Invalid or duplicate operation"); operationById.put(id.toString(),o);
-            if (!Set.of("ADJUST","SET_BALANCE","TRANSFER","PREPARE").contains(o.kind) || !Set.of("FINAL","CANCELLED","PREPARED","APPLYING","COMPLETED").contains(o.state)) throw new IllegalArgumentException("Invalid operation kind or state");
-            if (!"PREPARE".equals(o.kind) && !"FINAL".equals(o.state)) throw new IllegalArgumentException("Direct operation must be finalized");
-            checkOptionalAccount(o.actor, accounts); checkOptionalAccount(o.target, accounts); checkOptionalAccount(o.from, accounts); checkOptionalAccount(o.to, accounts); checkOptionalAccount(o.player, accounts);
-            if (o.note != null) uuid(o.note,"operation note id");
-            if (o.amount != null && amount(o.amount,"operation amount") <= 0) throw new IllegalArgumentException("Invalid operation amount");
-            if (o.delta != null) amount(o.delta,"operation delta");
+            UUID id = uuid(o.id, "operation id");
+            if (!operations.add(id.toString()) || o.kind == null || o.fingerprint == null || o.state == null) {
+                throw new IllegalArgumentException("Invalid or duplicate operation");
+            }
+            operationById.put(id.toString(), o);
+            if (!Set.of("ADJUST", "SET_BALANCE", "TRANSFER", "PREPARE").contains(o.kind)
+                    || !Set.of("FINAL", "CANCELLED", "PREPARED", "APPLYING", "COMPLETED").contains(o.state)) {
+                throw new IllegalArgumentException("Invalid operation kind or state");
+            }
+            if (!"PREPARE".equals(o.kind) && !"FINAL".equals(o.state)) {
+                throw new IllegalArgumentException("Direct operation must be finalized");
+            }
+            checkOptionalAccount(o.actor, accounts);
+            checkOptionalAccount(o.target, accounts);
+            checkOptionalAccount(o.from, accounts);
+            checkOptionalAccount(o.to, accounts);
+            checkOptionalAccount(o.player, accounts);
+            if (o.note != null) uuid(o.note, "operation note id");
+            validateOperationValues(o);
+            String expected = expectedFingerprint(o);
+            if (expected != null && !expected.equals(o.fingerprint)) {
+                throw new IllegalArgumentException("Operation fingerprint does not match its request");
+            }
         }
         Set<String> entries = new HashSet<>();
+        Map<String, List<EntryData>> entriesByAccount = new HashMap<>();
+        Map<String, List<EntryData>> entriesByOperation = new HashMap<>();
         for (EntryData e : d.entries) {
-            UUID op=uuid(e.operation,"entry operation"); UUID account=uuid(e.account,"entry account"); if (!operations.contains(op.toString()) || !accounts.contains(account.toString()) || !entries.add(op+"/"+account)) throw new IllegalArgumentException("Invalid or duplicate operation entry");
-            long before=amount(e.before,"entry before"); long after=amount(e.after,"entry after"); long delta=signed(e.delta,"entry delta"); if (before<0 || after<0 || after-before != delta) throw new IllegalArgumentException("Inconsistent operation entry");
+            UUID op = uuid(e.operation, "entry operation");
+            UUID account = uuid(e.account, "entry account");
+            String key = op + "/" + account;
+            if (!operations.contains(op.toString()) || !accounts.contains(account.toString()) || !entries.add(key)) {
+                throw new IllegalArgumentException("Invalid or duplicate operation entry");
+            }
+            long before = amount(e.before, "entry before");
+            long after = amount(e.after, "entry after");
+            long delta = signed(e.delta, "entry delta");
+            long revision = amount(e.accountRevision, "entry revision");
+            if (after - before != delta || revision < 1) throw new IllegalArgumentException("Inconsistent operation entry");
+            entriesByAccount.computeIfAbsent(account.toString(), ignored -> new ArrayList<>()).add(e);
+            entriesByOperation.computeIfAbsent(op.toString(), ignored -> new ArrayList<>()).add(e);
         }
         Set<String> notes = new HashSet<>();
         for (NoteData n : d.notes) {
-            UUID id=uuid(n.id,"note id"); if (!notes.add(id.toString()) || amount(n.amount,"note amount")<=0 || n.status==null || !Set.of("RESERVED","ISSUED","REDEEMED","CANCELLED").contains(n.status)) throw new IllegalArgumentException("Invalid or duplicate note");
-            checkAccount(n.issuer,accounts); UUID issue=uuid(n.issueOperation,"note issue operation"); if (!operations.contains(issue.toString())) throw new IllegalArgumentException("Note references unknown issue operation"); if (n.redeemOperation != null && !operations.contains(uuid(n.redeemOperation,"note redemption operation").toString())) throw new IllegalArgumentException("Note references unknown redemption operation");
+            UUID id = uuid(n.id, "note id");
+            if (!notes.add(id.toString()) || amount(n.amount, "note amount") <= 0 || n.status == null
+                    || !Set.of("RESERVED", "ISSUED", "REDEEMED", "CANCELLED").contains(n.status)) {
+                throw new IllegalArgumentException("Invalid or duplicate note");
+            }
+            checkAccount(n.issuer, accounts);
+            UUID issue = uuid(n.issueOperation, "note issue operation");
+            if (!operations.contains(issue.toString())) throw new IllegalArgumentException("Note references unknown issue operation");
+            if (n.redeemOperation != null && !operations.contains(uuid(n.redeemOperation, "note redemption operation").toString())) {
+                throw new IllegalArgumentException("Note references unknown redemption operation");
+            }
         }
         Set<String> pendingOps = new HashSet<>();
         Map<String, PendingData> pendingByOp = new HashMap<>();
         for (PendingData p : d.pending) {
-            UUID op=uuid(p.operation,"pending operation"); if (!operations.contains(op.toString()) || !pendingOps.add(op.toString()) || !Set.of("PREPARED","APPLYING","COMPLETED","CANCELLED").contains(p.state) || p.kind == null || !Set.of("DEPOSIT","WITHDRAW","NOTE_ISSUE","NOTE_REDEEM").contains(p.kind)) throw new IllegalArgumentException("Invalid pending operation");
-            checkAccount(p.player,accounts); if (amount(p.amount,"pending amount")<=0) throw new IllegalArgumentException("Invalid pending amount"); if (p.note != null) uuid(p.note,"pending note id"); PendingData previous=pendingByOp.put(op.toString(),p); if(previous!=null)throw new IllegalArgumentException("Duplicate pending operation");
-            OperationData operation=operationById.get(op.toString());
-            if (operation == null || !"PREPARE".equals(operation.kind) || !p.player.equals(operation.player) || !p.amount.equals(operation.amount) || !same(p.note,operation.note) || !pendingStateMatches(p.state,operation.state)) throw new IllegalArgumentException("Pending operation does not match its journal row");
+            UUID op = uuid(p.operation, "pending operation");
+            if (!operations.contains(op.toString()) || !pendingOps.add(op.toString())
+                    || !Set.of("PREPARED", "APPLYING", "COMPLETED", "CANCELLED").contains(p.state)
+                    || p.kind == null || !Set.of("DEPOSIT", "WITHDRAW", "NOTE_ISSUE", "NOTE_REDEEM").contains(p.kind)) {
+                throw new IllegalArgumentException("Invalid pending operation");
+            }
+            checkAccount(p.player, accounts);
+            if (amount(p.amount, "pending amount") <= 0) throw new IllegalArgumentException("Invalid pending amount");
+            if (p.note != null) uuid(p.note, "pending note id");
+            boolean noteKind = "NOTE_ISSUE".equals(p.kind) || "NOTE_REDEEM".equals(p.kind);
+            if (noteKind != (p.note != null)) throw new IllegalArgumentException("Only note operations may carry a note id");
+            PendingData previous = pendingByOp.put(op.toString(), p);
+            if (previous != null) throw new IllegalArgumentException("Duplicate pending operation");
+            OperationData operation = operationById.get(op.toString());
+            if (operation == null || !"PREPARE".equals(operation.kind) || !p.player.equals(operation.player)
+                    || !p.amount.equals(operation.amount) || !same(p.note, operation.note)
+                    || !pendingStateMatches(p.state, operation.state)) {
+                throw new IllegalArgumentException("Pending operation does not match its journal row");
+            }
         }
-        for (OperationData operation : d.operations) if ("PREPARE".equals(operation.kind) && !pendingByOp.containsKey(operation.id) && !"FINAL".equals(operation.state)) throw new IllegalArgumentException("Unresolved journal operation is missing its pending row");
+        for (OperationData operation : d.operations) if ("PREPARE".equals(operation.kind) && !pendingByOp.containsKey(operation.id)) throw new IllegalArgumentException("Journal operation is missing its pending row");
+        validatePendingFingerprints(operationById, pendingByOp);
+        validateLedger(d.accounts, operationById, entriesByAccount, entriesByOperation, pendingByOp, maxBalance);
         Map<String, NoteData> noteById = new HashMap<>();
         for (NoteData n : d.notes) noteById.put(n.id,n);
-        for (PendingData p : d.pending) if (p.note != null) { NoteData n=noteById.get(p.note); if (n==null || !p.kind.equals("NOTE_ISSUE") && !p.kind.equals("NOTE_REDEEM")) throw new IllegalArgumentException("Pending note relationship is invalid"); if ("NOTE_ISSUE".equals(p.kind) && !p.operation.equals(n.issueOperation)) throw new IllegalArgumentException("Note issue relationship is invalid"); if ("NOTE_REDEEM".equals(p.kind) && !p.operation.equals(n.redeemOperation) && "COMPLETED".equals(p.state)) throw new IllegalArgumentException("Note redemption relationship is invalid"); }
+        validateNotes(d.notes, noteById, operationById, pendingByOp);
         for (AuditData a : d.audit) { if (!operations.contains(uuid(a.operation,"audit operation").toString()) || a.action==null || a.reason==null) throw new IllegalArgumentException("Invalid audit record"); if (a.actor != null) uuid(a.actor,"audit actor"); }
         return new ImportData(d);
     }
@@ -125,6 +184,179 @@ final class StoreJson {
     private static boolean pendingStateMatches(String pending,String operation) { return pending.equals(operation) || "COMPLETED".equals(pending) && "FINAL".equals(operation); }
     private static void checkOptionalAccount(String id, Set<String> accounts) { if (id != null && !accounts.contains(uuid(id,"account reference").toString())) throw new IllegalArgumentException("Unknown account reference"); }
     private static void checkAccount(String id, Set<String> accounts) { if (id == null || !accounts.contains(uuid(id,"account reference").toString())) throw new IllegalArgumentException("Unknown account reference"); }
+
+    private static void validateOperationValues(OperationData operation) {
+        if (operation.amount == null) throw new IllegalArgumentException("Operation amount is required");
+        long amount = signed(operation.amount, "operation amount");
+        if ("PREPARE".equals(operation.kind)) {
+            if (amount <= 0) throw new IllegalArgumentException("Invalid pending operation amount");
+            return;
+        }
+        if (operation.delta == null) throw new IllegalArgumentException("Operation delta is required");
+        long delta = signed(operation.delta, "operation delta");
+        if ("ADJUST".equals(operation.kind)) {
+            if (amount == 0 || delta != amount) throw new IllegalArgumentException("Invalid adjustment operation");
+        } else if ("SET_BALANCE".equals(operation.kind)) {
+            if (amount < 0) throw new IllegalArgumentException("Invalid set balance amount");
+        } else if ("TRANSFER".equals(operation.kind)) {
+            if (amount <= 0 || delta != -amount) throw new IllegalArgumentException("Invalid transfer operation");
+        }
+    }
+
+    private static String expectedFingerprint(OperationData operation) {
+        if ("ADJUST".equals(operation.kind)) {
+            return StoreFingerprint.of("ADJUST", optionalUuid(operation.actor), uuid(operation.target, "target account"),
+                    signed(operation.delta, "adjustment"), operation.reason);
+        }
+        if ("SET_BALANCE".equals(operation.kind)) {
+            return StoreFingerprint.of("SET_BALANCE", optionalUuid(operation.actor), uuid(operation.target, "target account"),
+                    signed(operation.amount, "balance"), operation.reason);
+        }
+        if ("TRANSFER".equals(operation.kind)) {
+            return StoreFingerprint.of("TRANSFER", uuid(operation.from, "sender"), uuid(operation.to, "recipient"),
+                    signed(operation.amount, "transfer amount"), null);
+        }
+        if ("PREPARE".equals(operation.kind)) return null;
+        throw new IllegalArgumentException("Unknown operation kind");
+    }
+
+    private static UUID optionalUuid(String value) { return value == null ? null : uuid(value,"actor"); }
+
+    private static void validatePendingFingerprints(Map<String,OperationData> operations, Map<String,PendingData> pending) {
+        for (Map.Entry<String,PendingData> row : pending.entrySet()) {
+            OperationData operation = operations.get(row.getKey());
+            PendingData pendingRow = row.getValue();
+            String expected;
+            if ("NOTE_REDEEM".equals(pendingRow.kind)) {
+                expected = StoreFingerprint.of("PREPARE_REDEEM", uuid(pendingRow.player, "player"),
+                        uuid(pendingRow.note, "note"), pendingRow.payload);
+            } else {
+                expected = StoreFingerprint.of("PREPARE", uuid(pendingRow.player, "player"),
+                        SqliteStore.Kind.valueOf(pendingRow.kind), amount(pendingRow.amount, "pending amount"),
+                        pendingRow.payload, pendingRow.note == null ? null : uuid(pendingRow.note, "note"));
+            }
+            if (!expected.equals(operation.fingerprint)) throw new IllegalArgumentException("Pending operation fingerprint does not match its request");
+        }
+    }
+
+    private static void validateLedger(List<AccountData> accounts, Map<String,OperationData> operations, Map<String,List<EntryData>> byAccount, Map<String,List<EntryData>> byOperation, Map<String,PendingData> pending, long maxBalance) {
+        Set<String> seenEntries = new HashSet<>();
+        for (AccountData account : accounts) {
+            long expectedBalance = 0;
+            long expectedRevision = 0;
+            List<EntryData> entries = new ArrayList<>(byAccount.getOrDefault(account.id, List.of()));
+            entries.sort(Comparator.comparingLong(e -> amount(e.accountRevision, "entry revision")));
+            for (EntryData entry : entries) {
+                long revision = amount(entry.accountRevision, "entry revision");
+                if (revision != expectedRevision + 1) throw new IllegalArgumentException("Account ledger revisions are not contiguous");
+                long before = amount(entry.before, "entry before");
+                long after = amount(entry.after, "entry after");
+                long delta = signed(entry.delta, "entry delta");
+                if (before != expectedBalance || after - before != delta || after > maxBalance) throw new IllegalArgumentException("Account ledger replay does not match");
+                expectedBalance = after;
+                expectedRevision = revision;
+                seenEntries.add(entry.operation + "/" + entry.account);
+            }
+            if (expectedBalance != amount(account.balance, "account balance") || expectedRevision != amount(account.revision, "account revision")) throw new IllegalArgumentException("Account balance or revision does not match its ledger");
+        }
+        for (OperationData operation : operations.values()) {
+            List<EntryData> entries = byOperation.getOrDefault(operation.id, List.of());
+            if ("ADJUST".equals(operation.kind) || "SET_BALANCE".equals(operation.kind)) {
+                if (!"FINAL".equals(operation.state) || entries.size() != 1 || operation.target == null || !operation.target.equals(entries.get(0).account)) throw new IllegalArgumentException("Balance operation entry cardinality is invalid");
+                EntryData entry = entries.get(0);
+                long amount = signed(operation.amount, "operation amount");
+                long delta = signed(entry.delta, "entry delta");
+                if ("ADJUST".equals(operation.kind) && delta != amount) throw new IllegalArgumentException("Adjustment entry is invalid");
+                if ("SET_BALANCE".equals(operation.kind) && amount != amount(entry.after, "entry after")) throw new IllegalArgumentException("Set balance entry is invalid");
+            } else if ("TRANSFER".equals(operation.kind)) {
+                if (!"FINAL".equals(operation.state) || entries.size() != 2 || operation.from == null || operation.to == null) throw new IllegalArgumentException("Transfer entry cardinality is invalid");
+                long amount = signed(operation.amount, "operation amount");
+                boolean from = false;
+                boolean to = false;
+                for (EntryData entry : entries) {
+                    long delta = signed(entry.delta, "entry delta");
+                    if (operation.from.equals(entry.account) && delta == -amount) from = true;
+                    if (operation.to.equals(entry.account) && delta == amount) to = true;
+                }
+                if (!from || !to) throw new IllegalArgumentException("Transfer entries are invalid");
+            } else if ("PREPARE".equals(operation.kind)) {
+                PendingData pendingRow = pending.get(operation.id);
+                if (pendingRow == null) throw new IllegalArgumentException("Pending operation is missing");
+                boolean finalized = "FINAL".equals(operation.state);
+                if (finalized != "COMPLETED".equals(pendingRow.state)) throw new IllegalArgumentException("Pending state does not match journal state");
+                if (finalized && entries.size() != 1 || !finalized && !entries.isEmpty()) throw new IllegalArgumentException("Pending entry cardinality is invalid");
+                if (finalized && !operation.player.equals(entries.get(0).account)) throw new IllegalArgumentException("Pending entry account is invalid");
+            }
+        }
+        for (String key : seenEntries) {
+            String operation = key.substring(0, key.indexOf('/'));
+            if (!operations.containsKey(operation)) throw new IllegalArgumentException("Entry references unknown operation");
+        }
+    }
+
+    private static void validateNotes(List<NoteData> notes, Map<String, NoteData> byId,
+                                      Map<String, OperationData> operations,
+                                      Map<String, PendingData> pending) {
+        for (NoteData note : notes) {
+            OperationData issue = operations.get(note.issueOperation);
+            if (issue == null || !"PREPARE".equals(issue.kind) || !note.id.equals(issue.note)
+                    || !note.issuer.equals(issue.player)
+                    || amount(note.amount, "note amount") != signed(issue.amount, "operation amount")) {
+                throw new IllegalArgumentException("Note issue relationship is invalid");
+            }
+            PendingData issuePending = pending.get(note.issueOperation);
+            if (issuePending == null || !"NOTE_ISSUE".equals(issuePending.kind)) {
+                throw new IllegalArgumentException("Note issue pending relationship is invalid");
+            }
+            if ("RESERVED".equals(note.status)) {
+                if (!("PREPARED".equals(issuePending.state) || "APPLYING".equals(issuePending.state))
+                        || !note.id.equals(issuePending.note)) {
+                    throw new IllegalArgumentException("Reserved note state is invalid");
+                }
+            } else if ("ISSUED".equals(note.status)) {
+                if (!"COMPLETED".equals(issuePending.state) || !"FINAL".equals(issue.state)
+                        || !note.id.equals(issuePending.note) || note.redeemOperation != null) {
+                    throw new IllegalArgumentException("Issued note state is invalid");
+                }
+            } else if ("CANCELLED".equals(note.status)) {
+                if (!"CANCELLED".equals(issuePending.state) || !"CANCELLED".equals(issue.state)
+                        || note.redeemOperation != null) {
+                    throw new IllegalArgumentException("Cancelled note state is invalid");
+                }
+            } else if ("REDEEMED".equals(note.status)) {
+                validateRedeemedNote(note, issue, issuePending, operations, pending);
+            }
+        }
+        for (PendingData operation : pending.values()) {
+            if (!"NOTE_ISSUE".equals(operation.kind) && !"NOTE_REDEEM".equals(operation.kind)) continue;
+            if (operation.note == null || !byId.containsKey(operation.note)) {
+                throw new IllegalArgumentException("Note pending operation requires a valid note");
+            }
+            if ("NOTE_REDEEM".equals(operation.kind) && "COMPLETED".equals(operation.state)
+                    && !operation.operation.equals(byId.get(operation.note).redeemOperation)) {
+                throw new IllegalArgumentException("Redemption operation does not own note");
+            }
+        }
+    }
+
+    private static void validateRedeemedNote(NoteData note, OperationData issue,
+                                              PendingData issuePending,
+                                              Map<String, OperationData> operations,
+                                              Map<String, PendingData> pending) {
+        if (!"COMPLETED".equals(issuePending.state) || !"FINAL".equals(issue.state)
+                || note.redeemOperation == null) {
+            throw new IllegalArgumentException("Redeemed note state is invalid");
+        }
+        OperationData redeem = operations.get(note.redeemOperation);
+        PendingData redeemPending = pending.get(note.redeemOperation);
+        if (redeem == null || redeemPending == null || !"PREPARE".equals(redeem.kind)
+                || !"NOTE_REDEEM".equals(redeemPending.kind)
+                || !"COMPLETED".equals(redeemPending.state)
+                || !note.id.equals(redeem.note)
+                || amount(note.amount, "note amount") != signed(redeem.amount, "redemption amount")) {
+            throw new IllegalArgumentException("Note redemption relationship is invalid");
+        }
+    }
     static UUID uuid(String value, String label) { try { if (value == null) throw new IllegalArgumentException(label + " is missing"); return UUID.fromString(value); } catch (IllegalArgumentException e) { throw new IllegalArgumentException("Invalid " + label, e); } }
     static long amount(String value, String label) { if (value == null || !value.matches("0|[1-9][0-9]*")) throw new IllegalArgumentException("Invalid " + label); try { return Long.parseLong(value); } catch (NumberFormatException e) { throw new IllegalArgumentException("Invalid " + label, e); } }
     static long signed(String value, String label) { if (value == null || !value.matches("-?(0|[1-9][0-9]*)")) throw new IllegalArgumentException("Invalid " + label); try { return Long.parseLong(value); } catch (NumberFormatException e) { throw new IllegalArgumentException("Invalid " + label, e); } }
@@ -133,7 +365,7 @@ final class StoreJson {
     static final class ExportDocument { int schemaVersion; List<AccountData> accounts; List<OperationData> operations; List<EntryData> entries; List<NoteData> notes; List<PendingData> pending; List<AuditData> audit; }
     static final class AccountData { String id,name,balance,revision; }
     static final class OperationData { String id,kind,fingerprint,actor,target,from,to,player,note,amount,delta,payload,reason,state; long createdAt; Long resolvedAt; }
-    static final class EntryData { String operation,account,before,after,delta; }
+    static final class EntryData { String operation,account,before,after,delta,accountRevision; }
     static final class NoteData { String id,amount,status,issuer,issueOperation,redeemOperation; }
     static final class PendingData { String operation,player,kind,amount,payload,note,state; long createdAt; }
     static final class AuditData { String operation,actor,action,reason; long createdAt; }
