@@ -13,18 +13,30 @@ import java.util.Set;
 
 public record Settings(long maxBalance, int quoteTimeoutSeconds, int maxItemsPerTransaction,
                        boolean allowCreative, boolean allowSpectator, boolean shortcutEnabled,
-                       boolean banknotesEnabled, boolean legacyAliases, String databaseFile) {
+                       boolean banknotesEnabled, boolean legacyAliases, String databaseFile,
+                       String currencyName, String currencySymbol) {
     public Settings {
         if (maxBalance <= 0 || quoteTimeoutSeconds <= 0 || maxItemsPerTransaction <= 0) {
             throw new IllegalArgumentException("Settings limits must be positive");
         }
-        if (databaseFile == null || databaseFile.isBlank() || databaseFile.contains("..")) {
-            throw new IllegalArgumentException("databaseFile must be a simple non-empty path");
+        if (databaseFile == null || !databaseFile.matches("[A-Za-z0-9][A-Za-z0-9_.-]*")) {
+            throw new IllegalArgumentException("databaseFile must be a simple filename under the plugin folder");
+        }
+        if (currencyName == null || currencyName.isBlank() || currencySymbol == null || currencySymbol.isBlank()) {
+            throw new IllegalArgumentException("Currency name and symbol must not be blank");
         }
     }
 
+    public Settings(long maxBalance, int quoteTimeoutSeconds, int maxItemsPerTransaction,
+                    boolean allowCreative, boolean allowSpectator, boolean shortcutEnabled,
+                    boolean banknotesEnabled, boolean legacyAliases, String databaseFile) {
+        this(maxBalance, quoteTimeoutSeconds, maxItemsPerTransaction, allowCreative, allowSpectator,
+                shortcutEnabled, banknotesEnabled, legacyAliases, databaseFile, "Gold", "G");
+    }
+
     public static Settings defaults() {
-        return new Settings(100_000_000_000L, 30, 2304, false, false, false, true, true, "goldbag.db");
+        return new Settings(100_000_000_000L, 30, 2304, false, false, false, true, true,
+                "goldbag.db", "Gold", "G");
     }
 
     public static Settings load(Reader yaml) {
@@ -56,12 +68,10 @@ public record Settings(long maxBalance, int quoteTimeoutSeconds, int maxItemsPer
         reject(banknotes, Set.of("enabled"), "banknotes");
         reject(compatibility, Set.of("legacy-aliases"), "compatibility");
         Settings defaults = defaults();
-        if (currency.containsKey("name")) {
-            nonBlank(string(currency.get("name"), "currency.name"), "currency.name");
-        }
-        if (currency.containsKey("symbol")) {
-            nonBlank(string(currency.get("symbol"), "currency.symbol"), "currency.symbol");
-        }
+        String currencyName = currency.containsKey("name") ? string(currency.get("name"), "currency.name") : defaults.currencyName();
+        String currencySymbol = currency.containsKey("symbol") ? string(currency.get("symbol"), "currency.symbol") : defaults.currencySymbol();
+        nonBlank(currencyName, "currency.name");
+        nonBlank(currencySymbol, "currency.symbol");
         long max = currency.containsKey("max-balance") ? Money.positive(string(currency.get("max-balance"), "currency.max-balance")) : defaults.maxBalance();
         int timeout = integer(exchange.getOrDefault("quote-timeout-seconds", defaults.quoteTimeoutSeconds()), "exchange.quote-timeout-seconds");
         int items = integer(exchange.getOrDefault("max-items-per-transaction", defaults.maxItemsPerTransaction()), "exchange.max-items-per-transaction");
@@ -71,14 +81,14 @@ public record Settings(long maxBalance, int quoteTimeoutSeconds, int maxItemsPer
         boolean notes = bool(banknotes.getOrDefault("enabled", defaults.banknotesEnabled()), "banknotes.enabled");
         boolean legacy = bool(compatibility.getOrDefault("legacy-aliases", defaults.legacyAliases()), "compatibility.legacy-aliases");
         String file = storage.containsKey("file") ? string(storage.get("file"), "storage.file") : defaults.databaseFile();
-        return new Settings(max, timeout, items, creative, spectator, shortcut, notes, legacy, file);
+        return new Settings(max, timeout, items, creative, spectator, shortcut, notes, legacy, file, currencyName, currencySymbol);
     }
 
     private static String string(Object value, String label) {
-        if (value == null || (!(value instanceof String) && !(value instanceof Number))) {
-            throw new IllegalArgumentException(label + " must be a scalar");
+        if (!(value instanceof String)) {
+            throw new IllegalArgumentException(label + " must be a quoted string scalar");
         }
-        return String.valueOf(value);
+        return (String) value;
     }
 
     private static void nonBlank(String value, String label) {
@@ -106,18 +116,18 @@ public record Settings(long maxBalance, int quoteTimeoutSeconds, int maxItemsPer
     }
 
     private static Map<String, Object> section(Map<String, Object> root, String name) {
+        if (!root.containsKey(name)) {
+            return Map.of();
+        }
         Object value = root.get(name);
         if (value == null) {
-            return Map.of();
+            throw new IllegalArgumentException(name + " must be a mapping when present");
         }
         return map(value, name);
     }
 
     private static Map<String, Object> map(Object value, String label) {
         if (!(value instanceof Map<?, ?> raw)) {
-            if (value == null) {
-                return Map.of();
-            }
             throw new IllegalArgumentException(label + " must be a mapping");
         }
         Map<String, Object> result = new LinkedHashMap<>();

@@ -28,6 +28,8 @@ class SettingsTest {
         Settings settings = Settings.load(new StringReader(yaml));
         assertEquals(1000, settings.maxBalance());
         assertEquals("purse.db", settings.databaseFile());
+        assertEquals("Gold", settings.currencyName());
+        assertEquals("G", settings.currencySymbol());
         assertTrue(settings.allowCreative());
         assertFalse(settings.banknotesEnabled());
         assertThrows(IllegalArgumentException.class, () -> Settings.load(new StringReader("wat: true\n")));
@@ -43,5 +45,21 @@ class SettingsTest {
             assertNotNull(resources);
             assertEquals(18, Catalog.load(new java.io.InputStreamReader(resources)).resources().size());
         }
+    }
+
+    @Test
+    void retainsDisplaySettingsAndRejectsUnsafeOrMalformedScalars() {
+        Settings settings = Settings.load(new StringReader(
+                "currency: {name: Coins, symbol: '$', max-balance: '10.00'}\n"
+                        + "storage: {file: purse-2.db}\n"));
+        assertEquals("Coins", settings.currencyName());
+        assertEquals("$", settings.currencySymbol());
+        assertEquals("purse-2.db", settings.databaseFile());
+        assertThrows(IllegalArgumentException.class, () -> Settings.load(new StringReader("storage: null\n")));
+        assertThrows(IllegalArgumentException.class, () -> Settings.load(new StringReader("exchange: null\n")));
+        assertThrows(IllegalArgumentException.class, () -> Settings.load(new StringReader("storage: {file: C:/outside.db}\n")));
+        assertThrows(IllegalArgumentException.class, () -> Settings.load(new StringReader("storage: {file: 123}\n")));
+        assertThrows(IllegalArgumentException.class, () -> Settings.load(new StringReader("currency: {name: 123}\n")));
+        assertThrows(IllegalArgumentException.class, () -> Settings.load(new StringReader("currency: {max-balance: 1e2}\n")));
     }
 }

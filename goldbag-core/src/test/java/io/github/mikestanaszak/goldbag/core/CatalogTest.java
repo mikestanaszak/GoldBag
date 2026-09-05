@@ -11,6 +11,8 @@ class CatalogTest {
     void defaultsUseExactPricesAndCapacityLimits() {
         Catalog catalog = Catalog.defaults();
         assertEquals(18, catalog.resources().size());
+        assertTrue(catalog.require("quartz").depositEnabled());
+        assertTrue(catalog.require("amethyst_shard").withdrawEnabled());
         assertEquals(5000, catalog.depositValue("raw_iron", 25));
         assertEquals(5000, catalog.withdrawalCost("DIAMOND", 1));
         assertEquals(4, catalog.maximumWithdrawal("diamond", 25000, 4, 64));
@@ -52,5 +54,15 @@ class CatalogTest {
                 "resources:\n  x:\n    material: RAW_IRON\n    deposit-price: '1.00'\n    typo: true\n")));
         assertThrows(IllegalArgumentException.class, () -> Catalog.load(new StringReader(
                 "resources:\n  x:\n    material: RAW_IRON\n    deposit-price: '1.00'\n    storage-block: RAW_IRON_BLOCK\n    items-per-block: 8\n")));
+        assertThrows(IllegalArgumentException.class, () -> Catalog.load(new StringReader(
+                "resources:\n  x:\n    material: QUARTZ\n    deposit-price: '1.00'\n    withdraw-price: '1.00'\n    storage-block: QUARTZ_BLOCK\n    items-per-block: 9\n")));
+    }
+
+    @Test
+    void rejectsNumericPriceAndIdentifierScalars() {
+        assertThrows(IllegalArgumentException.class, () -> Catalog.load(new StringReader(
+                "resources:\n  x:\n    material: 123\n    deposit-price: '1.00'\n    withdraw-price: '1.00'\n")));
+        assertThrows(IllegalArgumentException.class, () -> Catalog.load(new StringReader(
+                "resources:\n  x:\n    material: RAW_IRON\n    deposit-price: 1e2\n    withdraw-price: '1.00'\n")));
     }
 }

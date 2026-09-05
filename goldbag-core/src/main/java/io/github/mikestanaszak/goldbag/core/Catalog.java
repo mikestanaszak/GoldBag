@@ -8,9 +8,7 @@ import org.yaml.snakeyaml.error.YAMLException;
 import java.io.Reader;
 import java.math.BigInteger;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -22,6 +20,10 @@ public final class Catalog {
             "IRON_INGOT", "GOLD_INGOT", "COPPER_INGOT", "NETHERITE_INGOT",
             "IRON_NUGGET", "GOLD_NUGGET", "COPPER_NUGGET",
             "IRON_BLOCK", "GOLD_BLOCK", "COPPER_BLOCK", "NETHERITE_BLOCK");
+    private static final Map<String, String> REVERSIBLE_BLOCKS = Map.of(
+            "COAL", "COAL_BLOCK", "REDSTONE", "REDSTONE_BLOCK", "LAPIS_LAZULI", "LAPIS_BLOCK",
+            "RAW_COPPER", "RAW_COPPER_BLOCK", "RAW_IRON", "RAW_IRON_BLOCK", "RAW_GOLD", "RAW_GOLD_BLOCK",
+            "DIAMOND", "DIAMOND_BLOCK", "EMERALD", "EMERALD_BLOCK");
 
     private final List<Resource> resources;
     private final Map<String, Resource> lookup;
@@ -79,7 +81,7 @@ public final class Catalog {
             if ((block == null) != !hasItems || (block != null && integer(values.get("items-per-block"), "items-per-block") != 9)) {
                 throw new IllegalArgumentException("Storage blocks must specify items-per-block: 9");
             }
-            if (block != null && !expectedStorageBlock(material).equals(block)) {
+            if (block != null && !REVERSIBLE_BLOCKS.getOrDefault(normalizeMaterial(material), "").equals(block)) {
                 throw new IllegalArgumentException("Storage block " + block + " does not match " + material);
             }
             definitions.add(new Definition(id, material, deposit, withdraw, depositEnabled, withdrawEnabled, block, aliases));
@@ -173,14 +175,6 @@ public final class Catalog {
         return new Resource(id, normalizedMaterial, deposit, withdraw, depositEnabled, withdrawEnabled);
     }
 
-    private static String expectedStorageBlock(String material) {
-        String normalized = normalizeMaterial(material);
-        if (normalized.equals("LAPIS_LAZULI")) {
-            return "LAPIS_BLOCK";
-        }
-        return normalized + "_BLOCK";
-    }
-
     private static void add(Resource resource, Map<String, Resource> lookup, List<Resource> resources, List<String> aliases) {
         register(lookup, normalize(resource.id()), resource, "Duplicate resource or material: " + resource.id());
         register(lookup, normalizeMaterial(resource.material()).toLowerCase(Locale.ROOT), resource,
@@ -239,10 +233,10 @@ public final class Catalog {
         if (value == null) {
             throw new IllegalArgumentException("Missing " + label);
         }
-        if (!(value instanceof String) && !(value instanceof Number)) {
-            throw new IllegalArgumentException(label + " must be a scalar");
+        if (!(value instanceof String)) {
+            throw new IllegalArgumentException(label + " must be a quoted string scalar");
         }
-        return String.valueOf(value);
+        return (String) value;
     }
 
     private static boolean bool(Object value, String label) {
