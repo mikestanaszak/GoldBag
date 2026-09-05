@@ -1,0 +1,18 @@
+config-version: 1
+storage:
+  file: goldbag.db
+currency:
+  name: Gold
+  symbol: G
+  max-balance: "1000000000.00"
+exchange:
+  quote-timeout-seconds: 30
+  max-items-per-transaction: 2304
+  allow-creative: false
+  allow-spectator: false
+menu:
+  sneak-right-click-raw-gold: false
+banknotes:
+  enabled: true
+compatibility:
+  legacy-aliases: true
