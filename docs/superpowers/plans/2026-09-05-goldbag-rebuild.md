@@ -59,11 +59,11 @@ public record Settings(long maxBalance, int quoteTimeoutSeconds, int maxItemsPer
 }
 ```
 
-- [ ] Write JUnit behavior tests first; examples: `assertEquals(5000, Catalog.defaults().depositValue("raw_iron",25));`, `assertEquals(200, Money.parse("2.00"));`, `assertThrows(IllegalArgumentException.class, () -> Money.parse("1.001"));`.
-- [ ] Implement exact overflow-safe arithmetic, normalized material IDs/aliases, immutable catalog, explicit unknown/disabled-resource errors, counts >0, no rounding.
-- [ ] Implement SnakeYAML safe parsing and structural validation. Reject duplicate keys/mappings, unknown settings, invalid prices, prohibited ingots/nuggets/refined blocks, incompatible storage block pairings, non-nine ratios, invalid precision, and withdrawal prices below deposits when both directions are enabled. Only known reversible nine-to-one pairs can define storage blocks. Prices must be quoted decimal strings, not YAML numeric scalars. Identifiers/paths/display fields must be strings, and present-null sections are malformed. Restrict databaseFile to a simple filename; preserve currencyName/currencySymbol for the plugin. Default absent optional settings; reject unknown keys so typos do not silently change behavior.
-- [ ] Ship `defaults/config.yml`, `defaults/resources.yml`, and `defaults/messages.yml` in core resources, matching spec. Messages should have stable keys for common results; plugin may add keys as needed.
-- [ ] Run `mvn -B -f goldbag-core/pom.xml test`, report red/green evidence, actual API and remaining risks.
+- [x] Write JUnit behavior tests first; examples: `assertEquals(5000, Catalog.defaults().depositValue("raw_iron",25));`, `assertEquals(200, Money.parse("2.00"));`, `assertThrows(IllegalArgumentException.class, () -> Money.parse("1.001"));`.
+- [x] Implement exact overflow-safe arithmetic, normalized material IDs/aliases, immutable catalog, explicit unknown/disabled-resource errors, counts >0, no rounding.
+- [x] Implement SnakeYAML safe parsing and structural validation. Reject duplicate keys/mappings, unknown settings, invalid prices, prohibited ingots/nuggets/refined blocks, incompatible storage block pairings, non-nine ratios, invalid precision, and withdrawal prices below deposits when both directions are enabled. Only known reversible nine-to-one pairs can define storage blocks. Prices must be quoted decimal strings, not YAML numeric scalars. Identifiers/paths/display fields must be strings, and present-null sections are malformed. Restrict databaseFile to a simple filename; preserve currencyName/currencySymbol for the plugin. Default absent optional settings; reject unknown keys so typos do not silently change behavior.
+- [x] Ship `defaults/config.yml`, `defaults/resources.yml`, and `defaults/messages.yml` in core resources, matching spec. Messages should have stable keys for common results; plugin may add keys as needed.
+- [x] Run `mvn -B -f goldbag-core/pom.xml test`, report red/green evidence, actual API and remaining risks.
 
 ## T2: SQLite economy and durable journal (independent Luna worker)
 
@@ -115,11 +115,11 @@ void importJson(String json); // only empty destination, validate all, transacti
 
 Own `.github/**`, `scripts/**`, `docs/operations/**`, report `T3-operations.md`. Do not edit root POM/README/STATUS.
 
-- [ ] Add CI build with Java 17 and 21 (bytecode release 16), `mvn -B verify`, test report retention and plugin artifact upload. No automatic release or deployment.
-- [ ] Create PowerShell build/check helper that checks Java/Maven, runs verify, propagates failure status, and prints produced plugin JAR path without swallowing failures.
-- [ ] Create safe local test-server preparation helper taking an operator-supplied server JAR, isolated target directory, and plugin artifact. Do not accept EULA, overwrite worlds, delete files, or launch visible background windows. Reject source/destination collisions; refuse nonempty target directory unless explicitly safe and idempotent.
-- [ ] Write installation, commands/permissions, backup/JSON restore, recovery, and compatibility checklist docs. Clearly distinguish Java server versions from client protocol support. Matrix starts as unverified; no fabricated server tests.
-- [ ] Test helpers against missing tools/files/unsafe paths where practical, and document exact checks. Do not test human prose with source-string assertions.
+- [x] Add CI build with Java 17 and 21 (bytecode release 16), `mvn -B verify`, test report retention and plugin artifact upload. No automatic release or deployment.
+- [x] Create PowerShell build/check helper that checks Java/Maven, runs verify, propagates failure status, and prints produced plugin JAR path without swallowing failures.
+- [x] Create safe local test-server preparation helper taking an operator-supplied server JAR, isolated target directory, and plugin artifact. Do not accept EULA, overwrite worlds, delete files, or launch visible background windows. Reject source/destination collisions; refuse nonempty target directory unless explicitly safe and idempotent.
+- [x] Write installation, commands/permissions, backup/JSON restore, recovery, and compatibility checklist docs. Clearly distinguish Java server versions from client protocol support. Matrix starts as unverified; no fabricated server tests.
+- [x] Test helpers against missing tools/files/unsafe paths where practical, and document exact checks. Do not test human prose with source-string assertions.
 
 ## T4: Bukkit adapter and playable plugin (Luna, after T1/T2)
 
