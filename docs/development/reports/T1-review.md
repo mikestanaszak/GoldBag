@@ -6,9 +6,9 @@ Verdict: not ready for integration. Duplicate YAML keys, normalized ID/alias col
 
 ## Findings
 
-### [P1] Default quartz and amethyst are enabled despite the approved catalog
+### [WITHDRAWN] Default quartz and amethyst are enabled despite the approved catalog
 
-`goldbag-core/src/main/java/io/github/mikestanaszak/goldbag/core/Catalog.java:44-45` and `goldbag-core/src/main/resources/defaults/resources.yml:65-76` set both `deposit-enabled` and `withdraw-enabled` to `true` for `QUARTZ` and `AMETHYST_SHARD`. The spec table marks both rows “Not enabled”; the defaults therefore expose transactions that must be disabled. The focused test suite only checks their prices/resource count, so it misses the behavior. Set the default flags to false and add assertions for both directions.
+The prior reading was incorrect: in the spec table, “Not enabled” is in the `Storage block` column, not a flag for the `QUARTZ` and `AMETHYST_SHARD` base resources. Their enabled defaults and the new assertions are consistent with the approved catalog. No change is required.
 
 ### [P1] Arbitrary storage-block pairings can create a crafting/exchange loop
 
@@ -40,3 +40,15 @@ Verdict: not ready for integration. Duplicate YAML keys, normalized ID/alias col
 - Focused JShell checks against the built classes confirmed `Catalog.defaults().require("quartz").depositEnabled()` and the amethyst flag are `true`; a `QUARTZ`/`QUARTZ_BLOCK` nine-ratio config is accepted; `deposit-price: 1e2` is accepted as 10000 cents; and `storage.file: C:/outside.db` is accepted.
 - No source or Git changes were made by this review. Material existence against a running Bukkit server remains an integration responsibility because T1 has no Bukkit dependency; that stated limitation is not itself a review finding.
 
+## Round-one re-review (`d1b5253`)
+
+The round-one fixes address all remaining findings from the first review:
+
+- The quartz/amethyst item-flag finding is withdrawn as described above; it was a table-column interpretation error.
+- The storage-block crafting-loop finding is addressed by the explicit reversible nine-to-one whitelist in `Catalog.java:23-26,84-86`, with a regression test rejecting `QUARTZ_BLOCK`.
+- The rooted database path finding is addressed by the simple filename validation in `Settings.java:22-24` and its regression test.
+- The numeric YAML scalar finding is addressed by requiring string scalars in both loaders, with scientific-notation coverage.
+- The currency display contract omission is addressed by the amended `Settings` record's `currencyName` and `currencySymbol` fields, while retaining the nine-argument compatibility constructor.
+- The malformed scalar and explicit-null-section findings are addressed by strict string checks and `section()` rejecting present null values.
+
+Open findings in the scoped prior findings and this fix round: none. No new breakage was found in the changed core code. Validation: `mvn -B -f goldbag-core/pom.xml test` passed 12 tests with 0 failures and 0 errors on 2026-09-05.

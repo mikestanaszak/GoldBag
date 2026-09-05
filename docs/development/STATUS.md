@@ -9,10 +9,10 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and curr
 | Task | State | Owner/files | Depends on | Resume report |
 |---|---|---|---|---|
 | T0 Build foundation and durable handoff | Complete | Controller: root/module POMs, AGENTS, RESUME, STATUS | None | This file |
-| T1 Exact money, resource catalog, configuration | Fix round 1 | Luna `/root/core`, reviewer `/root/review_core`: `goldbag-core/src/**` | T0 | `reports/T1-core.md`, `reports/T1-review.md` |
+| T1 Exact money, resource catalog, configuration | Complete; review clear | Luna `/root/core`, reviewer `/root/review_core`: `goldbag-core/src/**` | T0 | `reports/T1-core.md`, `reports/T1-review.md` |
 | T2 SQLite economy, notes, journal, exports | Implemented; review running | Luna `/root/storage`, reviewer `/root/review_storage`: `goldbag-storage/src/**` | T0 | `reports/T2-storage.md` |
-| T3 Build automation and operator documentation | Fix round 1 | Luna `/root/operations`, reviewer `/root/review_operations`: `.github/**`, `scripts/**`, `docs/operations/**` | T0 | `reports/T3-operations.md`, `reports/T3-review.md` |
-| T4 Bukkit plugin: lifecycle, commands, menus, exchange coordinator | Waiting | Luna: `goldbag-plugin/src/**` | T1, T2 | `reports/T4-plugin.md` |
+| T3 Build automation and operator documentation | Complete; review clear | Luna `/root/operations`, reviewer `/root/review_operations`: `.github/**`, `scripts/**`, `docs/operations/**` | T0 | `reports/T3-operations.md`, `reports/T3-review.md` |
+| T4 Bukkit plugin: lifecycle, commands, menus, exchange coordinator | Running | Luna `/root/plugin`: `goldbag-plugin/src/**` | T1, T2 public API | `reports/T4-plugin.md` |
 | T5 Independent review and integration fixes | Waiting | Luna reviewer; fixes routed to owners | T1–T4 | `reports/T5-review.md` |
 | T6 Server validation, packaging, final checkpoint | Waiting | Controller + Luna verification | T5 | `reports/T6-validation.md` |
 
@@ -21,12 +21,12 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and curr
 - Existing repository fetched into this workspace; switched to a new development branch. No original branch changed.
 - Java 21 and Maven 3.9.11 available. Original repository has no build definition or tests, so no baseline test suite exists.
 - Foundation checkpoint: `a7bcfcd` (design, task plan, Maven foundation, AGENTS, RESUME).
-- Remote backup: through `946b731` pushed to `origin/codex/goldbag-rebuild`; main unchanged. Later edits are not backed up until another push.
-- Core checkpoint: `b1ce893`, 10 focused tests passed, including current SnakeYAML 2.7. Independent review pending.
-- Tooling checkpoint: `380c9d8`, controlled PowerShell fixture checks passed. Independent review pending; no real Minecraft server has been started.
+- Remote backup: through `82306c4` pushed to `origin/codex/goldbag-rebuild`; main unchanged. Later edits are not backed up until another push.
+- Core checkpoint: `d1b5253`, 12 focused tests passed, including current SnakeYAML 2.7. Independent scoped review clear; original quartz/amethyst finding withdrawn by reviewer.
+- Tooling checkpoint: `82306c4`, controlled PowerShell fixture checks passed. Independent scoped review clear; no real Minecraft server has been started.
 - SQLite checkpoint: `946b731`, six focused tests and module verify passed. Independent review pending, especially import consistency and note/account locking.
 - Core fixes: whitelist reversible blocks, quoted decimal settings and strict scalar types, simple DB filenames, and retain currency display fields. Tooling fix: reject junction/symlink ancestors before copying files.
-- Next controller step: collect T1–T3 reports and focused test evidence, checkpoint and review each, then dispatch T4 against actual interfaces. Resume existing files after interruption; do not restart completed tasks.
+- Next controller step: act on T2 storage review findings, collect/checkpoint T4 implementation milestones, and perform independent T4 review. Resume existing files after interruption; do not restart T1/T3.
 
 ## Decisions and boundaries
 
@@ -42,4 +42,6 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and curr
 
 - `mvn -B validate`: PASS for all four reactor projects on Java 21 / Maven 3.9.11. This validates build structure, not plugin behavior.
 - Spigot API 1.17 dependency successfully resolved from the official repository.
-- No plugin artifact or server compatibility is validated yet.
+- Full `mvn -B verify`: PASS on Java 21, 18 tests total (12 core + 6 storage). GitHub Linux builds passed on Java 17 and 21 at the storage checkpoint.
+- Standalone shaded-JAR smoke: PASS for relocated core/YAML/Gson loading, native SQLite, account restart persistence, and JSON export/import. Temporary source `.runtime/ShadedSmoke.java` is a local verification aid, not production code.
+- Shading reports overlapping module descriptors, manifests, and SLF4J license resources; package cleanup remains for T6. No game-facing plugin implementation or server compatibility is validated yet; current packaged artifact is not a server release.

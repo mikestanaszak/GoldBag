@@ -33,3 +33,9 @@ Get-ChildItem (Join-Path $real 'child') -Recurse
 Observed result: exit 0, with all prepared files under `$real\child`; the final target path itself was never a reparse point. The fix should canonicalize and validate every existing ancestor from the target up to the volume/root (and reject reparse points), then perform the same validation for the source paths before any directory creation or copy.
 
 No other concrete T3 finding was identified in the requested diff. The review did not rerun the worker's passed fixture suite; the junction reproduction was run specifically for this safety doubt.
+
+## Round-one fix re-review
+
+Verdict: **Pass** for the scoped fix.
+
+`Assert-NoReparseAncestors` now walks every existing component of the target and both source paths before any directory creation or copy. This closes the previously reproduced target-under-junction escape, and the second guard after `Resolve-Path` covers a source whose resolved path differs from its input path. The worker's recorded target-junction and source-junction regressions both exit 1 before mutation. I found no new concrete breakage in this fix-only diff. The CI `paths-ignore` addition is intentional and leaves pull-request verification enabled.
