@@ -10,7 +10,7 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and curr
 |---|---|---|---|---|
 | T0 Build foundation and durable handoff | Complete | Controller: root/module POMs, AGENTS, RESUME, STATUS | None | This file |
 | T1 Exact money, resource catalog, configuration | Complete; review clear | Luna `/root/core`, reviewer `/root/review_core`: `goldbag-core/src/**` | T0 | `reports/T1-core.md`, `reports/T1-review.md` |
-| T2 SQLite economy, notes, journal, exports | Implemented; review running | Luna `/root/storage`, reviewer `/root/review_storage`: `goldbag-storage/src/**` | T0 | `reports/T2-storage.md` |
+| T2 SQLite economy, notes, journal, exports | Fix round 1 | Luna `/root/storage`, reviewer `/root/review_storage`: `goldbag-storage/src/**` | T0 | `reports/T2-storage.md`, `reports/T2-review.md` |
 | T3 Build automation and operator documentation | Complete; review clear | Luna `/root/operations`, reviewer `/root/review_operations`: `.github/**`, `scripts/**`, `docs/operations/**` | T0 | `reports/T3-operations.md`, `reports/T3-review.md` |
 | T4 Bukkit plugin: lifecycle, commands, menus, exchange coordinator | Running | Luna `/root/plugin`: `goldbag-plugin/src/**` | T1, T2 public API | `reports/T4-plugin.md` |
 | T5 Independent review and integration fixes | Waiting | Luna reviewer; fixes routed to owners | T1–T4 | `reports/T5-review.md` |
@@ -25,6 +25,7 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and curr
 - Core checkpoint: `d1b5253`, 12 focused tests passed, including current SnakeYAML 2.7. Independent scoped review clear; original quartz/amethyst finding withdrawn by reviewer.
 - Tooling checkpoint: `82306c4`, controlled PowerShell fixture checks passed. Independent scoped review clear; no real Minecraft server has been started.
 - SQLite checkpoint: `946b731`, six focused tests and module verify passed. Independent review pending, especially import consistency and note/account locking.
+- SQLite review found negative-delta restore failure, missing full ledger/note reconciliation, ambiguous fingerprint encoding, unknown-schema adoption, and dense formatting. All routed to the original storage worker. Plugin API remains stable while fixes proceed.
 - Core fixes: whitelist reversible blocks, quoted decimal settings and strict scalar types, simple DB filenames, and retain currency display fields. Tooling fix: reject junction/symlink ancestors before copying files.
 - Next controller step: act on T2 storage review findings, collect/checkpoint T4 implementation milestones, and perform independent T4 review. Resume existing files after interruption; do not restart T1/T3.
 
@@ -35,6 +36,7 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and curr
 - Ruling: independent modules may be implemented concurrently in disjoint file sets; controller serializes Git commits — satisfies parallel-work request without shared-index races — cost: task completion waits briefly for controller checkpoint.
 - Ruling: keep quartz and amethyst shards enabled — reviewer misread "Not enabled" in the spec's storage-block column as applying to the resource itself; approved prices and default catalog include both resources — cost if wrong: default flags can be changed before release. Ask scoped reviewer to correct this finding.
 - Ruling: append currencyName/currencySymbol to Settings and restrict DB path to a simple filename — resolves an omitted API field and prevents accidental path escape while preserving configurable display names — cost: a small API adjustment before plugin integration.
+- Ruling: permit storage schema 2 with per-account entry revisions; reject unreleased prototype schema 1 with an explicit diagnostic — deterministic ledger validation cannot infer ordering from timestamps or random UUIDs, and the user has no live server data — cost if wrong: prototype data requires a separately validated migration, not silent adoption.
 - Paper/Spigot direction accepted by the user's instruction to implement after reviewing the revised spec. Full catalog requires Minecraft 1.17 or later. No actual server compatibility claim exists yet.
 - Server startup requiring acceptance of third-party terms is a manual operator step unless already authorized separately.
 
