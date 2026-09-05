@@ -9,9 +9,9 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and curr
 | Task | State | Owner/files | Depends on | Resume report |
 |---|---|---|---|---|
 | T0 Build foundation and durable handoff | Complete | Controller: root/module POMs, AGENTS, RESUME, STATUS | None | This file |
-| T1 Exact money, resource catalog, configuration | Running | Luna `/root/core`: `goldbag-core/src/**` | T0 | `reports/T1-core.md` |
-| T2 SQLite economy, notes, journal, exports | Running | Luna `/root/storage`: `goldbag-storage/src/**` | T0 | `reports/T2-storage.md` |
-| T3 Build automation and operator documentation | Running | Luna `/root/operations`: `.github/**`, `scripts/**`, `docs/operations/**` | T0 | `reports/T3-operations.md` |
+| T1 Exact money, resource catalog, configuration | Fix round 1 | Luna `/root/core`, reviewer `/root/review_core`: `goldbag-core/src/**` | T0 | `reports/T1-core.md`, `reports/T1-review.md` |
+| T2 SQLite economy, notes, journal, exports | Implemented; review running | Luna `/root/storage`, reviewer `/root/review_storage`: `goldbag-storage/src/**` | T0 | `reports/T2-storage.md` |
+| T3 Build automation and operator documentation | Fix round 1 | Luna `/root/operations`, reviewer `/root/review_operations`: `.github/**`, `scripts/**`, `docs/operations/**` | T0 | `reports/T3-operations.md`, `reports/T3-review.md` |
 | T4 Bukkit plugin: lifecycle, commands, menus, exchange coordinator | Waiting | Luna: `goldbag-plugin/src/**` | T1, T2 | `reports/T4-plugin.md` |
 | T5 Independent review and integration fixes | Waiting | Luna reviewer; fixes routed to owners | T1–T4 | `reports/T5-review.md` |
 | T6 Server validation, packaging, final checkpoint | Waiting | Controller + Luna verification | T5 | `reports/T6-validation.md` |
@@ -21,7 +21,11 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and curr
 - Existing repository fetched into this workspace; switched to a new development branch. No original branch changed.
 - Java 21 and Maven 3.9.11 available. Original repository has no build definition or tests, so no baseline test suite exists.
 - Foundation checkpoint: `a7bcfcd` (design, task plan, Maven foundation, AGENTS, RESUME).
-- Remote backup: `a7bcfcd` pushed to `origin/codex/goldbag-rebuild`; main unchanged. Later edits are not backed up until another push.
+- Remote backup: through `946b731` pushed to `origin/codex/goldbag-rebuild`; main unchanged. Later edits are not backed up until another push.
+- Core checkpoint: `b1ce893`, 10 focused tests passed, including current SnakeYAML 2.7. Independent review pending.
+- Tooling checkpoint: `380c9d8`, controlled PowerShell fixture checks passed. Independent review pending; no real Minecraft server has been started.
+- SQLite checkpoint: `946b731`, six focused tests and module verify passed. Independent review pending, especially import consistency and note/account locking.
+- Core fixes: whitelist reversible blocks, quoted decimal settings and strict scalar types, simple DB filenames, and retain currency display fields. Tooling fix: reject junction/symlink ancestors before copying files.
 - Next controller step: collect T1–T3 reports and focused test evidence, checkpoint and review each, then dispatch T4 against actual interfaces. Resume existing files after interruption; do not restart completed tasks.
 
 ## Decisions and boundaries
@@ -29,6 +33,8 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and curr
 - Ruling: use the existing repo on a fresh development branch, retaining old source outside new Maven roots — preserves history and avoids accidental compilation of the old plugin — cost if wrong: source layout can be revised without losing history.
 - Ruling: tracked reports and task board remain permanently, overriding disposable skill scratch cleanup — user specifically wants resumable progress — cost: a small amount of maintained documentation.
 - Ruling: independent modules may be implemented concurrently in disjoint file sets; controller serializes Git commits — satisfies parallel-work request without shared-index races — cost: task completion waits briefly for controller checkpoint.
+- Ruling: keep quartz and amethyst shards enabled — reviewer misread "Not enabled" in the spec's storage-block column as applying to the resource itself; approved prices and default catalog include both resources — cost if wrong: default flags can be changed before release. Ask scoped reviewer to correct this finding.
+- Ruling: append currencyName/currencySymbol to Settings and restrict DB path to a simple filename — resolves an omitted API field and prevents accidental path escape while preserving configurable display names — cost: a small API adjustment before plugin integration.
 - Paper/Spigot direction accepted by the user's instruction to implement after reviewing the revised spec. Full catalog requires Minecraft 1.17 or later. No actual server compatibility claim exists yet.
 - Server startup requiring acceptance of third-party terms is a manual operator step unless already authorized separately.
 

@@ -52,7 +52,8 @@ public final class Catalog {
 }
 public record Settings(long maxBalance, int quoteTimeoutSeconds, int maxItemsPerTransaction,
   boolean allowCreative, boolean allowSpectator, boolean shortcutEnabled,
-  boolean banknotesEnabled, boolean legacyAliases, String databaseFile) {
+  boolean banknotesEnabled, boolean legacyAliases, String databaseFile,
+  String currencyName, String currencySymbol) {
   public static Settings defaults();
   public static Settings load(java.io.Reader yaml);
 }
@@ -60,7 +61,7 @@ public record Settings(long maxBalance, int quoteTimeoutSeconds, int maxItemsPer
 
 - [ ] Write JUnit behavior tests first; examples: `assertEquals(5000, Catalog.defaults().depositValue("raw_iron",25));`, `assertEquals(200, Money.parse("2.00"));`, `assertThrows(IllegalArgumentException.class, () -> Money.parse("1.001"));`.
 - [ ] Implement exact overflow-safe arithmetic, normalized material IDs/aliases, immutable catalog, explicit unknown/disabled-resource errors, counts >0, no rounding.
-- [ ] Implement SnakeYAML safe parsing and structural validation. Reject duplicate keys/mappings, unknown settings, invalid prices, prohibited ingots/nuggets/refined blocks, incompatible storage block pairings, non-nine ratios, invalid precision, and withdrawal prices below deposits when both directions are enabled. Derive block entries. Default optional settings; reject unknown keys so typos do not silently change behavior.
+- [ ] Implement SnakeYAML safe parsing and structural validation. Reject duplicate keys/mappings, unknown settings, invalid prices, prohibited ingots/nuggets/refined blocks, incompatible storage block pairings, non-nine ratios, invalid precision, and withdrawal prices below deposits when both directions are enabled. Only known reversible nine-to-one pairs can define storage blocks. Prices must be quoted decimal strings, not YAML numeric scalars. Identifiers/paths/display fields must be strings, and present-null sections are malformed. Restrict databaseFile to a simple filename; preserve currencyName/currencySymbol for the plugin. Default absent optional settings; reject unknown keys so typos do not silently change behavior.
 - [ ] Ship `defaults/config.yml`, `defaults/resources.yml`, and `defaults/messages.yml` in core resources, matching spec. Messages should have stable keys for common results; plugin may add keys as needed.
 - [ ] Run `mvn -B -f goldbag-core/pom.xml test`, report red/green evidence, actual API and remaining risks.
 
