@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent><groupId>io.github.mikestanaszak</groupId><artifactId>goldbag-parent</artifactId><version>2.0.0-SNAPSHOT</version></parent>
+  <artifactId>goldbag-plugin</artifactId>
+  <repositories><repository><id>spigot-snapshots</id><url>https://hub.spigotmc.org/nexus/content/repositories/snapshots/</url></repository></repositories>
+  <dependencies>
+    <dependency><groupId>io.github.mikestanaszak</groupId><artifactId>goldbag-core</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>io.github.mikestanaszak</groupId><artifactId>goldbag-storage</artifactId><version>${project.version}</version></dependency>
+    <dependency><groupId>org.spigotmc</groupId><artifactId>spigot-api</artifactId><version>1.17-R0.1-SNAPSHOT</version><scope>provided</scope></dependency>
+    <dependency><groupId>org.junit.jupiter</groupId><artifactId>junit-jupiter</artifactId><scope>test</scope></dependency>
+  </dependencies>
+  <build>
+    <finalName>GoldBag-${project.version}</finalName>
+    <resources><resource><directory>src/main/resources</directory><filtering>true</filtering></resource></resources>
+    <plugins><plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-shade-plugin</artifactId><version>3.6.0</version>
+      <executions><execution><phase>package</phase><goals><goal>shade</goal></goals><configuration>
+        <createDependencyReducedPom>false</createDependencyReducedPom>
+        <filters><filter><artifact>*:*</artifact><excludes><exclude>META-INF/*.SF</exclude><exclude>META-INF/*.RSA</exclude><exclude>META-INF/*.DSA</exclude></excludes></filter></filters>
+        <relocations>
+          <relocation><pattern>org.yaml.snakeyaml</pattern><shadedPattern>io.github.mikestanaszak.goldbag.libs.yaml</shadedPattern></relocation>
+          <relocation><pattern>com.google.gson</pattern><shadedPattern>io.github.mikestanaszak.goldbag.libs.gson</shadedPattern></relocation>
+          <relocation><pattern>org.slf4j</pattern><shadedPattern>io.github.mikestanaszak.goldbag.libs.slf4j</shadedPattern></relocation>
+        </relocations>
+        <transformers><transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/></transformers>
+      </configuration></execution></executions>
+    </plugin></plugins>
+  </build>
+</project>
