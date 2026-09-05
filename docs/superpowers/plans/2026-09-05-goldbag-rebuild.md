@@ -23,9 +23,9 @@
 
 Files: root `pom.xml`, module POMs, `.gitignore`, `AGENTS.md`, `RESUME.md`, STATUS, this plan.
 
-- [ ] Create Maven modules `goldbag-core`, `goldbag-storage`, `goldbag-plugin`; use `io.github.mikestanaszak` group and `2.0.0-SNAPSHOT` version.
-- [ ] Establish JUnit, compiler release 16, shade packaging in plugin, reproducible build timestamps and UTF-8.
-- [ ] Run `mvn -B validate` and checkpoint the plan/recovery files before dispatch.
+- [x] Create Maven modules `goldbag-core`, `goldbag-storage`, `goldbag-plugin`; use `io.github.mikestanaszak` group and `2.0.0-SNAPSHOT` version.
+- [x] Establish JUnit, compiler release 16, shade packaging in plugin, reproducible build timestamps and UTF-8.
+- [x] Run `mvn -B validate` and checkpoint the plan/recovery files before dispatch.
 
 ## T1: Money, catalog, configuration (independent Luna worker)
 
