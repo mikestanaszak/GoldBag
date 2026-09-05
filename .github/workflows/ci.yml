@@ -3,6 +3,11 @@ name: Build and verify
 on:
   push:
     branches: ["**"]
+    paths-ignore:
+      - "docs/**"
+      - "README.md"
+      - "RESUME.md"
+      - "AGENTS.md"
   pull_request:
 
 permissions:

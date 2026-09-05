@@ -30,6 +30,24 @@ function Test-PathInside([string]$Child, [string]$Parent) {
         $childFull.StartsWith($parentFull + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)
 }
 
+function Assert-NoReparseAncestors([string]$Path, [string]$Description) {
+    $current = [System.IO.Path]::GetFullPath($Path)
+    while ($true) {
+        if (Test-Path -LiteralPath $current) {
+            $item = Get-Item -LiteralPath $current -Force
+            if ($item.Attributes -band [System.IO.FileAttributes]::ReparsePoint) {
+                throw "Refusing $Description through a reparse-point path component: $current"
+            }
+        }
+
+        $parent = [System.IO.Directory]::GetParent($current)
+        if ($null -eq $parent -or $parent.FullName -eq $current) {
+            break
+        }
+        $current = $parent.FullName
+    }
+}
+
 function Copy-IfMissingOrIdentical([string]$Source, [string]$Destination) {
     if (Test-Path -LiteralPath $Destination -PathType Leaf) {
         $sourceHash = (Get-FileHash -LiteralPath $Source -Algorithm SHA256).Hash
@@ -48,8 +66,12 @@ function Copy-IfMissingOrIdentical([string]$Source, [string]$Destination) {
 }
 
 try {
+    Assert-NoReparseAncestors $ServerJar "server JAR source"
+    Assert-NoReparseAncestors $PluginArtifact "plugin artifact source"
     $server = Get-FullPath $ServerJar "Server JAR"
     $plugin = Get-FullPath $PluginArtifact "Plugin artifact"
+    Assert-NoReparseAncestors $server "resolved server JAR source"
+    Assert-NoReparseAncestors $plugin "resolved plugin artifact source"
     if (-not (Test-Path -LiteralPath $server -PathType Leaf)) {
         throw "Server JAR is not a file: $server"
     }
@@ -58,6 +80,7 @@ try {
     }
 
     $target = [System.IO.Path]::GetFullPath($TargetDirectory).TrimEnd([System.IO.Path]::DirectorySeparatorChar, [System.IO.Path]::AltDirectorySeparatorChar)
+    Assert-NoReparseAncestors $target "target directory"
     $repositoryRoot = [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
     if (Test-PathInside $target $repositoryRoot) {
         throw "Refusing a target inside the GoldBag workspace. Choose an isolated directory outside $repositoryRoot"

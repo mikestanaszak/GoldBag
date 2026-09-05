@@ -36,7 +36,7 @@ pwsh -File .\scripts\Prepare-GoldBagTestServer.ps1 `
   -PluginArtifact '.\goldbag-plugin\target\GoldBag-2.0.0-SNAPSHOT.jar'
 ```
 
-The helper copies the server to `server.jar` and the plugin to `plugins/GoldBag.jar`, writes a preparation marker, and stops. It never accepts the Minecraft EULA, creates an EULA file, launches a window, overwrites a different file, deletes worlds, or starts the server. A nonempty target requires `-AllowExisting` and a valid marker from an earlier preparation; differing destination hashes are rejected.
+The helper copies the server to `server.jar` and the plugin to `plugins/GoldBag.jar`, writes a preparation marker, and stops. It walks every existing component of the target and source paths and rejects reparse points such as junctions before creating or copying anything. It never accepts the Minecraft EULA, creates an EULA file, launches a window, overwrites a different file, deletes worlds, or starts the server. A nonempty target requires `-AllowExisting` and a valid marker from an earlier preparation; differing destination hashes are rejected.
 
 Use a target outside the GoldBag workspace. The helper rejects the repository and all directories beneath it so a preparation cannot collide with source files or build output.
 
