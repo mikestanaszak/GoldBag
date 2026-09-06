@@ -16,17 +16,17 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and curr
 | T4a Offline restore helper | Complete; review clear | Luna `/root/offline_import`: new `cli/**` source/test packages, backup/restore guide | T2 public API | `reports/T4-offline-import.md` |
 | T4b Inventory plans and evidence | Complete; review clear | Luna inventory/helper workers: `InventoryAdapter.java`, its tests | T4 integration | `reports/T4-inventory.md` |
 | T5 Independent review and integration fixes | Complete; review clear | Luna player-flow and physical-flow reviewers | T1–T4 | `reports/T4-player-flows-review.md`, `reports/T4-physical-review.md` |
-| T6 Server validation, packaging, final checkpoint | Local server smoke complete; harness review pending | Luna automation worker + controller | T5 | `reports/T6-validation.md`, `reports/T6-automation.md` |
+| T6 Server validation, packaging, final checkpoint | Complete; reviews and local smoke clear | Luna automation worker + controller | T5 | `reports/T6-validation.md`, `reports/T6-automation.md` |
 
 ## Latest checkpoint
 
 - Production source: `37fb85f`; independent banknote-fix review: `3ba815e`. The player harness, recovery helper, and complete reports are checkpointed at `5ffc16d`. All are pushed to `origin/codex/goldbag-rebuild`; main unchanged.
 - Controller `mvn -B verify`: PASS, 69 tests (12 core, 17 storage, 40 plugin) on Java 21.0.11/Maven 3.9.11/Windows. Packaged verifier PASS. GitHub Linux Java 17/21 Maven and packaged checks PASS at final test checkpoint `5ffc16d`, [run 34063224382](https://github.com/mikestanaszak/GoldBag/actions/runs/34063224382).
-- Current artifact: `goldbag-plugin/target/GoldBag-2.0.0-SNAPSHOT.jar`; adjacent `.sha256`. SHA-256: `676E04E0112B2411FE10C95262EE3F2E5AE8E32FDEDCCF2B512DCC8CEC530472`.
+- Current artifact: `goldbag-plugin/target/GoldBag-2.0.0-SNAPSHOT.jar`; adjacent `.sha256`. SHA-256: `C48C54EC4037C8777B32FEC2F5017B00A69200306D95C417A95C5845D9785535`.
 - User explicitly authorized `eula=true` and local server testing on 2026-09-06. Paper 1.21.11 build 132 on Windows/Java 21 passed startup, all 18 resources, 16 actual-player checks, restart balances/note persistence and copied-note replay, invalid/valid reload, synthetic recovery apply/cancel/quarantine, actual server export/restore, and clean shutdown.
 - Server testing found and fixed banknote air interaction filtering; the three new regression tests and independent Luna review are clear. Core/storage/operations/plugin/offline-restore and recovery-fixture reviews remain complete.
 - Server directory: `C:\Users\mfsta\Documents\ChatGPT\GoldBag-local-tests\paper-1.21.11-132`. It is STOPPED, loopback port 25575 has no listener, and `eula=true` remains saved. Database final balances: SmokeA=G90.00, SmokeB=G15.00, RecoveryApply=G2.00, RecoveryCancel=G0.00; unresolved operations zero. Worlds/logs/database are preserved outside Git.
-- Only the independent Luna review of the new JavaScript player-test harness was interrupted by usage limits. Resume the exact bounded brief in `reports/T6-player-harness-review.md`; do not silently replace Luna or repeat completed plugin/server work. No production defect is open from the completed reviews.
+- The final Luna harness review resumed and cleared both test-tool fixes: clearing both inventories and reliable client cleanup/exact-note selection. Five focused Node tests and the repeated 16-player-check run passed. No open review finding remains. Incremental packaging was also fixed and independently reviewed at `63331a0`; repeat packaging now produces identical bytes.
 - Exact Paper smoke evidence is in `reports/T6-server-validation.md` and `reports/T6-player-server-tests.md`. Other versions/platforms and extended hard-crash/disconnect/death/protection-plugin scenarios remain unverified. This is a development build with an exact-server smoke pass, not a broad compatibility certificate.
 ## Decisions and boundaries
 
@@ -45,4 +45,4 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and curr
 - Shaded artifact: 712 base classes, maximum major 60 (Java 16),20 native SQLite entries, expected descriptor/manifest/relocated libraries, no bundled Bukkit classes.
 - Packaged SQLite restart/restore and actual server-export restore: PASS.
 - Paper 1.21.11 build 132 actual smoke: PASS; see detailed server/player reports. Clean shutdown and released database ownership confirmed.
-- Pending: independent review of new test harness only; extended compatibility/fault scenarios are unverified. Source and evidence survive usage exhaustion; completed work stays complete.
+- All requested implementation and scoped reviews are complete. Extended compatibility/fault scenarios remain unverified and are documented future validation. User explicitly authorized creating a PR to the default branch and merging after checks; GitHub integration is the final step.

@@ -72,3 +72,26 @@ No live rerun was performed per the review brief. Reviewed the recorded
 16-check full-run result and the clean no-reset restart result in
 `T6-player-server-tests.md`; inspected the current harness, lockfile, and
 README against those claims. No production code was changed.
+
+## Fix re-review disposition: clear
+
+The two reported harness defects are addressed. Reset mode now clears both
+fixture inventories immediately after resetting both account balances, so a
+rerun cannot inherit Bot B's stale paper or other item state. The copied-note
+and restart paths now derive the note UUID from serialized item data and use
+`findNote(bot, identity)`, which selects the intended copied identity even if
+other paper remains in the inventory.
+
+Connection setup now handles timeout, kick, error, and pre-spawn end events
+through one settled failure path that disconnects the created bot. Final
+cleanup uses `closeBots` with per-client exception isolation and a quit-to-end
+fallback, so one broken client cannot prevent the other from being closed.
+The five focused `player-smoke.test.js` cases cover timeout cleanup, kicked
+cleanup, cleanup exception isolation, exact stale-paper identity selection,
+and normal spawned-client cleanup.
+
+The new CI `harness` job pins Node 22, runs `npm ci` from the tracked
+`package-lock.json`, and executes those tests without a server. The recorded
+stale-fixture full rerun passed all 16 actual-player checks, and the final
+no-reset restart evidence remains consistent with the corrected exact-identity
+selection. No remaining defect was found in this bounded fix set.

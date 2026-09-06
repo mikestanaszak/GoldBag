@@ -18,7 +18,7 @@ The two fixture names are `GoldBagSmokeA` and `GoldBagSmokeB`. On the isolated s
 
 ```powershell
 $env:NODE_PATH=(Resolve-Path .runtime/goldbag-server-tests/node_modules).Path
-& 'C:\nvm4w\nodejs\node.exe' scripts/server-tests/player-smoke.js
+node scripts/server-tests/player-smoke.js
 ```
 
 The reset-mode run sets both fixture accounts to zero, then checks the menu, rates, storage status, deposits, withdrawal, deposit-all, payment, main/off-hand notes, copied-note replay, custom item and full-inventory rejection, ingot and creative gates, leaderboard GUI, and duplicate confirmation. It ends with A at G85.00 and one unredeemed G5.00 note in A's inventory; B is G15.00.
@@ -30,7 +30,7 @@ After a clean Paper stop/start with the same plugin data, do not run the full sm
 ```powershell
 $env:NODE_PATH=(Resolve-Path .runtime/goldbag-server-tests/node_modules).Path
 $env:GOLDBAG_RESTART_CHECK='1'
-& 'C:\nvm4w\nodejs\node.exe' scripts/server-tests/player-smoke.js
+node scripts/server-tests/player-smoke.js
 Remove-Item Env:GOLDBAG_RESTART_CHECK
 ```
 

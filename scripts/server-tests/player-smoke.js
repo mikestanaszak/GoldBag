@@ -17,16 +17,40 @@ function assert(condition, message) {
   if (!condition) throw new Error(message);
 }
 
-function connect(name) {
+function disconnect(bot, reason) {
+  if (!bot) return;
+  try {
+    if (typeof bot.quit === 'function') bot.quit(reason);
+    else if (typeof bot.end === 'function') bot.end();
+  } catch (_) {
+    try { if (typeof bot.end === 'function') bot.end(); } catch (_) { /* cleanup is best effort */ }
+  }
+}
+
+function closeBots(bots, reason = 'GoldBag smoke complete') {
+  for (const bot of bots) {
+    try { disconnect(bot, reason); } catch (_) { /* one broken client cannot block another cleanup */ }
+  }
+}
+
+function connect(name, createBot = mineflayer.createBot, timeout = TIMEOUT) {
   return new Promise((resolve, reject) => {
-    const bot = mineflayer.createBot({
+    const bot = createBot({
       host: HOST,
       port: PORT,
       username: name,
       auth: 'offline',
       version: VERSION,
     });
-    const timer = setTimeout(() => reject(new Error(`Timed out waiting for ${name} to spawn`)), TIMEOUT);
+    let settled = false;
+    const fail = (error) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      disconnect(bot, `GoldBag ${name} connection failed`);
+      reject(error);
+    };
+    const timer = setTimeout(() => fail(new Error(`Timed out waiting for ${name} to spawn`)), timeout);
     bot.lines = [];
     bot.on('messagestr', (message) => {
       const line = String(message);
@@ -34,17 +58,14 @@ function connect(name) {
       console.log(`[${name}] ${line}`);
     });
     bot.once('spawn', () => {
+      if (settled) return;
+      settled = true;
       clearTimeout(timer);
       resolve(bot);
     });
-    bot.once('error', (error) => {
-      clearTimeout(timer);
-      reject(error);
-    });
-    bot.once('kicked', (reason) => {
-      clearTimeout(timer);
-      reject(new Error(`${name} kicked: ${reason}`));
-    });
+    bot.once('error', (error) => fail(error));
+    bot.once('kicked', (reason) => fail(new Error(`${name} kicked: ${reason}`)));
+    bot.once('end', () => fail(new Error(`${name} connection ended before spawn`)));
   });
 }
 
@@ -76,6 +97,18 @@ function count(bot, itemName) {
   return inventoryItems(bot)
     .filter((item) => item.name === itemName)
     .reduce((total, item) => total + item.count, 0);
+}
+
+function noteIdentity(item) {
+  if (!item || item.name !== 'paper') return null;
+  const serialized = JSON.stringify(item.nbt || item.components || {});
+  const match = serialized.match(/[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i);
+  return match ? match[0].toLowerCase() : null;
+}
+
+function findNote(bot, identity = null) {
+  return inventoryItems(bot).find((item) => item.name === 'paper'
+    && (identity === null || noteIdentity(item) === identity));
 }
 
 function mainInventoryEmptySlots(bot) {
@@ -118,12 +151,14 @@ async function expectBalance(bot, amount) {
 async function restartCheck(a, b) {
   await expectBalance(a, '85.00');
   await expectBalance(b, '15.00');
-  const sourceNote = inventoryItems(a).find((item) => item.name === 'paper');
+  const sourceNote = findNote(a);
   assert(sourceNote, 'restart fixture did not preserve A\'s issued note');
+  const sourceIdentity = noteIdentity(sourceNote);
+  assert(sourceIdentity, 'restart fixture note has no readable identity');
   await a.equip(sourceNote, 'hand');
   await command(a, `/minecraft:item replace entity ${BOT_B} weapon.mainhand from entity ${BOT_A} weapon.mainhand`, null);
   await sleep(900);
-  const copiedNote = inventoryItems(b).find((item) => item.name === 'paper');
+  const copiedNote = findNote(b, sourceIdentity);
   assert(copiedNote, 'restart fixture note was not copyable to B');
   await b.equip(copiedNote, 'hand');
   const aRedeemStart = a.lines.length;
@@ -153,6 +188,8 @@ async function run() {
     // reruns do not depend on state left by a previous smoke attempt.
     await command(a, `/goldbag admin set ${BOT_A} 0 reset smoke account`, /Balance set.*0\.00/i, 'reset SmokeA balance');
     await command(a, `/goldbag admin set ${BOT_B} 0 reset smoke account`, /Balance set.*0\.00/i, 'reset SmokeB balance');
+    await clear(a);
+    await clear(b);
 
     const menu = await openMenu(a);
     assert(menu && menu.slots && menu.slots.length >= 27, 'GoldBag did not open a chest menu');
@@ -201,9 +238,11 @@ async function run() {
     await command(a, '/goldbag note 10.00', /Banknote preview.*10\.00/i, 'banknote preview');
     await command(a, '/goldbag confirm', /Banknote issued.*10\.00/i, 'banknote confirmation');
     await sleep(800);
-    const mainNote = inventoryItems(a).find((item) => item.name === 'paper');
+    const mainNote = findNote(a);
     assert(mainNote && mainNote.count === 1, 'issued banknote is not one paper item');
     const noteData = JSON.stringify(mainNote.nbt || mainNote.components || {});
+    const mainIdentity = noteIdentity(mainNote);
+    assert(mainIdentity, 'issued banknote has no readable identity');
     assert(/note-id|goldbag/i.test(noteData), `issued paper has no visible GoldBag identity data: ${noteData}`);
     await a.equip(mainNote, 'hand');
     a.activateItem();
@@ -215,7 +254,7 @@ async function run() {
     await command(a, '/goldbag note 5.00', /Banknote preview.*5\.00/i, 'offhand note preview');
     await command(a, '/goldbag confirm', /Banknote issued.*5\.00/i, 'offhand note confirmation');
     await sleep(700);
-    const offhandNote = inventoryItems(a).find((item) => item.name === 'paper');
+    const offhandNote = findNote(a);
     assert(offhandNote, 'second banknote was not issued');
     await a.equip(offhandNote, 'off-hand');
     a.activateItem(true);
@@ -227,18 +266,20 @@ async function run() {
     await command(a, '/goldbag note 10.00', /Banknote preview.*10\.00/i, 'copy-replay note preview');
     await command(a, '/goldbag confirm', /Banknote issued.*10\.00/i, 'copy-replay note confirmation');
     await sleep(700);
-    const sourceNote = inventoryItems(a).find((item) => item.name === 'paper');
+    const sourceNote = findNote(a);
     assert(sourceNote, 'copy-replay source banknote was not issued');
+    const sourceIdentity = noteIdentity(sourceNote);
+    assert(sourceIdentity, 'copy-replay source banknote has no readable identity');
     await a.equip(sourceNote, 'hand');
     await command(a, `/minecraft:item replace entity ${BOT_B} weapon.mainhand from entity ${BOT_A} weapon.mainhand`, null);
     await sleep(900);
-    const copiedNote = inventoryItems(b).find((item) => item.name === 'paper');
+    const copiedNote = findNote(b, sourceIdentity);
     assert(copiedNote, 'copy-replay target did not receive the copied note');
     await b.equip(copiedNote, 'hand');
     b.activateItem();
     await sleep(1200);
     await expectBalance(b, '15.00');
-    const sourceAfterCopy = inventoryItems(a).find((item) => item.name === 'paper');
+    const sourceAfterCopy = findNote(a, sourceIdentity);
     assert(sourceAfterCopy, 'source note disappeared before duplicate redemption attempt');
     await a.equip(sourceAfterCopy, 'hand');
     a.activateItem();
@@ -303,12 +344,15 @@ async function run() {
     console.log(`PASS: ${passed.length} actual-player checks`);
     for (const item of passed) console.log(`  - ${item}`);
   } finally {
-    if (a) a.quit('GoldBag smoke complete');
-    if (b) b.quit('GoldBag smoke complete');
+    closeBots([a, b]);
   }
 }
 
-run().catch((error) => {
-  console.error(`FAIL: ${error.stack || error}`);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  run().catch((error) => {
+    console.error(`FAIL: ${error.stack || error}`);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = { closeBots, connect, findNote, noteIdentity };

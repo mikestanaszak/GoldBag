@@ -18,6 +18,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  harness:
+    name: Player test-client lifecycle
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: scripts/server-tests/package-lock.json
+      - name: Install locked test dependencies
+        run: npm ci --prefix scripts/server-tests
+      - name: Verify client lifecycle and note selection
+        run: node --test scripts/server-tests/player-smoke.test.js
+
   verify:
     name: Maven and packaged verification (Java ${{ matrix.java }})
     runs-on: ubuntu-latest

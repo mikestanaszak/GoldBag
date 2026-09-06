@@ -69,3 +69,7 @@ This is an automated smoke pass for exactly Paper 1.21.11 build 132 on Windows/J
 The final Luna review of the new JavaScript test harness hit the usage limit after all server tests completed. Production banknote and recovery-fixture reviews are already clear. Resume only the bounded harness review described in `T6-player-harness-review.md`; do not repeat completed implementation or server checks without a concrete reason.
 
 Final source/test checkpoint `5ffc16d` is pushed to the feature branch. Its Java 17/21 Maven and packaged checks both passed: [run34063224382](https://github.com/mikestanaszak/GoldBag/actions/runs/34063224382). The remaining harness-review handoff is tracked in that checkpoint; no active server process remains.
+
+## Final integration follow-up
+
+The pending harness review resumed and found two test-tool issues, both corrected and independently cleared in `T6-player-harness-review.md`. Five Node lifecycle/identity tests and a new 16-check live run passed. Controller repeated the no-reset persistence check and clean shutdown. Incremental packaging was corrected and independently reviewed; final JAR SHA-256 is `C48C54EC4037C8777B32FEC2F5017B00A69200306D95C417A95C5845D9785535`. All scoped reviews are now clear; user authorized PR creation and merge to default branch main after checks.
