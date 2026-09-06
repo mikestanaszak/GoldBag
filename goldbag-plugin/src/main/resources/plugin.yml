@@ -1,0 +1,30 @@
+name: GoldBag
+version: '${project.version}'
+main: io.github.mikestanaszak.goldbag.plugin.GoldBagPlugin
+api-version: '1.17'
+description: Exact SQLite backed GoldBag economy.
+commands:
+  goldbag:
+    description: Open and manage GoldBag
+    usage: /goldbag [balance|rates|deposit|withdraw|pay|note|top|confirm|cancel]
+    aliases: [gb, purse]
+  balance:
+    description: Show a GoldBag balance
+  money:
+    description: Show a GoldBag balance
+  pursetop:
+    description: Show GoldBag leaderboard
+  withdraw:
+    description: Create a legacy GoldBag banknote
+permissions:
+  goldbag.use: {default: true}
+  goldbag.balance: {default: true}
+  goldbag.balance.others: {default: op}
+  goldbag.deposit: {default: true}
+  goldbag.withdraw: {default: true}
+  goldbag.pay: {default: true}
+  goldbag.note: {default: true}
+  goldbag.top: {default: true}
+  goldbag.admin.balance: {default: op}
+  goldbag.admin.reload: {default: op}
+  goldbag.admin.storage: {default: op}

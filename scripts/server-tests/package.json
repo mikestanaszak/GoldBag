@@ -1,0 +1,11 @@
+{
+  "name": "goldbag-server-tests",
+  "private": true,
+  "description": "Loopback Mineflayer smoke test for the isolated GoldBag Paper server",
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "mineflayer": "4.38.0"
+  }
+}

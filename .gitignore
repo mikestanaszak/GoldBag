@@ -1,0 +1,12 @@
+**/target/
+.idea/
+*.iml
+.worktrees/
+.superpowers/
+.runtime/
+*.db
+*.db-wal
+*.db-shm
+*.db.lock
+*.log
+dependency-reduced-pom.xml
