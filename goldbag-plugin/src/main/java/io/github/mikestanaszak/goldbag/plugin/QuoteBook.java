@@ -34,7 +34,6 @@ public final class QuoteBook {
         Quote quote = new Quote(UUID.randomUUID(), player, kind, material, count, amount, revision,
                 clock.instant().plus(Duration.ofSeconds(timeoutSeconds)), payload);
         quotes.put(player, quote);
-        catalogRevision = Math.max(catalogRevision, revision);
         return quote;
     }
 

@@ -28,6 +28,7 @@ public final class GoldBagCommand implements CommandExecutor, TabCompleter {
 
     @Override public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         try {
+            if (!plugin.config().settings().legacyAliases() && isLegacyAlias(label, args)) throw new IllegalArgumentException("Compatibility aliases are disabled in configuration.");
             CommandParser.Command parsed = parseAlias(label, args);
             return dispatch(sender, parsed);
         } catch (IllegalArgumentException error) {
@@ -39,11 +40,19 @@ public final class GoldBagCommand implements CommandExecutor, TabCompleter {
         }
     }
 
+    private boolean isLegacyAlias(String label, String[] args) {
+        String lower = label.toLowerCase(Locale.ROOT);
+        int separator = lower.lastIndexOf(':');
+        if (separator >= 0) lower = lower.substring(separator + 1);
+        if (lower.equals("balance") || lower.equals("money") || lower.equals("pursetop") || lower.equals("withdraw")) return true;
+        return lower.equals("purse") && args.length > 0 && (args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("take") || args[0].equalsIgnoreCase("set"));
+    }
+
     private CommandParser.Command parseAlias(String label, String[] args) {
         String lower = label.toLowerCase(Locale.ROOT);
         if (lower.equals("balance") || lower.equals("money")) return CommandParser.parse(join(new String[]{"balance"}, args));
         if (lower.equals("pursetop")) return CommandParser.parse(join(new String[]{"top"}, args));
-        if (lower.equals("withdraw") && args.length == 1) return CommandParser.parse(new String[]{"withdraw", args[0]});
+        if (lower.equals("withdraw") && args.length == 1) return CommandParser.parseLegacyWithdraw(args[0]);
         if (lower.equals("purse") && args.length > 0 && (args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("take") || args[0].equalsIgnoreCase("set"))) return CommandParser.parse(join(new String[]{"admin"}, args));
         return CommandParser.parse(args);
     }
@@ -64,8 +73,8 @@ public final class GoldBagCommand implements CommandExecutor, TabCompleter {
             case DEPOSIT: requirePlayerPermission(sender, "goldbag.deposit", "goldpurse.use"); player(sender).ifPresent(p -> { if (parsed.all()) plugin.quoteDepositAll(p); else plugin.quoteDeposit(p, plugin.config().catalog().require(parsed.material()), parsed.count()); }); return true;
             case WITHDRAW: requirePlayerPermission(sender, "goldbag.withdraw", "goldpurse.use"); player(sender).ifPresent(p -> plugin.quoteWithdrawal(p, plugin.config().catalog().require(parsed.material()), parsed.count(), parsed.max())); return true;
             case PAY: requirePlayerPermission(sender, "goldbag.pay", "goldpurse.use"); pay(sender, parsed); return true;
-            case NOTE: requirePlayerPermission(sender, "goldbag.note", "goldpurse.use"); player(sender).ifPresent(p -> { plugin.quotes().put(p.getUniqueId(), QuoteBook.Kind.NOTE, null, 0, parsed.amount(), plugin.quotes().catalogRevision() + 1, plugin.config().settings().quoteTimeoutSeconds()); plugin.tell(p, "Banknote preview for " + plugin.money(parsed.amount()) + ". Use /goldbag confirm or /goldbag cancel."); }); return true;
-            case TOP: require(sender, "goldbag.top", "goldpurse.use"); player(sender).ifPresent(p -> plugin.showTop(p, parsed.page())); return true;
+            case NOTE: requirePlayerPermission(sender, "goldbag.note", "goldpurse.use"); player(sender).ifPresent(p -> plugin.quoteNote(p, parsed.amount())); return true;
+            case TOP: require(sender, "goldbag.top", "goldpurse.use"); if (sender instanceof Player) plugin.showTop((Player) sender, parsed.page()); else plugin.submit(() -> plugin.store().top(parsed.page()), accounts -> { if (accounts.isEmpty()) plugin.tell(sender, "No GoldBag accounts."); else for (SqliteStore.Account account : accounts) plugin.tell(sender, account.name() + ": " + plugin.money(account.balance())); }, sender, "Could not read leaderboard."); return true;
             case CONFIRM: player(sender).ifPresent(plugin::confirm); return true;
             case CANCEL: player(sender).ifPresent(plugin::cancel); return true;
             case ADMIN: require(sender, "goldbag.admin.balance", "goldpurse.admin"); admin(sender, parsed); return true;
@@ -108,12 +117,11 @@ public final class GoldBagCommand implements CommandExecutor, TabCompleter {
     }
 
     private void export(CommandSender sender) {
-        plugin.submit(() -> plugin.store().exportJson(), json -> { try { java.nio.file.Path file = plugin.getDataFolder().toPath().resolve("goldbag-export.json"); Files.writeString(file, json, StandardCharsets.UTF_8); plugin.tell(sender, "GoldBag export written to " + file.getFileName()); } catch (Exception e) { plugin.tell(sender, ChatColor.RED + "Export failed: " + e.getMessage()); } }, sender, "Could not export storage.");
+        plugin.submit(() -> { java.nio.file.Path file = plugin.getDataFolder().toPath().resolve("goldbag-export.json"); Files.writeString(file, plugin.store().exportJson(), StandardCharsets.UTF_8); return file; }, file -> plugin.tell(sender, "GoldBag export written to " + file.getFileName()), sender, "Could not export storage.");
     }
 
     private void importData(CommandSender sender) {
-        java.nio.file.Path file = plugin.getDataFolder().toPath().resolve("goldbag-import.json");
-        plugin.submit(() -> { if (!Files.exists(file)) throw new IllegalArgumentException("Place an export at goldbag-import.json first"); plugin.store().importJson(Files.readString(file, StandardCharsets.UTF_8)); return true; }, ignored -> plugin.tell(sender, "GoldBag import completed from " + file.getFileName() + "."), sender, "Could not import storage.");
+        plugin.tell(sender, "Offline import is provided by io.github.mikestanaszak.goldbag.cli.OfflineImport; stop the server and use that CLI with a new destination database.");
     }
 
     private void recoveryList(CommandSender sender) {

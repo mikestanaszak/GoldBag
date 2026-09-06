@@ -39,11 +39,12 @@ public final class MenuService {
     }
 
     public void openDeposit(Player player) {
-        MenuHolder holder = new MenuHolder(player.getUniqueId(), MenuHolder.Screen.DEPOSIT);
+        List<Resource> eligible = inventory.eligible(player.getInventory(), plugin.config().catalog().resources());
+        MenuHolder holder = new MenuHolder(player.getUniqueId(), MenuHolder.Screen.DEPOSIT, 1, plugin.quotes().catalogRevision(), eligible.stream().map(Resource::id).collect(java.util.stream.Collectors.toList()));
         Inventory menu = Bukkit.createInventory(holder, 54, ChatColor.GREEN + "GoldBag Deposit");
         holder.inventory(menu);
         int slot = 0;
-        for (Resource resource : inventory.eligible(player.getInventory(), plugin.config().catalog().resources())) {
+        for (Resource resource : eligible) {
             if (slot >= 45) break;
             Material material = Material.matchMaterial(resource.material());
             set(menu, slot++, material, resource.id(), "Available: " + inventory.count(player.getInventory(), material),
@@ -55,10 +56,10 @@ public final class MenuService {
     }
 
     public void openWithdraw(Player player, int page) {
-        MenuHolder holder = new MenuHolder(player.getUniqueId(), MenuHolder.Screen.WITHDRAW, page);
+        List<Resource> resources = plugin.config().catalog().resources().stream().filter(Resource::withdrawEnabled).collect(java.util.stream.Collectors.toList());
+        MenuHolder holder = new MenuHolder(player.getUniqueId(), MenuHolder.Screen.WITHDRAW, page, plugin.quotes().catalogRevision(), resources.stream().map(Resource::id).collect(java.util.stream.Collectors.toList()));
         Inventory menu = Bukkit.createInventory(holder, 54, ChatColor.YELLOW + "GoldBag Withdraw " + page);
         holder.inventory(menu);
-        List<Resource> resources = plugin.config().catalog().resources().stream().filter(Resource::withdrawEnabled).collect(java.util.stream.Collectors.toList());
         int from = (page - 1) * 45;
         for (int i = 0; i < 45 && from + i < resources.size(); i++) {
             Resource resource = resources.get(from + i);
@@ -72,7 +73,7 @@ public final class MenuService {
     }
 
     public void openTop(Player player, List<SqliteStore.Account> accounts, int page) {
-        MenuHolder holder = new MenuHolder(player.getUniqueId(), MenuHolder.Screen.TOP);
+        MenuHolder holder = new MenuHolder(player.getUniqueId(), MenuHolder.Screen.TOP, page);
         Inventory menu = Bukkit.createInventory(holder, 27, ChatColor.AQUA + "GoldBag Top " + page);
         holder.inventory(menu);
         int slot = 0;

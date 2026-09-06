@@ -16,14 +16,25 @@ Scope: `goldbag-plugin/src/**` and this report. No Git staging or commits perfor
 - Added paged withdrawal menu holders and click-to-preview behavior, legacy `/purse give|take|set` translation, and nonnegative admin `set` amount parsing.
 - Added true multi-resource `deposit all` plans (material/count payload evidence), deposit-all menu action, quantity-one withdrawal menu previews with paging, configured sneak/raw-gold shortcut, fixed-path `storage import` integration, and `ExchangeCoordinator.execute` with main-thread/inventory ports.
 - Added private Bukkit conversation prompts with 60-second timeout and local echo disabled for menu payment/banknote entry, and moved reload file parsing/validation to the bounded storage executor before applying the immutable snapshot on the main thread.
-- Current focused reactor checkpoint before quantity-menu work: `mvn -B -pl goldbag-plugin -am test` passed core 12, storage 12, and plugin 9 tests.
+- Current focused reactor checkpoint: `mvn -B -pl goldbag-plugin -am test` passed core 12, storage 16, and plugin 14 tests (including four offline-import tests, the two real-SQLite coordinator execution tests, and the two-player quote revision regression).
+- Added holder-backed quantity previews with 1/16/64/max buttons and a private exact-count prompt for both deposit and withdrawal menus. Menu selections route through the same quote and durable coordinator paths as commands.
+- Wired `ExchangeCoordinator.execute` into deposit, withdrawal, note issue, and note redemption; the plugin now uses the production main-thread/inventory ports rather than a separate hand-rolled journal sequence. The coordinator tests cover pre-APPLYING changed inventory cancellation and post-APPLYING physical failure quarantine with real SQLite.
+- Added inventory interaction guards for right-click, pickup, drag/click, drop, swap-hand, and guarded player paths; runtime config validates known storage block materials too. Storage executor shutdown now drains queued work for orderly disable.
 
 ## Verification
 
 - `mvn -B -pl goldbag-plugin -am test` now passes the full reactor: core 12 tests, storage 12 tests, and plugin 9 tests (parser: 3, quote book: 2, state machine: 2, real-SQLite coordinator execution: 2).
+- Fresh integration verification: `mvn -B verify` passed all reactor tests (core 12, storage 12, plugin 9) and shaded `goldbag-plugin/target/GoldBag-2.0.0-SNAPSHOT.jar`; shade emits the existing META-INF/MANIFEST overlap warning.
+- Final verification after quantity, metadata, console-top, and executor-drain changes: `mvn -B verify` passed again with core 12, storage 12, and plugin 9 tests; shaded artifact rebuilt successfully.
+- Final focused rerun after import/menu/permission cleanup: `mvn -B -pl goldbag-plugin -am test` passed core 12, storage 12, and plugin 9 tests.
+- Boundary hardening applied: startup stays unavailable until the asynchronous pending-operation health read succeeds and synchronous enable failures explicitly disable the plugin after cleanup; creative/spectator defaults gate quotes, confirmations, issuance, and redemption; confirmation rechecks the quoted permission and consumes the quote once; per-player operation tokens prevent duplicate confirmations or late callbacks from releasing another operation's inventory guard; both coordinator main-thread readiness checks revalidate online/dead state, game mode, permission, catalog revision, and physical inventory evidence; strict SnakeYAML message parsing rejects missing, duplicate, malformed, non-string, or empty message files; legacy command labels honor `legacy-aliases` while `/gb` remains available; storage futures have a 10-second deadline; export JSON and file writing run on the storage worker; live plugin import was removed in favor of the offline `OfflineImport` CLI, with `/goldbag storage import` directing operators to it.
+- After the boundary hardening batch, `mvn -B -pl goldbag-plugin -am package -DskipTests` passed and rebuilt the shaded plugin. A subsequent focused reactor test was blocked by a concurrent T2 restore test failure (`uppercaseIdentityFieldsAreCanonicalizedOnRestore`); T4 source was not involved.
+- Current-source integration fixes applied: per-player quotes no longer advance the catalog revision; menu holders retain page, displayed resource IDs, and revision; canonical `/goldbag withdraw` requires material plus count while standalone legacy `/withdraw <amount>` maps to a note; rates list all resources when no material is supplied; preview messages include exact item detail and resulting balance; export writes on the storage worker; live import delegates to the offline CLI.
+- Durable physical evidence added: deposit, withdrawal, note issue, and note redemption PREPARE payloads now include deterministic main-36-slot `before=` and expected `after=` snapshots alongside the operation intent, so recovery inspection can identify the affected inventory state without relying on mutable Bukkit objects.
+- Boundary review disposition: all findings applicable to the current source are addressed: coordinator readiness revalidates online/dead/inventory state immediately before each physical callback, operation-token guards release only their own operation, notes compare by PDC UUID rather than object identity, startup health is gated by the pending read, reload parsing is asynchronous, the executor drains on disable, messages are strict, and legacy alias disabling preserves canonical `/gb`.
 - `mvn -B -pl goldbag-plugin -am package -DskipTests` compiled all 11 plugin source files and produced `goldbag-plugin/target/GoldBag-2.0.0-SNAPSHOT.jar` with the current sibling modules.
 - After the concurrent T2 edit temporarily broke reactor compilation, direct Java 16 compilation of all plugin sources against the last built core/storage classes and Spigot 1.17 API also passed (`goldbag-plugin/target/manual-classes`).
-- One intermediate reactor run was blocked by concurrent T2 changes; the storage worker has since repaired those issues and the fresh reactor run is green.
+- One intermediate reactor run was blocked by concurrent T2 changes; storage round-two fixes are now integrated and the focused reactor run is green. A full `mvn -B verify` is the remaining final build check for this source snapshot.
 
 ## Public integration decisions
 
@@ -34,9 +45,10 @@ Scope: `goldbag-plugin/src/**` and this report. No Git staging or commits perfor
 ## Remaining work / risks
 
 - No live Bukkit server smoke test has been run; EULA acceptance remains an operator action. Inventory event coverage and menu clicks need server validation.
-- Deposit-all now creates one exact multi-resource quote and durable payload; it still exposes a selection menu first for normal `/goldbag deposit all` UX.
-- Withdraw menu item clicks launch quantity-one previews; quantity buttons and exact quantity text input remain command-backed.
-- GUI payment/amount text entry is represented by command input; no conversation-based private text prompt is implemented.
+- `/goldbag deposit all` creates one exact multi-resource quote and durable payload; the deposit menu also exposes both per-resource and all-eligible previews.
+- Withdraw menu item clicks launch quantity previews with 1/16/64/max and private exact quantity input; canonical commands remain available for direct use.
+- Menu payment and banknote amount entry use a private 60-second conversation with local echo disabled.
 - Sneak-right-click raw-gold shortcut opens the main menu, does not consume raw gold, and ignores off-hand duplicate callbacks.
-- Runtime reload reads files on the command thread; this is administrative configuration I/O and should be moved to a bounded task if reload latency matters.
+- Runtime reload file parsing and validation run on the bounded storage executor; only immutable snapshot activation and user messaging return to the main thread.
 - The current plugin test suite uses pure classes; Bukkit event and inventory behavior remain unverified until a compatible server harness is available.
+- Quantity menus and conversation prompts still need a live Bukkit smoke check; the pure/coordinator coverage is green. No server smoke is claimed because accepting the Minecraft EULA remains an operator action.

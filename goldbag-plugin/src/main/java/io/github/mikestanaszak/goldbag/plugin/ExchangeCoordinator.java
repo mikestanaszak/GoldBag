@@ -2,11 +2,9 @@ package io.github.mikestanaszak.goldbag.plugin;
 
 import io.github.mikestanaszak.goldbag.storage.SqliteStore;
 
-import java.util.EnumMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.BooleanSupplier;
 
 /** Durable operation boundary. Bukkit inventory work stays outside the storage executor. */
 public final class ExchangeCoordinator {

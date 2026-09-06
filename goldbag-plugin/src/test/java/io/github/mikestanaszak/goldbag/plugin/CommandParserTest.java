@@ -28,7 +28,8 @@ class CommandParserTest {
 
     @Test
     void parsesLegacyWithdrawAsNoteAmount() {
-        CommandParser.Command command = CommandParser.parse(new String[]{"withdraw", "2.50"});
+        assertThrows(IllegalArgumentException.class, () -> CommandParser.parse(new String[]{"withdraw", "2.50"}));
+        CommandParser.Command command = CommandParser.parseLegacyWithdraw("2.50");
         assertEquals(CommandParser.Action.NOTE, command.action());
         assertEquals(250, command.amount());
     }

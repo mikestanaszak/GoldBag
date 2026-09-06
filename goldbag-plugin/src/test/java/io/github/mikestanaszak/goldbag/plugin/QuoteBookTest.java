@@ -32,4 +32,15 @@ class QuoteBookTest {
         assertEquals(next, book.current(player).orElseThrow());
         assertEquals(1, book.size());
     }
+
+    @Test
+    void quotingForAnotherPlayerDoesNotInvalidateExistingQuote() {
+        UUID first = UUID.randomUUID();
+        UUID second = UUID.randomUUID();
+        QuoteBook book = new QuoteBook(Clock.systemUTC());
+        QuoteBook.Quote firstQuote = book.put(first, QuoteBook.Kind.DEPOSIT, "COAL", 1, 20, 0, 60);
+        book.put(second, QuoteBook.Kind.WITHDRAW, "DIAMOND", 1, 5000, 0, 60);
+        assertEquals(firstQuote, book.current(first).orElseThrow());
+        assertEquals(0, book.catalogRevision());
+    }
 }

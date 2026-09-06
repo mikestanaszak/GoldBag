@@ -46,6 +46,8 @@ public final class CommandParser {
         }
     }
 
+    public static Command parseLegacyWithdraw(String amount) { return parse(new String[]{"note", amount}); }
+
     private static Command balance(List<String> args) {
         if (args.size() > 1) throw usage("balance [player]");
         return new Command(Action.BALANCE, null, args.isEmpty() ? null : args.get(0), 0, 0, false, false, 1, List.of(), null);
@@ -65,10 +67,7 @@ public final class CommandParser {
     }
 
     private static Command withdraw(List<String> args) {
-        if (args.size() == 1) {
-            // The historical /withdraw <amount> command creates a note.
-            return new Command(Action.NOTE, null, null, Money.positive(args.get(0)), 0, false, false, 1, List.of(), null);
-        }
+        if (args.size() == 1) throw usage("withdraw <material> <count|max>");
         if (args.size() != 2) throw usage("withdraw <material> <count|max>");
         String count = lower(args.get(1));
         if (count.equals("max")) return new Command(Action.WITHDRAW, args.get(0), null, 0, 0, true, false, 1, List.of(), null);
