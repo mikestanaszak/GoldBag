@@ -61,3 +61,11 @@ use `plan.ready(...)` for each revalidation, `plan.apply(...)` for the physical
 change, and `plan.evidence()` for the durable payload. The plan owns the exact
 slot and PDC identity; do not fall back to `getItemInMainHand()` for off-hand
 redemption.
+
+Follow-up review found that the public `beforeEvidence()` and
+`afterEvidence()` accessors omitted the tracked off-hand slot even though
+`evidence()` included it. Both accessors now use the same slot-aware snapshot,
+and the off-hand test asserts slot 40 plus its PDC note identity in the
+before/after evidence. The test-first isolated run failed on the new assertion,
+then passed all 9 adapter test methods after the accessor fix. No Git staging or
+commit was performed.

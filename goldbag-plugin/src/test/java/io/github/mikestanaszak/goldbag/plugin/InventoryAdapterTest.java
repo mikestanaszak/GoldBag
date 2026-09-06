@@ -177,6 +177,9 @@ class InventoryAdapterTest {
         assertEquals(Set.of(40), new HashSet<>(plan.affectedSlots()));
         assertTrue(plan.evidence().contains("slot=40"), plan.evidence());
         assertTrue(plan.evidence().contains(noteId.toString()), plan.evidence());
+        assertTrue(plan.beforeEvidence().contains("slot=40"), plan.beforeEvidence());
+        assertTrue(plan.beforeEvidence().contains(noteId.toString()), plan.beforeEvidence());
+        assertTrue(plan.afterEvidence().contains("slot=40"), plan.afterEvidence());
         assertTrue(plan.ready(fixture.inventory()));
         plan.apply(fixture.inventory());
         assertNull(fixture.get(40));

@@ -58,8 +58,8 @@ public final class InventoryAdapter {
         public List<ItemStack> after() { return immutableClones(after); }
         public List<Integer> affectedSlots() { return affectedSlots; }
         public String evidence() { return evidence; }
-        public String beforeEvidence() { return "before=" + snapshot(before); }
-        public String afterEvidence() { return "after=" + snapshot(after); }
+        public String beforeEvidence() { return "before=" + snapshot(before, selectedSlot, selectedBefore); }
+        public String afterEvidence() { return "after=" + snapshot(after, selectedSlot, selectedAfter); }
 
         /** Checks all 36 slots so a changed unrelated slot also aborts safely. */
         public boolean ready(PlayerInventory inventory) {
