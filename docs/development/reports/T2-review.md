@@ -80,3 +80,23 @@ Track active note IDs while validating import, require the issue pending row to 
 Require the set operation delta to equal its entry delta (and retain the existing after-balance check), with a regression test that tampers only this field.
 
 Focused fix-round evidence: the worker reports `mvn -B -f goldbag-storage/pom.xml test` and `verify` passing all 12 tests. The additional JShell repros above were run against the built classes. No source changes, Git operations, or broad suite reruns were performed by this re-review; only this report was written.
+
+## Round-two fix-only re-review (`ab708ca`)
+
+Verdict: two of the three round-one findings are fully addressed, and the third is addressed for active-versus-active duplicates. One note-state validation gap remains before storage integration.
+
+### Addressed findings
+
+- `StoreJson.canonicalizeIds` normalizes account, operation, actor, target, sender, recipient, player, note, entry, pending, and audit UUID fields before all maps, fingerprint checks, and inserts. Because fingerprints encode UUID values rather than source spelling, uppercase imported identities continue to match runtime fingerprints. The added uppercase restore test exercises account lookup, pending player/note lookup, and cancellation.
+- Active note IDs are now unique during import, note issue pending rows must own `note.issueOperation`, and the schema adds a partial unique index for active note reservations. The added cross-account duplicate-redemption and issue-ownership tests cover these paths.
+- `SET_BALANCE` import validation now requires the operation delta to equal its sole ledger entry delta. The tampered-delta test covers the prior gap.
+
+### Open residual finding
+
+#### [P1] Active redemption can still be imported for an already redeemed or cancelled note
+
+`StoreJson.java:155-180,378-383` rejects duplicate active note IDs and validates completed redemptions, but the active `NOTE_REDEEM` branch only requires that the note exists. It does not require the note status to be `ISSUED`. A focused repro duplicated a completed redemption operation as a new `PREPARED` operation for the same note; the note remained `REDEEMED`, yet import accepted the pending row (`pending().size()` was 1). The same shape is possible for a `CANCELLED` note. Recovery will later reach `applyPending` and reject the note, leaving an imported APPLYING row blocked rather than rejecting the inconsistent restore up front.
+
+Require `ISSUED` note status for active `NOTE_REDEEM` rows (and require `redeemOperation == null` in that state); reject any active redemption against `REDEEMED` or `CANCELLED`. Add a regression test for a redeemed-note duplicate pending row. The partial unique index remains useful for the separate active-versus-active case.
+
+The worker reports `mvn -B -f goldbag-storage/pom.xml test` and `verify` passing all 16 focused tests. No source changes, Git operations, or full-reactor reruns were performed by this re-review; only this report was appended.

@@ -179,6 +179,9 @@ final class StoreJson {
                 NoteData note = noteById.get(p.note);
                 if (note == null || !p.operation.equals(note.issueOperation)) throw new IllegalArgumentException("Note issue does not own its note");
             }
+            if ("NOTE_REDEEM".equals(p.kind) && ("PREPARED".equals(p.state) || "APPLYING".equals(p.state))) {
+                validateActiveRedemption(p, noteById);
+            }
         }
         for (OperationData operation : d.operations) if ("PREPARE".equals(operation.kind) && !pendingByOp.containsKey(operation.id)) throw new IllegalArgumentException("Journal operation is missing its pending row");
         validatePendingFingerprints(operationById, pendingByOp);
@@ -402,6 +405,13 @@ final class StoreJson {
                 || !note.id.equals(redeem.note)
                 || amount(note.amount, "note amount") != signed(redeem.amount, "redemption amount")) {
             throw new IllegalArgumentException("Note redemption relationship is invalid");
+        }
+    }
+
+    private static void validateActiveRedemption(PendingData pending, Map<String, NoteData> notes) {
+        NoteData note = notes.get(pending.note);
+        if (note == null || !"ISSUED".equals(note.status) || note.redeemOperation != null) {
+            throw new IllegalArgumentException("Active redemption requires an issued, unredeemed note");
         }
     }
     static UUID uuid(String value, String label) { try { if (value == null) throw new IllegalArgumentException(label + " is missing"); return UUID.fromString(value); } catch (IllegalArgumentException e) { throw new IllegalArgumentException("Invalid " + label, e); } }

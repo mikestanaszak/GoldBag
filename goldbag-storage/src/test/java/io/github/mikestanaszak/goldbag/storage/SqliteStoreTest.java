@@ -222,6 +222,46 @@ class SqliteStoreTest {
         }
     }
 
+    @Test void activeRedemptionRequiresIssuedNote() {
+        UUID issuer=UUID.randomUUID(), redeemer=UUID.randomUUID(), note=UUID.randomUUID(), issue=UUID.randomUUID(), redeem=UUID.randomUUID();
+        String redeemedExport;
+        try(SqliteStore store=new SqliteStore(temp.resolve("redeemed-active-source.db"),10000)) {
+            store.ensureAccount(issuer,"Issuer"); store.ensureAccount(redeemer,"Redeemer"); store.adjust(UUID.randomUUID(),null,issuer,500,"seed");
+            store.prepare(issue,issuer,SqliteStore.Kind.NOTE_ISSUE,100,"paper",note); store.markApplying(issue); store.complete(issue);
+            store.prepareRedemption(redeem,redeemer,note,"paper"); store.markApplying(redeem); store.complete(redeem); redeemedExport=store.exportJson();
+        }
+        String redeemedWithActive=appendActiveRedemption(redeemedExport,issue,UUID.randomUUID(),redeemer,note);
+        try(SqliteStore restored=new SqliteStore(temp.resolve("redeemed-active-destination.db"),10000)) {
+            assertThrows(IllegalArgumentException.class,()->restored.importJson(redeemedWithActive));
+            assertTrue(restored.top(1).isEmpty());
+        }
+
+        UUID cancelledNote=UUID.randomUUID(), cancelledIssue=UUID.randomUUID(); String cancelledExport;
+        try(SqliteStore store=new SqliteStore(temp.resolve("cancelled-active-source.db"),10000)) {
+            store.ensureAccount(issuer,"Issuer"); store.adjust(UUID.randomUUID(),null,issuer,500,"seed");
+            store.prepare(cancelledIssue,issuer,SqliteStore.Kind.NOTE_ISSUE,100,"paper",cancelledNote); store.cancelPrepared(cancelledIssue,"inventory changed"); cancelledExport=store.exportJson();
+        }
+        String cancelledWithActive=appendActiveRedemption(cancelledExport,cancelledIssue,UUID.randomUUID(),redeemer,cancelledNote);
+        try(SqliteStore restored=new SqliteStore(temp.resolve("cancelled-active-destination.db"),10000)) {
+            assertThrows(IllegalArgumentException.class,()->restored.importJson(cancelledWithActive));
+            assertTrue(restored.top(1).isEmpty());
+        }
+    }
+
+    private static String appendActiveRedemption(String exported, UUID templateOperation, UUID duplicateOperation, UUID player, UUID note) {
+        JsonObject root=JsonParser.parseString(exported).getAsJsonObject();
+        JsonObject template=null;
+        for (var element:root.getAsJsonArray("operations")) {
+            if (templateOperation.toString().equals(element.getAsJsonObject().get("id").getAsString())) template=element.getAsJsonObject();
+        }
+        JsonObject operation=template.deepCopy();
+        operation.addProperty("id",duplicateOperation.toString()); operation.addProperty("player",player.toString()); operation.addProperty("note",note.toString()); operation.addProperty("amount","100"); operation.addProperty("payload","paper"); operation.addProperty("state","PREPARED"); operation.addProperty("fingerprint",StoreFingerprint.of("PREPARE_REDEEM",player,note,"paper")); operation.remove("resolvedAt");
+        root.getAsJsonArray("operations").add(operation);
+        JsonObject pending=new JsonObject(); pending.addProperty("operation",duplicateOperation.toString()); pending.addProperty("player",player.toString()); pending.addProperty("kind","NOTE_REDEEM"); pending.addProperty("amount","100"); pending.addProperty("payload","paper"); pending.addProperty("note",note.toString()); pending.addProperty("state","PREPARED"); pending.addProperty("createdAt",999999L);
+        root.getAsJsonArray("pending").add(pending);
+        return root.toString();
+    }
+
     private static String replaceUuidWithUppercase(String json, UUID... ids) {
         for (UUID id : ids) json=json.replace(id.toString(),id.toString().toUpperCase());
         return json;

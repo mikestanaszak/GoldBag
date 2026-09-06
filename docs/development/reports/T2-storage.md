@@ -65,3 +65,14 @@ Final round-two verification:
 - `mvn -B -f goldbag-storage/pom.xml test` — PASS, 16 tests, 0 failures, 0 errors.
 - `mvn -B -f goldbag-storage/pom.xml verify` — PASS, 16 tests, 0 failures, 0 errors; storage JAR packaged.
 - Public `SqliteStore` API remains unchanged. No Git staging or commits performed; controller owns integration.
+
+## Final residual review fix
+
+The scoped re-review found that active `NOTE_REDEEM` rows could still be imported for notes already `REDEEMED` or `CANCELLED`. The validator now requires every active redemption (`PREPARED` or `APPLYING`) to reference an authoritative `ISSUED` note with no existing `redeemOperation`. Valid cancelled note-issue histories remain accepted; only inconsistent active redemption rows are rejected.
+
+Regression coverage duplicates an active redemption against both a redeemed note and a cancelled note and verifies import rollback/empty destination. Final verification:
+
+- `mvn -B -f goldbag-storage/pom.xml test` — PASS, 17 tests, 0 failures, 0 errors.
+- `mvn -B -f goldbag-storage/pom.xml verify` — PASS, 17 tests, 0 failures, 0 errors; storage JAR packaged.
+
+No Git staging or commits performed; controller owns integration.
