@@ -39,19 +39,25 @@ public final class MenuService {
     }
 
     public void openDeposit(Player player) {
+        openDeposit(player, 1);
+    }
+
+    public void openDeposit(Player player, int page) {
         List<Resource> eligible = inventory.eligible(player.getInventory(), plugin.config().catalog().resources());
-        MenuHolder holder = new MenuHolder(player.getUniqueId(), MenuHolder.Screen.DEPOSIT, 1, plugin.quotes().catalogRevision(), eligible.stream().map(Resource::id).collect(java.util.stream.Collectors.toList()));
-        Inventory menu = Bukkit.createInventory(holder, 54, ChatColor.GREEN + "GoldBag Deposit");
+        MenuHolder holder = new MenuHolder(player.getUniqueId(), MenuHolder.Screen.DEPOSIT, page, plugin.quotes().catalogRevision(), eligible.stream().map(Resource::id).collect(java.util.stream.Collectors.toList()), page * 45 < eligible.size());
+        Inventory menu = Bukkit.createInventory(holder, 54, ChatColor.GREEN + "GoldBag Deposit " + page);
         holder.inventory(menu);
-        int slot = 0;
-        for (Resource resource : eligible) {
-            if (slot >= 45) break;
+        int from = (page - 1) * 45;
+        for (int slot = 0; slot < 45 && from + slot < eligible.size(); slot++) {
+            Resource resource = eligible.get(from + slot);
             Material material = Material.matchMaterial(resource.material());
-            set(menu, slot++, material, resource.id(), "Available: " + inventory.count(player.getInventory(), material),
+            set(menu, slot, material, resource.id(), "Available: " + inventory.count(player.getInventory(), material),
                     "Value: " + plugin.money(resource.depositPrice()));
         }
+        if (page > 1) set(menu, 45, Material.ARROW, "Previous page");
+        if (page * 45 < eligible.size()) set(menu, 53, Material.ARROW, "Next page");
         set(menu, 49, Material.BARRIER, "Close", "Cancel");
-        set(menu, 53, Material.GOLD_INGOT, "Deposit all eligible", "Preview every eligible main-inventory stack");
+        set(menu, 52, Material.GOLD_INGOT, "Deposit all eligible", "Preview every eligible main-inventory stack");
         player.openInventory(menu);
     }
 
@@ -73,7 +79,8 @@ public final class MenuService {
     }
 
     public void openTop(Player player, List<SqliteStore.Account> accounts, int page) {
-        MenuHolder holder = new MenuHolder(player.getUniqueId(), MenuHolder.Screen.TOP, page);
+        MenuHolder holder = new MenuHolder(player.getUniqueId(), MenuHolder.Screen.TOP, page, 0,
+                accounts.stream().map(SqliteStore.Account::name).collect(java.util.stream.Collectors.toList()), accounts.size() == 10);
         Inventory menu = Bukkit.createInventory(holder, 27, ChatColor.AQUA + "GoldBag Top " + page);
         holder.inventory(menu);
         int slot = 0;

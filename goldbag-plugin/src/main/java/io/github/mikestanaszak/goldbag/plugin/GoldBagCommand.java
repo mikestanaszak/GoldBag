@@ -35,26 +35,32 @@ public final class GoldBagCommand implements CommandExecutor, TabCompleter {
             plugin.tell(sender, ChatColor.RED + error.getMessage());
             return true;
         } catch (RuntimeException error) {
-            plugin.tell(sender, ChatColor.RED + "GoldBag is temporarily unavailable.");
+            String key = error.getMessage() != null && error.getMessage().toLowerCase(Locale.ROOT).contains("storage") ? "storage-unavailable" : "busy";
+            plugin.tell(sender, ChatColor.RED + plugin.message(key, key.equals("busy") ? "GoldBag is temporarily unavailable." : "GoldBag storage is temporarily unavailable."));
             return true;
         }
     }
 
     private boolean isLegacyAlias(String label, String[] args) {
-        String lower = label.toLowerCase(Locale.ROOT);
-        int separator = lower.lastIndexOf(':');
-        if (separator >= 0) lower = lower.substring(separator + 1);
+        String lower = normalizedLabel(label);
         if (lower.equals("balance") || lower.equals("money") || lower.equals("pursetop") || lower.equals("withdraw")) return true;
         return lower.equals("purse") && args.length > 0 && (args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("take") || args[0].equalsIgnoreCase("set"));
     }
 
     private CommandParser.Command parseAlias(String label, String[] args) {
-        String lower = label.toLowerCase(Locale.ROOT);
+        String lower = normalizedLabel(label);
         if (lower.equals("balance") || lower.equals("money")) return CommandParser.parse(join(new String[]{"balance"}, args));
         if (lower.equals("pursetop")) return CommandParser.parse(join(new String[]{"top"}, args));
         if (lower.equals("withdraw") && args.length == 1) return CommandParser.parseLegacyWithdraw(args[0]);
+        if (lower.equals("withdraw")) return CommandParser.parse(join(new String[]{"withdraw"}, args));
         if (lower.equals("purse") && args.length > 0 && (args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("take") || args[0].equalsIgnoreCase("set"))) return CommandParser.parse(join(new String[]{"admin"}, args));
         return CommandParser.parse(args);
+    }
+
+    private String normalizedLabel(String label) {
+        String lower = label == null ? "" : label.toLowerCase(Locale.ROOT);
+        int separator = lower.lastIndexOf(':');
+        return separator >= 0 ? lower.substring(separator + 1) : lower;
     }
 
     private boolean dispatch(CommandSender sender, CommandParser.Command parsed) {
@@ -69,7 +75,7 @@ public final class GoldBagCommand implements CommandExecutor, TabCompleter {
                     require(sender, "goldbag.balance", "goldpurse.use"); player(sender).ifPresent(p -> plugin.showBalance(p, p.getUniqueId()));
                 }
                 return true;
-            case RATES: require(sender, "goldbag.use", "goldpurse.use"); if (parsed.material() == null) { plugin.tell(sender, "Use /goldbag rates <material>."); } else plugin.showRates(sender, parsed.material()); return true;
+            case RATES: require(sender, "goldbag.use", "goldpurse.use"); plugin.showRates(sender, parsed.material()); return true;
             case DEPOSIT: requirePlayerPermission(sender, "goldbag.deposit", "goldpurse.use"); player(sender).ifPresent(p -> { if (parsed.all()) plugin.quoteDepositAll(p); else plugin.quoteDeposit(p, plugin.config().catalog().require(parsed.material()), parsed.count()); }); return true;
             case WITHDRAW: requirePlayerPermission(sender, "goldbag.withdraw", "goldpurse.use"); player(sender).ifPresent(p -> plugin.quoteWithdrawal(p, plugin.config().catalog().require(parsed.material()), parsed.count(), parsed.max())); return true;
             case PAY: requirePlayerPermission(sender, "goldbag.pay", "goldpurse.use"); pay(sender, parsed); return true;
@@ -91,9 +97,10 @@ public final class GoldBagCommand implements CommandExecutor, TabCompleter {
     private void pay(CommandSender sender, CommandParser.Command parsed) {
         if (!(sender instanceof Player)) throw new IllegalArgumentException("Payments require a player sender.");
         Player player = (Player) sender;
+        UUID payer = player.getUniqueId();
         plugin.submit(() -> plugin.store().findAccount(parsed.target()).orElseThrow(() -> new IllegalArgumentException("Unknown GoldBag account")), account -> {
-            if (account.id().equals(player.getUniqueId())) { plugin.tell(player, "You cannot pay yourself."); return; }
-            plugin.submit(() -> plugin.store().transfer(UUID.randomUUID(), player.getUniqueId(), account.id(), parsed.amount()), receipt -> plugin.tell(player, "Paid " + account.name() + " " + plugin.money(parsed.amount()) + "."), player, "Payment failed.");
+            if (account.id().equals(payer)) { plugin.tell(player, "You cannot pay yourself."); return; }
+            plugin.submit(() -> plugin.store().transfer(UUID.randomUUID(), payer, account.id(), parsed.amount()), receipt -> plugin.tell(player, "Paid " + account.name() + " " + plugin.money(parsed.amount()) + "."), player, "Payment failed.");
         }, player, "Recipient lookup failed.");
     }
 
@@ -125,7 +132,14 @@ public final class GoldBagCommand implements CommandExecutor, TabCompleter {
     }
 
     private void recoveryList(CommandSender sender) {
-        plugin.submit(() -> plugin.store().pending(), pending -> { if (pending.isEmpty()) plugin.tell(sender, "No unresolved GoldBag operations."); else for (SqliteStore.Pending operation : pending) plugin.tell(sender, operation.id() + " " + operation.kind() + " " + plugin.money(operation.amount()) + " " + operation.state()); }, sender, "Could not read recovery records.");
+        plugin.submit(() -> plugin.store().pending(), pending -> {
+            if (pending.isEmpty()) plugin.tell(sender, "No unresolved GoldBag operations.");
+            else for (SqliteStore.Pending operation : pending) {
+                plugin.tell(sender, operation.id() + " player=" + operation.playerId() + " kind=" + operation.kind()
+                        + " amount=" + plugin.money(operation.amount()) + " state=" + operation.state()
+                        + " note=" + operation.noteId() + " evidence=" + operation.payload());
+            }
+        }, sender, "Could not read recovery records.");
     }
 
     private void recoveryResolve(CommandSender sender, CommandParser.Command parsed) {

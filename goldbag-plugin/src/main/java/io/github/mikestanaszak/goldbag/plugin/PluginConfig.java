@@ -55,7 +55,8 @@ public record PluginConfig(Settings settings, Catalog catalog, Map<String, Strin
 
     private static void validateMaterials(Catalog catalog) {
         for (io.github.mikestanaszak.goldbag.core.Resource resource : catalog.resources()) {
-            if (Material.matchMaterial(resource.material()) == null) {
+            Material material = Material.matchMaterial(resource.material());
+            if (material == null || !material.isItem() || material == Material.AIR) {
                 throw new IllegalArgumentException("Unsupported Bukkit material in catalog: " + resource.material());
             }
             String block = switch (resource.material()) {

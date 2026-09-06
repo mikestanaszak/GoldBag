@@ -1,3 +1,5 @@
 balance: "Balance: {amount}"
 busy: "GoldBag is busy. Please try again."
 storage-unavailable: "GoldBag storage is temporarily unavailable."
+permission: "You do not have permission."
+cancelled: "GoldBag operation cancelled."
