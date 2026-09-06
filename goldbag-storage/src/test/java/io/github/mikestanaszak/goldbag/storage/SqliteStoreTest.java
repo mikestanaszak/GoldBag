@@ -158,4 +158,72 @@ class SqliteStoreTest {
         }
         assertThrows(IllegalStateException.class,()->new SqliteStore(db,10000));
     }
+
+    @Test void uppercaseIdentityFieldsAreCanonicalizedOnRestore() {
+        UUID player=UUID.randomUUID(), note=UUID.randomUUID(), issue=UUID.randomUUID(); String exported;
+        try(SqliteStore store=new SqliteStore(temp.resolve("uppercase-source.db"),10000)) {
+            store.ensureAccount(player,"Player"); store.adjust(UUID.randomUUID(),null,player,500,"seed");
+            store.prepare(issue,player,SqliteStore.Kind.NOTE_ISSUE,100,"paper",note); exported=store.exportJson();
+        }
+        exported=replaceUuidWithUppercase(exported,player,issue,note);
+        try(SqliteStore restored=new SqliteStore(temp.resolve("uppercase-destination.db"),10000)) {
+            restored.importJson(exported);
+            assertEquals(500,restored.account(player).orElseThrow().balance());
+            assertEquals(note,restored.pending().get(0).noteId());
+            assertEquals(player,restored.pending().get(0).playerId());
+            assertEquals("RESERVED",restored.note(note).orElseThrow().status());
+            restored.cancelPrepared(issue,"restored cleanup");
+            assertTrue(restored.pending().isEmpty());
+            assertEquals("CANCELLED",restored.note(note).orElseThrow().status());
+        }
+    }
+
+    @Test void duplicateActiveRedemptionAcrossAccountsIsRejected() {
+        UUID issuer=UUID.randomUUID(), first=UUID.randomUUID(), second=UUID.randomUUID(), note=UUID.randomUUID(), issue=UUID.randomUUID(), redeem=UUID.randomUUID(), duplicate=UUID.randomUUID(); String exported;
+        try(SqliteStore store=new SqliteStore(temp.resolve("duplicate-note-source.db"),10000)) {
+            store.ensureAccount(issuer,"Issuer"); store.ensureAccount(first,"First"); store.ensureAccount(second,"Second"); store.adjust(UUID.randomUUID(),null,issuer,500,"seed");
+            store.prepare(issue,issuer,SqliteStore.Kind.NOTE_ISSUE,100,"paper",note); store.markApplying(issue); store.complete(issue);
+            store.prepareRedemption(redeem,first,note,"paper");
+            exported=store.exportJson();
+        }
+        JsonObject root=JsonParser.parseString(exported).getAsJsonObject();
+        JsonObject operation=null, pending=null;
+        for(var element:root.getAsJsonArray("operations")) if(redeem.toString().equals(element.getAsJsonObject().get("id").getAsString())) operation=element.getAsJsonObject().deepCopy();
+        for(var element:root.getAsJsonArray("pending")) if(redeem.toString().equals(element.getAsJsonObject().get("operation").getAsString())) pending=element.getAsJsonObject().deepCopy();
+        operation.addProperty("id",duplicate.toString()); operation.addProperty("player",second.toString()); operation.addProperty("fingerprint",StoreFingerprint.of("PREPARE_REDEEM",second,note,operation.get("payload").isJsonNull()?null:operation.get("payload").getAsString())); pending.addProperty("operation",duplicate.toString()); pending.addProperty("player",second.toString());
+        root.getAsJsonArray("operations").add(operation); root.getAsJsonArray("pending").add(pending);
+        try(SqliteStore restored=new SqliteStore(temp.resolve("duplicate-note-destination.db"),10000)) {
+            assertThrows(IllegalArgumentException.class,()->restored.importJson(root.toString()));
+            assertTrue(restored.top(1).isEmpty());
+        }
+    }
+
+    @Test void noteIssueMustOwnItsIssueOperation() {
+        UUID player=UUID.randomUUID(), note=UUID.randomUUID(), issue=UUID.randomUUID(); String exported;
+        try(SqliteStore store=new SqliteStore(temp.resolve("note-owner-source.db"),10000)) {
+            store.ensureAccount(player,"Player"); store.adjust(UUID.randomUUID(),null,player,500,"seed"); store.prepare(issue,player,SqliteStore.Kind.NOTE_ISSUE,100,"paper",note); exported=store.exportJson();
+        }
+        String forged=exported.replace("\"issueOperation\":\""+issue+"\"","\"issueOperation\":\""+UUID.randomUUID()+"\"");
+        try(SqliteStore restored=new SqliteStore(temp.resolve("note-owner-destination.db"),10000)) {
+            assertThrows(IllegalArgumentException.class,()->restored.importJson(forged));
+            assertTrue(restored.top(1).isEmpty());
+        }
+    }
+
+    @Test void tamperedSetBalanceDeltaIsRejected() {
+        UUID player=UUID.randomUUID(); String exported;
+        try(SqliteStore store=new SqliteStore(temp.resolve("set-delta-source.db"),10000)) {
+            store.ensureAccount(player,"Player"); store.setBalance(UUID.randomUUID(),null,player,100,"set"); exported=store.exportJson();
+        }
+        String forged=exported.replaceFirst("\"delta\":\"100\"","\"delta\":\"999\"");
+        try(SqliteStore restored=new SqliteStore(temp.resolve("set-delta-destination.db"),10000)) {
+            assertThrows(IllegalArgumentException.class,()->restored.importJson(forged));
+            assertTrue(restored.top(1).isEmpty());
+        }
+    }
+
+    private static String replaceUuidWithUppercase(String json, UUID... ids) {
+        for (UUID id : ids) json=json.replace(id.toString(),id.toString().toUpperCase());
+        return json;
+    }
 }

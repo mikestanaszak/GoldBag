@@ -77,6 +77,7 @@ final class StoreJson {
             throw new IllegalArgumentException("Malformed GoldBag export", e);
         }
         if (d == null || d.schemaVersion != StoreSchema.VERSION || d.accounts == null || d.operations == null || d.entries == null || d.notes == null || d.pending == null || d.audit == null) throw new IllegalArgumentException("Unsupported or incomplete GoldBag export");
+        canonicalizeIds(d);
         Set<String> accounts = new HashSet<>();
         for (AccountData a : d.accounts) {
             UUID id = uuid(a.id, "account id");
@@ -133,6 +134,7 @@ final class StoreJson {
             entriesByOperation.computeIfAbsent(op.toString(), ignored -> new ArrayList<>()).add(e);
         }
         Set<String> notes = new HashSet<>();
+        Map<String, NoteData> noteById = new HashMap<>();
         for (NoteData n : d.notes) {
             UUID id = uuid(n.id, "note id");
             if (!notes.add(id.toString()) || amount(n.amount, "note amount") <= 0 || n.status == null
@@ -145,8 +147,10 @@ final class StoreJson {
             if (n.redeemOperation != null && !operations.contains(uuid(n.redeemOperation, "note redemption operation").toString())) {
                 throw new IllegalArgumentException("Note references unknown redemption operation");
             }
+            noteById.put(id.toString(), n);
         }
         Set<String> pendingOps = new HashSet<>();
+        Set<String> activeNoteIds = new HashSet<>();
         Map<String, PendingData> pendingByOp = new HashMap<>();
         for (PendingData p : d.pending) {
             UUID op = uuid(p.operation, "pending operation");
@@ -160,6 +164,9 @@ final class StoreJson {
             if (p.note != null) uuid(p.note, "pending note id");
             boolean noteKind = "NOTE_ISSUE".equals(p.kind) || "NOTE_REDEEM".equals(p.kind);
             if (noteKind != (p.note != null)) throw new IllegalArgumentException("Only note operations may carry a note id");
+            if (noteKind && ("PREPARED".equals(p.state) || "APPLYING".equals(p.state)) && !activeNoteIds.add(p.note)) {
+                throw new IllegalArgumentException("A note cannot have multiple active pending operations");
+            }
             PendingData previous = pendingByOp.put(op.toString(), p);
             if (previous != null) throw new IllegalArgumentException("Duplicate pending operation");
             OperationData operation = operationById.get(op.toString());
@@ -168,16 +175,53 @@ final class StoreJson {
                     || !pendingStateMatches(p.state, operation.state)) {
                 throw new IllegalArgumentException("Pending operation does not match its journal row");
             }
+            if ("NOTE_ISSUE".equals(p.kind)) {
+                NoteData note = noteById.get(p.note);
+                if (note == null || !p.operation.equals(note.issueOperation)) throw new IllegalArgumentException("Note issue does not own its note");
+            }
         }
         for (OperationData operation : d.operations) if ("PREPARE".equals(operation.kind) && !pendingByOp.containsKey(operation.id)) throw new IllegalArgumentException("Journal operation is missing its pending row");
         validatePendingFingerprints(operationById, pendingByOp);
         validateLedger(d.accounts, operationById, entriesByAccount, entriesByOperation, pendingByOp, maxBalance);
-        Map<String, NoteData> noteById = new HashMap<>();
-        for (NoteData n : d.notes) noteById.put(n.id,n);
         validateNotes(d.notes, noteById, operationById, pendingByOp);
         for (AuditData a : d.audit) { if (!operations.contains(uuid(a.operation,"audit operation").toString()) || a.action==null || a.reason==null) throw new IllegalArgumentException("Invalid audit record"); if (a.actor != null) uuid(a.actor,"audit actor"); }
         return new ImportData(d);
     }
+
+    private static void canonicalizeIds(ExportDocument document) {
+        for (AccountData account : document.accounts) account.id = canonical(account.id, "account id");
+        for (OperationData operation : document.operations) {
+            operation.id = canonical(operation.id, "operation id");
+            operation.actor = optionalCanonical(operation.actor, "actor");
+            operation.target = optionalCanonical(operation.target, "target account");
+            operation.from = optionalCanonical(operation.from, "sender");
+            operation.to = optionalCanonical(operation.to, "recipient");
+            operation.player = optionalCanonical(operation.player, "player");
+            operation.note = optionalCanonical(operation.note, "note id");
+        }
+        for (EntryData entry : document.entries) {
+            entry.operation = canonical(entry.operation, "entry operation");
+            entry.account = canonical(entry.account, "entry account");
+        }
+        for (NoteData note : document.notes) {
+            note.id = canonical(note.id, "note id");
+            note.issuer = canonical(note.issuer, "note issuer");
+            note.issueOperation = canonical(note.issueOperation, "note issue operation");
+            note.redeemOperation = optionalCanonical(note.redeemOperation, "note redemption operation");
+        }
+        for (PendingData pending : document.pending) {
+            pending.operation = canonical(pending.operation, "pending operation");
+            pending.player = canonical(pending.player, "pending player");
+            pending.note = optionalCanonical(pending.note, "pending note id");
+        }
+        for (AuditData audit : document.audit) {
+            audit.operation = canonical(audit.operation, "audit operation");
+            audit.actor = optionalCanonical(audit.actor, "audit actor");
+        }
+    }
+
+    private static String canonical(String value, String label) { return uuid(value, label).toString(); }
+    private static String optionalCanonical(String value, String label) { return value == null ? null : canonical(value, label); }
 
     private static void requireFields(JsonObject object, String... fields) { for (String field : fields) if (!object.has(field)) throw new IllegalArgumentException("Missing export field: " + field); }
     private static boolean same(String first,String second) { return first==null?second==null:first.equals(second); }
@@ -267,7 +311,10 @@ final class StoreJson {
                 long amount = signed(operation.amount, "operation amount");
                 long delta = signed(entry.delta, "entry delta");
                 if ("ADJUST".equals(operation.kind) && delta != amount) throw new IllegalArgumentException("Adjustment entry is invalid");
-                if ("SET_BALANCE".equals(operation.kind) && amount != amount(entry.after, "entry after")) throw new IllegalArgumentException("Set balance entry is invalid");
+                if ("SET_BALANCE".equals(operation.kind)
+                        && (amount != amount(entry.after, "entry after") || signed(operation.delta, "operation delta") != delta)) {
+                    throw new IllegalArgumentException("Set balance entry is invalid");
+                }
             } else if ("TRANSFER".equals(operation.kind)) {
                 if (!"FINAL".equals(operation.state) || entries.size() != 2 || operation.from == null || operation.to == null) throw new IllegalArgumentException("Transfer entry cardinality is invalid");
                 long amount = signed(operation.amount, "operation amount");

@@ -40,6 +40,7 @@ final class StoreSchema {
             statement.executeUpdate("CREATE TABLE IF NOT EXISTS pending_operations (op_id TEXT PRIMARY KEY REFERENCES operations(op_id), player_id TEXT NOT NULL REFERENCES accounts(id), kind TEXT NOT NULL CHECK(kind IN ('DEPOSIT','WITHDRAW','NOTE_ISSUE','NOTE_REDEEM')), amount INTEGER NOT NULL CHECK(amount > 0), payload TEXT, note_id TEXT REFERENCES notes(note_id), state TEXT NOT NULL CHECK(state IN ('PREPARED','APPLYING','COMPLETED','CANCELLED')), created_at INTEGER NOT NULL)");
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_accounts_leaderboard ON accounts(balance DESC, id ASC)");
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_pending_player ON pending_operations(player_id, state)");
+            statement.executeUpdate("CREATE UNIQUE INDEX IF NOT EXISTS idx_pending_active_note ON pending_operations(note_id) WHERE note_id IS NOT NULL AND state IN ('PREPARED','APPLYING')");
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_notes_status ON notes(status)");
             statement.executeUpdate("CREATE INDEX IF NOT EXISTS idx_operation_entries_account ON operation_entries(account_id)");
             statement.executeUpdate("INSERT OR IGNORE INTO schema_meta(key,value) VALUES('schema_version','2')");

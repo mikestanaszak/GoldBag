@@ -53,3 +53,15 @@ Final verification:
 - `javap` contract audit — exact planned `SqliteStore` constructor, nested records/enums, and public methods are present; no Bukkit/core dependency added.
 
 Schema v2 is intentional: the controller authorized rejecting the unreleased v1 prototype rather than guessing historical entry order. No Git staging or commits performed; controller owns integration.
+
+## Round-two review remediation checkpoint
+
+The resumed scoped review found three additional issues: UUID spellings were validated but raw strings were inserted, imported active note reservations were not unique/fully owned, and `SET_BALANCE` operation deltas were not compared with their ledger entries.
+
+Regression tests were added first for uppercase identity fields, cross-account duplicate active redemption rows, note issue ownership, and tampered set deltas. The implementation now canonicalizes every UUID field before validation/insertion, adds a SQLite partial unique index for active note reservations, rejects duplicate active note IDs during import, binds `NOTE_ISSUE` rows to the note's `issueOperation`, and requires `SET_BALANCE` operation delta equality with its sole entry delta. The uppercase restore test also exercises operation cancellation, pending player/note lookup, and canonical account lookup after restore.
+
+Final round-two verification:
+
+- `mvn -B -f goldbag-storage/pom.xml test` — PASS, 16 tests, 0 failures, 0 errors.
+- `mvn -B -f goldbag-storage/pom.xml verify` — PASS, 16 tests, 0 failures, 0 errors; storage JAR packaged.
+- Public `SqliteStore` API remains unchanged. No Git staging or commits performed; controller owns integration.
