@@ -46,3 +46,37 @@ The public mutation paths in `SqliteStore.java:96-146` and the import validator 
 - Focused JShell checks against the built classes reproduced: transfer export/import rejection on a negative operation delta; forged nonzero account balance accepted with no ledger; null-note `NOTE_REDEEM` pending accepted and later failing in `complete`; payload `null` and payload `"<null>"` being treated as the same fingerprint; and an unversioned pre-existing `accounts` table being adopted.
 - Pending account blocking, outgoing affordability reservation, note-ID exclusivity, PREPARED/APPLYING transitions, audited resolution replay, and SQL rollback structure were otherwise consistent with the T2 contract in the reviewed code.
 - No source changes or Git operations were made by this review. The only file written is this report. Fixes should add focused storage tests for every finding before integration.
+
+## Round-one fix-only re-review (`bf5e6dd`)
+
+Verdict: the six original findings are addressed in the changed paths, but this fix round has three new import-integrity findings that should be fixed before T2 integration.
+
+### Addressed findings
+
+- Signed transfer, debit adjustment, and lower `SET_BALANCE` exports now parse and round-trip. The added signed-operation test covers these cases.
+- Import now replays each account's revision ledger, checks contiguous revisions and final balance/revision, and validates operation-specific entry cardinality and note lifecycle relationships. The forged balance/revision, missing-entry, and forged-note tests cover the original monetary and note-integrity gaps.
+- `StoreFingerprint` uses typed length-prefixed encoding, and the null/literal-null and separator collision cases now reject UUID reuse.
+- Schema v2 refuses unversioned nonempty files and incompatible shapes. The controller-authorized rejection of the unreleased v1 prototype is consistent with this repository's no-lived-dataset state.
+- The main mutation and import validators are multiline and named-helper based. Some low-level SQL helper methods remain dense, but the original state-machine readability problem is materially reduced and no new behavior was found there.
+
+### Open findings
+
+#### [P1] Imported UUIDs are validated but not canonicalized before insertion
+
+`StoreJson.java:81-89,120-133` parses UUIDs for validation and uses canonical `UUID.toString()` keys for some maps, but `SqliteStore.java:321-327` inserts the original JSON strings. A valid uppercase UUID therefore passes import but is stored as uppercase text; runtime queries use lowercase `UUID.toString()`. A focused repro imported a zero-balance account with an uppercase ID, then `account(lowercaseUuid)` returned empty while name lookup could still see the row. The account is effectively inaccessible to normal mutations, and the same raw/canonical mismatch can affect operation, entry, pending, and note references.
+
+Normalize every UUID field to `UUID.fromString(value).toString()` before validation/insertion, or reject noncanonical spellings. Add an uppercase-ID export/import test and verify account, operation, pending, and note lookups after restore.
+
+#### [P1] Import allows duplicate active reservations for one note
+
+`StoreJson.java:330-338` requires note existence for note pending rows but does not enforce at most one active (`PREPARED`/`APPLYING`) pending row per note, and it does not require a `NOTE_ISSUE` pending operation to own the note's `issueOperation`. A focused repro duplicated a valid pending `NOTE_REDEEM` operation under a new operation ID; import accepted both rows and `pending().size()` became 2. This bypasses the runtime `notePending` reservation check and can leave one redemption stuck APPLYING after the other redeems the note.
+
+Track active note IDs while validating import, require the issue pending row to match `note.issueOperation`, and add a SQLite partial unique index for active `pending_operations.note_id` values (or equivalent transactional enforcement). Add a cross-account duplicate-redemption import test.
+
+#### [P2] `SET_BALANCE` operation deltas are not checked against their entries
+
+`StoreJson.java:195-203` validates that a set amount is nonnegative, while `StoreJson.java:264-270` checks the entry's final balance but never requires `operation.delta == entry.delta`. A focused repro changed a valid set operation's exported delta from 100 to 999; import accepted it even though the account ledger entry remained correct. The monetary total survives, but the immutable operation journal no longer records the exact delta promised by the storage contract.
+
+Require the set operation delta to equal its entry delta (and retain the existing after-balance check), with a regression test that tampers only this field.
+
+Focused fix-round evidence: the worker reports `mvn -B -f goldbag-storage/pom.xml test` and `verify` passing all 12 tests. The additional JShell repros above were run against the built classes. No source changes, Git operations, or broad suite reruns were performed by this re-review; only this report was written.
