@@ -13,7 +13,11 @@
   <build>
     <finalName>GoldBag-${project.version}</finalName>
     <resources><resource><directory>src/main/resources</directory><filtering>true</filtering></resource></resources>
-    <plugins><plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-shade-plugin</artifactId><version>3.6.0</version>
+    <plugins>
+    <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-jar-plugin</artifactId>
+      <configuration><forceCreation>true</forceCreation></configuration>
+    </plugin>
+    <plugin><groupId>org.apache.maven.plugins</groupId><artifactId>maven-shade-plugin</artifactId><version>3.6.0</version>
       <executions><execution><phase>package</phase><goals><goal>shade</goal></goals><configuration>
         <createDependencyReducedPom>false</createDependencyReducedPom>
         <filters><filter><artifact>*:*</artifact><excludes>

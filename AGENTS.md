@@ -8,6 +8,7 @@ The executable task plan is `docs/superpowers/plans/2026-09-05-goldbag-rebuild.m
 
 - The user explicitly requests **gpt-5.6-luna** subagents for parallel implementation. Use that model for implementation and review agents; do not silently upgrade it. Use isolated context and bounded tasks.
 - Preserve the original Git history. Work on `codex/goldbag-rebuild`; do not push or merge `main`.
+- Explicit integration authorization recorded 2026-09-06: the user requested creating a PR to the default branch and merging it once the work is done. Complete outstanding fixes/reviews/checks, then merge that PR into the verified default branch (`main`) while preserving history.
 - Workers own only the files named in their brief. No nested subagents. No edits to another worker's files without coordinating with the controller.
 - Workers write their own tracked report in `docs/development/reports/`. Save it before long checks and before finishing; include exact commands, outcomes, remaining work, and integration API details.
 - Controller owns shared build files, task board, integration, and Git commits. Workers must not stage or commit while running concurrently: shared index operations are serialized by the controller.

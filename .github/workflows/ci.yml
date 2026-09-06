@@ -51,6 +51,13 @@ jobs:
             exit 1
           fi
           jar="${jars[0]}"
+          initial_hash="$(sha256sum "$jar" | cut -d' ' -f1)"
+          mvn -B -DskipTests package
+          rebuilt_hash="$(sha256sum "$jar" | cut -d' ' -f1)"
+          if [[ "$initial_hash" != "$rebuilt_hash" ]]; then
+            printf 'Incremental packaging changed the shaded JAR checksum\n' >&2
+            exit 1
+          fi
           verifier="$RUNNER_TEMP/goldbag-packaged-verifier"
           rm -rf "$verifier"
           mkdir -p "$verifier" ci-artifacts
