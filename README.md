@@ -37,6 +37,19 @@ The build targets Java 16 bytecode. Each Minecraft server still needs its own su
 
 The plugin generates `config.yml`, `resources.yml`, and `messages.yml` beneath `plugins/GoldBag`. The live database defaults to `goldbag.db`; JSON is for export/restore. No database credentials or external database service are needed.
 
+## Example exchange
+
+With 25 ordinary raw iron in your main inventory:
+
+```text
+/goldbag deposit raw_iron 25
+/goldbag confirm
+/goldbag withdraw diamond 1
+/goldbag confirm
+```
+
+The deposit credits 50.00 G and the diamond costs 50.00 G at default prices. `/goldbag` opens the menu, `/goldbag rates` lists prices, and `/goldbag cancel` cancels a preview. Items stay in your inventory until confirmation.
+
 ## Development layout
 
 | Module | Purpose |

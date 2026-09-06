@@ -30,3 +30,12 @@ This is an incremental record, not a completed server-release certificate. Reche
 - Package cleanup removed module-descriptor/license overlap warnings. The remaining warning is the expected input-manifest overlap; the output manifest was inspected above.
 - GitHub Linux Java 17/21 verification passed at `7367d29` (run `34006088585`). Newer checkpoint CI is pending. Earlier WIP `079950a` had an intermediate guard compile error, fixed before `7367d29`.
 - Player-flow and physical-flow review fixes remain; this artifact is a development checkpoint, not a verified server release. No EULA accepted or server started.
+
+## Latest implementation checkpoint `904e67f`
+
+- Controller `mvn -B verify`: PASS, 63 tests (12 core, 17 storage, 34 plugin), zero failures/errors/skips.
+- GitHub Linux Java 17/21 verification: PASS at the same source checkpoint, run `34007572136`.
+- Both standalone packaged-JAR smoke commands above passed again. The offline CLI preserved the balance, issued note, unresolved pending operation/evidence, and original export bytes; its dry run created no destination.
+- Artifact SHA-256: `F9B0F5F1ED777EB77E52A0A24C51B5B0272537039E6FF34D2AD8E8CFAA728388`.
+- Final header inspection: 712 base classes, maximum major version 60 (Java 16); multi-release overrides excluded. This is a bytecode check, not a server compatibility claim.
+- Final scoped Luna review dispositions are pending because both reviewers hit the usage limit. Exact continuation briefs are in `T5-review.md`. The artifact remains a development build; no actual Minecraft server behavior or version compatibility is certified.

@@ -16,3 +16,5 @@ Suggested continuation request:
 > Continue GoldBag from RESUME.md using 5.6 Luna subagents. Preserve completed work, resume unfinished tasks from the saved reports, and keep checkpointing progress.
 
 Usage exhaustion stops active work; it does not delete the repository, task reports, or commits. Work does not automatically restart when usage resets. Reopen this project and use the continuation request above. Remote branch backup status is recorded in STATUS; do not assume an unpushed local commit exists on GitHub.
+
+Current next step: read `docs/development/reports/T5-review.md` and resume the two final scoped Luna reviews of implementation checkpoint `904e67f`. The build already passes 63 tests and Java 17/21 CI. Core, storage, and offline restore reviews are complete; do not restart them.
