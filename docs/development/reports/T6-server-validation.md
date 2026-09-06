@@ -67,3 +67,5 @@ It seeded two fresh accounts and clearly labeled APPLYING deposits of 200 cents,
 This is an automated smoke pass for exactly Paper 1.21.11 build 132 on Windows/Java 21. It does not certify other builds, actual crash-at-every-journal-stage inventory persistence, disconnect/death races during APPLYING, interactions with other permission/protection plugins, or broad Spigot compatibility. Those remain extended validation scenarios.
 
 The final Luna review of the new JavaScript test harness hit the usage limit after all server tests completed. Production banknote and recovery-fixture reviews are already clear. Resume only the bounded harness review described in `T6-player-harness-review.md`; do not repeat completed implementation or server checks without a concrete reason.
+
+Final source/test checkpoint `5ffc16d` is pushed to the feature branch. Its Java 17/21 Maven and packaged checks both passed: [run34063224382](https://github.com/mikestanaszak/GoldBag/actions/runs/34063224382). The remaining harness-review handoff is tracked in that checkpoint; no active server process remains.

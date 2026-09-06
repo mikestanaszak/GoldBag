@@ -20,8 +20,8 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and curr
 
 ## Latest checkpoint
 
-- Production source: `37fb85f`; independent banknote-fix review: `3ba815e`. Both are pushed to `origin/codex/goldbag-rebuild`; main unchanged. The final player harness, recovery helper, and reports follow in the next checkpoint.
-- Controller `mvn -B verify`: PASS, 69 tests (12 core, 17 storage, 40 plugin) on Java 21.0.11/Maven 3.9.11/Windows. Packaged verifier PASS. GitHub Linux Java 17/21 Maven and packaged checks PASS at `3ba815e`, [run 34040881714](https://github.com/mikestanaszak/GoldBag/actions/runs/34040881714).
+- Production source: `37fb85f`; independent banknote-fix review: `3ba815e`. The player harness, recovery helper, and complete reports are checkpointed at `5ffc16d`. All are pushed to `origin/codex/goldbag-rebuild`; main unchanged.
+- Controller `mvn -B verify`: PASS, 69 tests (12 core, 17 storage, 40 plugin) on Java 21.0.11/Maven 3.9.11/Windows. Packaged verifier PASS. GitHub Linux Java 17/21 Maven and packaged checks PASS at final test checkpoint `5ffc16d`, [run 34063224382](https://github.com/mikestanaszak/GoldBag/actions/runs/34063224382).
 - Current artifact: `goldbag-plugin/target/GoldBag-2.0.0-SNAPSHOT.jar`; adjacent `.sha256`. SHA-256: `676E04E0112B2411FE10C95262EE3F2E5AE8E32FDEDCCF2B512DCC8CEC530472`.
 - User explicitly authorized `eula=true` and local server testing on 2026-09-06. Paper 1.21.11 build 132 on Windows/Java 21 passed startup, all 18 resources, 16 actual-player checks, restart balances/note persistence and copied-note replay, invalid/valid reload, synthetic recovery apply/cancel/quarantine, actual server export/restore, and clean shutdown.
 - Server testing found and fixed banknote air interaction filtering; the three new regression tests and independent Luna review are clear. Core/storage/operations/plugin/offline-restore and recovery-fixture reviews remain complete.
