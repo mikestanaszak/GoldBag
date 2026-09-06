@@ -157,8 +157,75 @@ class InventoryAdapterTest {
         assertNull(fixture.get(0));
     }
 
+    @Test
+    void slotRemovalSupportsOffHandAndKeepsOrdinaryScansOnMainInventory() {
+        InventoryAdapter adapter = new InventoryAdapter();
+        InventoryFixture fixture = new InventoryFixture();
+        UUID noteId = UUID.randomUUID();
+        ItemStack note = new ItemStack(Material.PAPER);
+        ItemMeta meta = note.getItemMeta();
+        meta.getPersistentDataContainer().set(new NamespacedKey("goldbag", "note-id"),
+                PersistentDataType.STRING, noteId.toString());
+        note.setItemMeta(meta);
+        fixture.set(40, note);
+
+        assertEquals(0, adapter.count(fixture.inventory(), Material.PAPER));
+        assertThrows(IllegalStateException.class,
+                () -> adapter.planRemoval(fixture.inventory(), Material.PAPER, 1));
+
+        InventoryAdapter.Plan plan = adapter.planSlotRemoval(fixture.inventory(), 40);
+        assertEquals(Set.of(40), new HashSet<>(plan.affectedSlots()));
+        assertTrue(plan.evidence().contains("slot=40"), plan.evidence());
+        assertTrue(plan.evidence().contains(noteId.toString()), plan.evidence());
+        assertTrue(plan.ready(fixture.inventory()));
+        plan.apply(fixture.inventory());
+        assertNull(fixture.get(40));
+    }
+
+    @Test
+    void slotRemovalRejectsArmorAndTracksPdcIdentityChanges() {
+        InventoryAdapter adapter = new InventoryAdapter();
+        InventoryFixture fixture = new InventoryFixture();
+        UUID originalId = UUID.randomUUID();
+        ItemStack original = note(originalId);
+        fixture.set(40, original);
+        InventoryAdapter.Plan plan = adapter.planSlotRemoval(fixture.inventory(), 40);
+
+        assertThrows(IllegalArgumentException.class,
+                () -> adapter.planSlotRemoval(fixture.inventory(), 9));
+        fixture.set(40, note(UUID.randomUUID()));
+        assertFalse(plan.ready(fixture.inventory()));
+        assertEquals(originalId.toString(),
+                original.getItemMeta().getPersistentDataContainer()
+                        .get(new NamespacedKey("goldbag", "note-id"), PersistentDataType.STRING));
+    }
+
+    @Test
+    void selectedMainHandChangeInvalidatesSlotPlan() {
+        InventoryAdapter adapter = new InventoryAdapter();
+        InventoryFixture fixture = new InventoryFixture();
+        fixture.set(2, new ItemStack(Material.PAPER, 2));
+        fixture.held(2);
+
+        InventoryAdapter.Plan plan = adapter.planSlotRemoval(fixture.inventory(), 2);
+        fixture.held(3);
+
+        assertFalse(plan.ready(fixture.inventory()));
+        assertThrows(IllegalStateException.class, () -> plan.apply(fixture.inventory()));
+        assertEquals(2, fixture.get(2).getAmount());
+    }
+
+    private static ItemStack note(UUID id) {
+        ItemStack note = new ItemStack(Material.PAPER);
+        ItemMeta meta = note.getItemMeta();
+        meta.getPersistentDataContainer().set(new NamespacedKey("goldbag", "note-id"),
+                PersistentDataType.STRING, id.toString());
+        note.setItemMeta(meta);
+        return note;
+    }
+
     private static final class InventoryFixture {
-        private final ItemStack[] slots = new ItemStack[36];
+        private final ItemStack[] slots = new ItemStack[41];
         private int heldSlot;
         private final PlayerInventory inventory = (PlayerInventory) Proxy.newProxyInstance(
                 PlayerInventory.class.getClassLoader(), new Class<?>[]{PlayerInventory.class}, (proxy, method, args) -> {

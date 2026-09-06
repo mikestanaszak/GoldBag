@@ -26,18 +26,32 @@ public final class InventoryAdapter {
     public static final class Plan {
         private final ItemStack[] before;
         private final ItemStack[] after;
+        private final int selectedSlot;
+        private final ItemStack selectedBefore;
+        private final ItemStack selectedAfter;
         private final List<Integer> affectedSlots;
         private final String evidence;
 
         private Plan(ItemStack[] before, ItemStack[] after) {
+            this(before, after, -1, null, null);
+        }
+
+        private Plan(ItemStack[] before, ItemStack[] after, int selectedSlot,
+                     ItemStack selectedBefore, ItemStack selectedAfter) {
             this.before = cloneSlots(before);
             this.after = cloneSlots(after);
+            this.selectedSlot = selectedSlot;
+            this.selectedBefore = copy(selectedBefore);
+            this.selectedAfter = copy(selectedAfter);
             List<Integer> changed = new ArrayList<>();
             for (int slot = 0; slot < MAIN_INVENTORY_SLOTS; slot++) {
                 if (!same(this.before[slot], this.after[slot])) changed.add(slot);
             }
+            if (selectedSlot >= MAIN_INVENTORY_SLOTS
+                    && !same(this.selectedBefore, this.selectedAfter)) changed.add(selectedSlot);
             this.affectedSlots = List.copyOf(changed);
-            this.evidence = "before=" + snapshot(this.before) + ";after=" + snapshot(this.after);
+            this.evidence = "before=" + snapshot(this.before, selectedSlot, this.selectedBefore)
+                    + ";after=" + snapshot(this.after, selectedSlot, this.selectedAfter);
         }
 
         public List<ItemStack> before() { return immutableClones(before); }
@@ -51,9 +65,13 @@ public final class InventoryAdapter {
         public boolean ready(PlayerInventory inventory) {
             if (inventory == null) return false;
             try {
+                if (selectedSlot >= 0 && selectedSlot < 9
+                        && inventory.getHeldItemSlot() != selectedSlot) return false;
                 for (int slot = 0; slot < MAIN_INVENTORY_SLOTS; slot++) {
                     if (!same(before[slot], normalize(inventory.getItem(slot)))) return false;
                 }
+                if (selectedSlot >= MAIN_INVENTORY_SLOTS
+                        && !same(selectedBefore, normalize(inventory.getItem(selectedSlot)))) return false;
                 return true;
             } catch (RuntimeException ignored) {
                 return false;
@@ -63,7 +81,13 @@ public final class InventoryAdapter {
         /** Revalidates before state, then writes only affected slots. */
         public void apply(PlayerInventory inventory) {
             if (!ready(inventory)) throw new IllegalStateException("Inventory changed; physical plan is no longer ready");
-            for (int slot : affectedSlots) inventory.setItem(slot, copy(after[slot]));
+            for (int slot : affectedSlots) {
+                if (slot == selectedSlot && slot >= MAIN_INVENTORY_SLOTS) {
+                    inventory.setItem(slot, copy(selectedAfter));
+                } else {
+                    inventory.setItem(slot, copy(after[slot]));
+                }
+            }
         }
 
         private static List<ItemStack> immutableClones(ItemStack[] slots) {
@@ -143,14 +167,21 @@ public final class InventoryAdapter {
 
     /** Captures removal of exactly one item from the selected main-hand slot. */
     public Plan planHeldRemoval(PlayerInventory inventory) {
-        ItemStack[] before = readSlots(inventory);
-        int held = inventory.getHeldItemSlot();
-        if (held < 0 || held >= MAIN_INVENTORY_SLOTS || before[held] == null) {
-            throw new IllegalStateException("Main hand is empty");
+        return planSlotRemoval(inventory, inventory == null ? -1 : inventory.getHeldItemSlot());
+    }
+
+    /** Captures removal of exactly one item from a selected hotbar or off-hand slot. */
+    public Plan planSlotRemoval(PlayerInventory inventory, int slot) {
+        if (slot < 0 || slot > 8 && slot != 40) {
+            throw new IllegalArgumentException("Selected slot must be a hotbar slot (0-8) or off-hand slot 40");
         }
+        ItemStack[] before = readSlots(inventory);
+        ItemStack selected = slot == 40 ? normalize(inventory.getItem(40)) : before[slot];
+        if (selected == null) throw new IllegalStateException("Selected slot is empty");
+        ItemStack selectedAfter = selected.getAmount() == 1 ? null : withAmount(selected, selected.getAmount() - 1);
         ItemStack[] after = cloneSlots(before);
-        after[held] = before[held].getAmount() == 1 ? null : withAmount(before[held], before[held].getAmount() - 1);
-        return new Plan(before, after);
+        if (slot < MAIN_INVENTORY_SLOTS) after[slot] = selectedAfter;
+        return new Plan(before, after, slot, selected, selectedAfter);
     }
 
     public boolean canFit(PlayerInventory inventory, ItemStack stack) {
@@ -263,20 +294,32 @@ public final class InventoryAdapter {
     }
 
     private static String snapshot(ItemStack[] slots) {
+        return snapshot(slots, -1, null);
+    }
+
+    private static String snapshot(ItemStack[] slots, int selectedSlot, ItemStack selected) {
         StringBuilder result = new StringBuilder();
         for (int slot = 0; slot < MAIN_INVENTORY_SLOTS; slot++) {
             if (slot > 0) result.append('|');
-            ItemStack item = normalize(slots[slot]);
-            result.append("slot=").append(slot);
-            if (item == null) {
-                result.append(";material=EMPTY;count=0;metadata=-");
-            } else {
-                result.append(";material=").append(item.getType().name())
-                        .append(";count=").append(item.getAmount())
-                        .append(";metadata=").append(metadata(item));
-            }
+            appendSlot(result, slot, slots[slot]);
+        }
+        if (selectedSlot >= MAIN_INVENTORY_SLOTS) {
+            result.append('|');
+            appendSlot(result, selectedSlot, selected);
         }
         return result.toString();
+    }
+
+    private static void appendSlot(StringBuilder result, int slot, ItemStack raw) {
+        ItemStack item = normalize(raw);
+        result.append("slot=").append(slot);
+        if (item == null) {
+            result.append(";material=EMPTY;count=0;metadata=-");
+        } else {
+            result.append(";material=").append(item.getType().name())
+                    .append(";count=").append(item.getAmount())
+                    .append(";metadata=").append(metadata(item));
+        }
     }
 
     private static String metadata(ItemStack item) {

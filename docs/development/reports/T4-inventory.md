@@ -30,3 +30,34 @@ The plugin worker can capture a plan before durable `prepare`, use `ready` as it
 - `git diff --check` over the owned tracked files — PASS.
 
 The existing plugin worker still needs to adopt `Plan` in each coordinator `InventoryPort`: capture before `prepare`, return `plan.ready(inventory)` immediately before and after `markApplying`, and call `plan.apply(inventory)` on the main thread. This worker did not edit `GoldBagPlugin.java` or `ExchangeCoordinator.java`.
+
+## Off-hand and selected-slot extension
+
+The plan API now also exposes `planSlotRemoval(PlayerInventory, int)`. It
+accepts hotbar slots `0..8` and Bukkit off-hand slot `40`; armor and all other
+slots are rejected. A slot plan records the exact selected stack, rechecks the
+selected slot and full metadata/PDC identity before applying, and emits the
+selected off-hand slot in `before=`/`after=` evidence. Main-hand plans also
+recheck that the held hotbar slot is unchanged. `planHeldRemoval` delegates to
+the selected-slot API. Ordinary `planRemoval`, `count`, and `eligible` scans
+remain limited to slots `0..35`, so off-hand notes/resources are not included
+in ordinary deposit flows.
+
+Focused tests cover off-hand note identity and evidence, ordinary off-hand
+exclusion, armor rejection, and main-hand selection changes. The test-first
+Maven attempt was blocked before test execution by an unrelated active
+`GoldBagPlugin.java` compile error: its current lines 212-213 call a missing
+`message(String, String)` method. Independent Java 16 compilation of the
+updated `InventoryAdapter.java` and `InventoryAdapterTest.java` passed.
+An isolated JUnit-method runner over the same fixture then passed all 9
+`InventoryAdapterTest` methods after adding the cached Spigot/JUnit runtime
+dependencies; the normal Maven route remains blocked by that unrelated source
+error.
+
+Integration API for `/root/plugin`: for a redemption event, choose slot `40`
+for `EquipmentSlot.OFF_HAND`, otherwise `player.getInventory().getHeldItemSlot()`;
+call `inventory.planSlotRemoval(player.getInventory(), slot)` on the main thread,
+use `plan.ready(...)` for each revalidation, `plan.apply(...)` for the physical
+change, and `plan.evidence()` for the durable payload. The plan owns the exact
+slot and PDC identity; do not fall back to `getItemInMainHand()` for off-hand
+redemption.
