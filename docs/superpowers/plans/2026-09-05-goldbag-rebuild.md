@@ -103,13 +103,13 @@ String exportJson(); // consistent snapshot, amounts as decimal strings
 void importJson(String json); // only empty destination, validate all, transactional
 ```
 
-- [ ] Write real temporary-file SQLite tests first. Example: create A/B, credit A 5000, transfer 2000, expect A=3000/B=2000 and replay same UUID changes nothing. Insufficient funds leaves both unchanged.
-- [ ] Create constrained accounts/operations/entries/notes/pending/schema tables; reject newer schemas. Transactions include idempotency and request-fingerprint matching: same UUID with different request is an error.
-- [ ] Implement exact adjustments/payments, known account resolution, bounded amounts, stable leaderboard, and complete audit reasons. All mutations reject affected accounts with unresolved pending operations.
-- [ ] Prepare journal holds account and note exclusivity without applying balances. WITHDRAW/NOTE_ISSUE reserve affordability; DEPOSIT/NOTE_REDEEM check max balance. NOTE_ISSUE requires fresh note ID; redeem amount comes from persisted issued note, never client input. markApplying before physical change; complete commits balance and note state atomically; no automatic replay of ambiguous physical steps. Cancellation only PREPARED; APPLYING requires audited resolve. Repeating finalized operations returns their prior receipt and never mutates again.
-- [ ] Persist close/reopen state. Tests cover duplicate note redemption, mismatched UUID reuse, unresolved account blocking, two-process-owner rejection, rollback, overflow, export/import with pending records and notes, and malformed imports causing no partial writes.
-- [ ] Use JSON via Gson, validating IDs/relationships/sums/states and string integer amounts. Support empty-destination restore, with complete rollback on validation failure.
-- [ ] Run `mvn -B -f goldbag-storage/pom.xml test`; report test evidence and exact recovery semantics.
+- [x] Write real temporary-file SQLite tests first. Example: create A/B, credit A 5000, transfer 2000, expect A=3000/B=2000 and replay same UUID changes nothing. Insufficient funds leaves both unchanged.
+- [x] Create constrained accounts/operations/entries/notes/pending/schema tables; reject newer schemas. Transactions include idempotency and request-fingerprint matching: same UUID with different request is an error.
+- [x] Implement exact adjustments/payments, known account resolution, bounded amounts, stable leaderboard, and complete audit reasons. All mutations reject affected accounts with unresolved pending operations.
+- [x] Prepare journal holds account and note exclusivity without applying balances. WITHDRAW/NOTE_ISSUE reserve affordability; DEPOSIT/NOTE_REDEEM check max balance. NOTE_ISSUE requires fresh note ID; redeem amount comes from persisted issued note, never client input. markApplying before physical change; complete commits balance and note state atomically; no automatic replay of ambiguous physical steps. Cancellation only PREPARED; APPLYING requires audited resolve. Repeating finalized operations returns their prior receipt and never mutates again.
+- [x] Persist close/reopen state. Tests cover duplicate note redemption, mismatched UUID reuse, unresolved account blocking, two-process-owner rejection, rollback, overflow, export/import with pending records and notes, and malformed imports causing no partial writes.
+- [x] Use JSON via Gson, validating IDs/relationships/sums/states and string integer amounts. Support empty-destination restore, with complete rollback on validation failure.
+- [x] Run `mvn -B -f goldbag-storage/pom.xml test`; report test evidence and exact recovery semantics.
 
 ## T3: Operations and reproducible checks (independent Luna worker)
 

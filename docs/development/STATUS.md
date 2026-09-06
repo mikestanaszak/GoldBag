@@ -10,10 +10,11 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and curr
 |---|---|---|---|---|
 | T0 Build foundation and durable handoff | Complete | Controller: root/module POMs, AGENTS, RESUME, STATUS | None | This file |
 | T1 Exact money, resource catalog, configuration | Complete; review clear | Luna `/root/core`, reviewer `/root/review_core`: `goldbag-core/src/**` | T0 | `reports/T1-core.md`, `reports/T1-review.md` |
-| T2 SQLite economy, notes, journal, exports | Final residual fix committed; narrow re-review | Luna `/root/storage`, reviewer `/root/review_storage`: `goldbag-storage/src/**` | T0 | `reports/T2-storage.md`, `reports/T2-review.md` |
+| T2 SQLite economy, notes, journal, exports | Complete; review clear | Luna `/root/storage`, reviewer `/root/review_storage`: `goldbag-storage/src/**` | T0 | `reports/T2-storage.md`, `reports/T2-review.md` |
 | T3 Build automation and operator documentation | Complete; review clear | Luna `/root/operations`, reviewer `/root/review_operations`: `.github/**`, `scripts/**`, `docs/operations/**` | T0 | `reports/T3-operations.md`, `reports/T3-review.md` |
 | T4 Bukkit plugin: lifecycle, commands, menus, exchange coordinator | Running | Luna `/root/plugin`: `goldbag-plugin/src/**` | T1, T2 public API | `reports/T4-plugin.md` |
 | T4a Offline restore helper | Running | Luna `/root/offline_import`: new `cli/**` source/test packages, backup/restore guide | T2 public API | `reports/T4-offline-import.md` |
+| T4b Inventory plans and evidence | Running | Luna `/root/inventory_adapter`: `InventoryAdapter.java`, its new tests | T4 integration | `reports/T4-inventory.md` |
 | T5 Independent review and integration fixes | Waiting | Luna reviewer; fixes routed to owners | T1–T4 | `reports/T5-review.md` |
 | T6 Server validation, packaging, final checkpoint | Waiting | Controller + Luna verification | T5 | `reports/T6-validation.md` |
 
@@ -22,15 +23,16 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and curr
 - Existing repository fetched into this workspace; switched to a new development branch. No original branch changed.
 - Java 21 and Maven 3.9.11 available. Original repository has no build definition or tests, so no baseline test suite exists.
 - Foundation checkpoint: `a7bcfcd` (design, task plan, Maven foundation, AGENTS, RESUME).
-- Remote backup: through `d52c26c` pushed to `origin/codex/goldbag-rebuild`; main unchanged. Later edits are not backed up until another push.
+- Remote backup: through `079950a` pushed to `origin/codex/goldbag-rebuild`; main unchanged. Later edits are not backed up until another push.
 - Core checkpoint: `d1b5253`, 12 focused tests passed, including current SnakeYAML 2.7. Independent scoped review clear; original quartz/amethyst finding withdrawn by reviewer.
 - Tooling checkpoint: `82306c4`, controlled PowerShell fixture checks passed. Independent scoped review clear; no real Minecraft server has been started.
 - SQLite fixes checkpoint: `bf5e6dd`, 12 focused tests and module verify reported passing; public API unchanged. Independent re-review cleared the original six findings and found three restore gaps: canonical UUID spelling, unique active note reservations/issue ownership, and SET_BALANCE operation delta consistency. Original Luna storage worker is fixing these with regressions.
 - Plugin WIP checkpoint: `d52c26c` preserved recovered source and actual coordinator-execution tests. GitHub Linux verification passed on Java 17/21 (run `34005252139`). Fresh verification is required after ongoing edits.
 - T4 early boundary review saved in `reports/T4-boundary-review.md`: 13 findings against the older `65dd1b7` snapshot. Original Luna plugin worker is assessing each against current edits and fixing remaining issues alongside menu completion. `/gb` remains a canonical alias when optional legacy aliases are disabled.
 - Additional controller observations are durable in `reports/T4-integration-notes.md`. The offline CLI worker owns only the new `io/github/mikestanaszak/goldbag/cli/**` production/test packages; the plugin worker retains `plugin/**` and replaces live-import behavior with offline guidance. No concurrent worker may stage or commit.
-- Storage checkpoint `91b5b7d` contains the final active-redemption restore-state fix; implementer reports 17 focused tests and module verification passing. Narrow independent re-review is pending.
+- Storage checkpoint `91b5b7d` contains the final active-redemption restore-state fix; implementer reports 17 focused tests and module verification passing. Narrow independent re-review cleared all remaining T2 findings.
 - T4 safety/menu changes are being saved as WIP before completion. Remaining checks include executor shutdown/deadlines, operation-owned guards, exact inventory evidence, and fresh independent plugin review. WIP packaging is not a server release.
+- T4b worker now exclusively owns `InventoryAdapter.java` and its new tests/report. The main plugin worker owns wiring to its immutable slot plan API. T4a is hardening no-replace publication and bounded reads before its checkpoint/review.
 - Usage interruption recovery: T4 plugin implementation, T2 scoped re-review, and T4 boundary review restarted from their existing files and reports. T1/T3 remain complete and were not restarted. T4 report has some stale remaining-work bullets; implementer is reconciling them with actual source before its final checkpoint.
 - Core fixes: whitelist reversible blocks, quoted decimal settings and strict scalar types, simple DB filenames, and retain currency display fields. Tooling fix: reject junction/symlink ancestors before copying files.
 - Next controller step: checkpoint and re-review T2 round 2 fixes; complete T4 quantity/menu flows, offline import, and actual coordinator tests; resolve boundary-review findings; run full integration verification and fresh T4 review. Resume existing files after interruption; do not restart completed tasks.

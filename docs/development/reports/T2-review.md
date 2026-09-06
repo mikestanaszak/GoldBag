@@ -100,3 +100,9 @@ Verdict: two of the three round-one findings are fully addressed, and the third 
 Require `ISSUED` note status for active `NOTE_REDEEM` rows (and require `redeemOperation == null` in that state); reject any active redemption against `REDEEMED` or `CANCELLED`. Add a regression test for a redeemed-note duplicate pending row. The partial unique index remains useful for the separate active-versus-active case.
 
 The worker reports `mvn -B -f goldbag-storage/pom.xml test` and `verify` passing all 16 focused tests. No source changes, Git operations, or full-reactor reruns were performed by this re-review; only this report was appended.
+
+## Final residual fix-only re-review (`91b5b7d`)
+
+Verdict: pass for the scoped residual. `validateActiveRedemption` now requires every `PREPARED`/`APPLYING` `NOTE_REDEEM` row to reference an `ISSUED` note with no existing redemption operation. This rejects active redemptions against both `REDEEMED` and `CANCELLED` notes before any destination writes, while the existing cancelled issue-history rules continue to accept valid cancelled notes.
+
+The added regression test covers both rejected forged states and verifies rollback/empty destinations. The worker reports `mvn -B -f goldbag-storage/pom.xml test` and `verify` passing all 17 focused tests. No source changes, Git operations, or full-reactor reruns were performed by this final review; only this report was appended. No open T2 findings remain within the reviewed storage scope.
