@@ -119,7 +119,10 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
     }
 
     private void closeStorage() {
-        if (storageExecutor != null) storageExecutor.close();
+        if (storageExecutor != null && !storageExecutor.stop()) {
+            getLogger().severe("GoldBag storage writer did not stop before shutdown; database ownership is retained to avoid a close race.");
+            return;
+        }
         if (store != null) { try { store.close(); } catch (Exception error) { getLogger().warning("Error closing GoldBag storage: " + error.getMessage()); } }
         storageExecutor = null; store = null; coordinator = null;
     }

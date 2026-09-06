@@ -3,6 +3,7 @@ package io.github.mikestanaszak.goldbag.plugin;
 import io.github.mikestanaszak.goldbag.storage.SqliteStore;
 
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
@@ -92,29 +93,69 @@ public final class ExchangeCoordinator {
     private CompletableFuture<SqliteStore.Receipt> executePrepared(CompletableFuture<SqliteStore.Pending> prepared,
                                                                     UUID operation, UUID player,
                                                                     MainThread mainThread, InventoryPort inventory) {
+        Objects.requireNonNull(mainThread, "Main-thread scheduler is required");
+        Objects.requireNonNull(inventory, "Inventory port is required");
         CompletableFuture<SqliteStore.Receipt> outcome = new CompletableFuture<>();
         prepared.whenComplete((pending, prepareError) -> {
             if (prepareError != null) { outcome.completeExceptionally(prepareError); return; }
-            mainThread.execute(() -> {
-                if (!inventory.ready()) {
-                    cancel(operation, "inventory or player state changed before APPLYING").whenComplete((ignored, cancelError) ->
-                            outcome.completeExceptionally(cancelError == null ? new IllegalStateException("Inventory changed") : cancelError));
-                    return;
-                }
-                markApplying(operation).whenComplete((ignored, applyingError) -> {
-                    if (applyingError != null) { outcome.completeExceptionally(applyingError); return; }
-                    mainThread.execute(() -> {
-                        if (!inventory.ready()) { outcome.completeExceptionally(new IllegalStateException("Inventory changed after APPLYING")); return; }
-                        try { inventory.apply(); }
-                        catch (Throwable physicalError) { outcome.completeExceptionally(physicalError); return; }
-                        complete(operation).whenComplete((receipt, completeError) -> {
-                            if (completeError != null) outcome.completeExceptionally(completeError);
-                            else outcome.complete(receipt);
-                        });
-                    });
-                });
-            });
+            try {
+                mainThread.execute(() -> beforeApplying(operation, outcome, inventory, mainThread));
+            } catch (Throwable schedulerError) {
+                cancelAndFail(operation, schedulerError, outcome);
+            }
         });
         return outcome;
+    }
+
+    private void beforeApplying(UUID operation, CompletableFuture<SqliteStore.Receipt> outcome,
+                                InventoryPort inventory, MainThread mainThread) {
+        try {
+            if (!inventory.ready()) {
+                cancelAndFail(operation, new IllegalStateException("Inventory changed before APPLYING"), outcome);
+                return;
+            }
+        } catch (Throwable readyError) {
+            cancelAndFail(operation, readyError, outcome);
+            return;
+        }
+        markApplying(operation).whenComplete((ignored, applyingError) -> {
+            if (applyingError != null) { outcome.completeExceptionally(applyingError); return; }
+            schedule(mainThread, () -> applyAfterJournal(operation, outcome, inventory), outcome);
+        });
+    }
+
+    private void applyAfterJournal(UUID operation, CompletableFuture<SqliteStore.Receipt> outcome,
+                                   InventoryPort inventory) {
+        try {
+            if (!inventory.ready()) {
+                outcome.completeExceptionally(new IllegalStateException("Inventory changed after APPLYING"));
+                return;
+            }
+            inventory.apply();
+        } catch (Throwable physicalError) {
+            outcome.completeExceptionally(physicalError);
+            return;
+        }
+        complete(operation).whenComplete((receipt, completeError) -> {
+            if (completeError != null) outcome.completeExceptionally(completeError);
+            else outcome.complete(receipt);
+        });
+    }
+
+    private void cancelAndFail(UUID operation, Throwable failure, CompletableFuture<SqliteStore.Receipt> outcome) {
+        try {
+            cancel(operation, "inventory or player state changed before APPLYING").whenComplete((ignored, cancelError) ->
+                    outcome.completeExceptionally(cancelError == null ? failure : cancelError));
+        } catch (Throwable cancelError) {
+            outcome.completeExceptionally(cancelError);
+        }
+    }
+
+    private void schedule(MainThread mainThread, Runnable action, CompletableFuture<SqliteStore.Receipt> outcome) {
+        try {
+            mainThread.execute(action);
+        } catch (Throwable schedulerError) {
+            outcome.completeExceptionally(schedulerError);
+        }
     }
 }
