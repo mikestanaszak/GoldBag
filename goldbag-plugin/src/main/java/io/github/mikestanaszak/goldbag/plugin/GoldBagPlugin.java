@@ -11,6 +11,7 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
+import org.bukkit.event.Event;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
@@ -261,9 +262,10 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onSwap(PlayerSwapHandItemsEvent event) { if (guarded(event.getPlayer().getUniqueId())) event.setCancelled(true); }
 
-    @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGHEST)
     public void onInteract(PlayerInteractEvent event) {
         if (guarded(event.getPlayer().getUniqueId())) { event.setCancelled(true); return; }
+        if (!shouldHandleInteraction(event)) return;
         if (!healthy || (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK)) return;
         Player player = event.getPlayer();
         ItemStack item = event.getItem();
@@ -279,6 +281,11 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
         try { noteId = UUID.fromString(idText); } catch (IllegalArgumentException e) { return; }
         event.setCancelled(true);
         redeem(player, event.getHand() == EquipmentSlot.OFF_HAND ? 40 : player.getInventory().getHeldItemSlot(), noteId);
+    }
+
+    static boolean shouldHandleInteraction(PlayerInteractEvent event) {
+        if (event.useItemInHand() == Event.Result.DENY) return false;
+        return !event.isCancelled() || event.getAction() == Action.RIGHT_CLICK_AIR;
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
