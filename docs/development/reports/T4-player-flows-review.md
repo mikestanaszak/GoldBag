@@ -208,3 +208,67 @@ deposit eligibility scan is limited to the player's 36 main inventory slots,
 and the catalog rejects duplicate material mappings, so one inventory cannot
 contain more than 36 distinct eligible resource materials. No implementation
 change is required for this checkpoint.
+
+## Final disposition at frozen checkpoint `904e67f`
+
+The scoped player-flow fixes were re-reviewed against the findings above. The
+controller reports `mvn -B verify` passing all 63 tests at this checkpoint; the
+dispositions below are based on the frozen source diff and focused tests. The
+InventoryAdapter and physical-plan implementation are intentionally excluded
+from this review.
+
+- **Main-menu permission bypass — fixed.** Main-menu Balance and Top Balances
+  now check their operation permissions before reading data, and the public
+  `showBalance`/`showTop` methods repeat the checks for other entry points.
+- **Stale quote after reload — fixed.** `QuoteRequestBook` binds each async
+  account read to the player, request UUID, and catalog revision. Reload clears
+  requests and invalidates the catalog before delayed callbacks can publish.
+  Newer requests, close, quit, confirm, and cancel invalidate older requests.
+- **Non-item/AIR configuration — fixed.** Runtime material validation now
+  requires a Bukkit item and rejects AIR; `PluginConfigTest` covers AIR.
+- **Argumentless rates — fixed.** The dispatcher now passes a null material to
+  the catalog-listing branch.
+- **GUI close controls and top pagination — fixed.** Close slots call
+  `closeInventory`, and top next-page handling is gated by the holder's
+  `hasNext` state. Deposit paging was added as well. The previously reported
+  deposit-over-45 case remains withdrawn because the reachable eligibility set
+  is bounded by 36 main slots and unique material mappings.
+- **Configured messages unused — fixed for the configured common keys.** The
+  balance, busy, storage-unavailable, permission, and cancelled keys are now
+  resolved through the active configuration and placeholder substitution.
+- **Recovery evidence — fixed.** Recovery listing now exposes player UUID,
+  note ID, operation state, and the recorded evidence payload.
+- **Namespaced aliases — fixed.** Alias gating and translation both use the
+  normalized label after stripping the namespace.
+- **Cancel permission — fixed.** Cancellation derives the required permission
+  from the current quote kind before removing it; no-quote cancellation only
+  clears a stale request token.
+- **Off-hand note interaction wiring — fixed.** The interaction handler accepts
+  both event hands, retains the raw-gold shortcut's main-hand-only behavior,
+  maps off-hand redemption to slot 40, and revalidates that exact hand and note
+  identity. InventoryAdapter plan internals remain covered by the separate
+  physical review.
+
+The scoped review leaves one residual P2 finding at `904e67f`, documented
+below.
+
+### Residual P2 — Pagination state remains incorrect for withdrawal and full top pages
+
+`MenuService.openWithdraw` at frozen lines 64-78 renders a next arrow when
+there are more than 45 withdrawal resources, but constructs `MenuHolder` with
+the legacy constructor that sets `hasNext` to `false`. `GoldBagPlugin.onClick`
+at lines 238-239 now requires `holder.hasNext()` before opening the next page,
+so a configured withdrawal catalog larger than one page cannot be navigated.
+
+Top pagination has the opposite boundary problem: `MenuService.openTop` at
+lines 81-93 sets `hasNext` solely from `accounts.size() == 10`. A final page
+containing exactly ten accounts therefore renders a next arrow even when no
+additional account exists, and the click opens an empty page.
+
+Reproduction: configure more than 45 withdrawal-enabled resources, open
+Withdraw, and click the rendered next arrow at slot 53. Expected: page 2
+opens; actual: the click is cancelled and the page remains open. The original
+unreachable deposit-over-45 disposition is unaffected because withdrawal
+catalog pagination is not limited by the player's 36 inventory slots. For the
+top case, create exactly ten accounts, open Top Balances, and click its next
+arrow; expected: no next arrow or a bounded end state, actual: an empty page.

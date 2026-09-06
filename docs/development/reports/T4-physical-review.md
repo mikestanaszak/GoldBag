@@ -61,3 +61,17 @@ File: `goldbag-plugin/src/main/java/io/github/mikestanaszak/goldbag/plugin/Inven
 For `planSlotRemoval(inventory, 40)`, the constructor’s `evidence()` correctly calls `snapshot(..., selectedSlot, selectedBefore/After)` and records `slot=40`. The public `beforeEvidence()` and `afterEvidence()` methods instead call `snapshot(before)` and `snapshot(after)` without the selected-slot arguments. They therefore return only the 36 main slots and silently omit the offhand item and its PDC note identity. Any integration persisting these helpers would record incomplete before/after evidence even though readiness and apply are correct.
 
 Reproduction: create an offhand note plan and assert `plan.evidence()` contains `slot=40`; `plan.beforeEvidence()` and `plan.afterEvidence()` do not. Include slot 40 in both helper methods (or make the evidence API explicitly main-inventory-only and keep the offhand evidence in a dedicated accessor).
+
+## Final targeted re-review (`904e67f`)
+
+The four earlier physical findings are addressed in the frozen `904e67f` snapshot: `onEnable()` refuses to start when retained storage-owner fields are present; note issuance captures the exact metadata-bearing note plan before acquiring the guard; completion scheduling has a token-matching cleanup fallback and shutdown clears in-memory guards; and account/quote storage tasks capture immutable UUID/name values on the server thread. The offhand `beforeEvidence()`/`afterEvidence()` omission is also fixed by passing the selected-slot arguments to `snapshot()`.
+
+### P2 — Scheduler-failure cleanup still calls `Player.getUniqueId()` off the server thread
+
+File: `goldbag-plugin/src/main/java/io/github/mikestanaszak/goldbag/plugin/GoldBagPlugin.java:644-654` at `904e67f`.
+
+`finishOperation()` is invoked by the coordinator completion callback, which normally runs on the storage worker. Its fallback for a rejected `runMain()` call invokes `unguard(player.getUniqueId(), operation)` from that worker. The fallback therefore still uses a Bukkit `Player` object asynchronously, exactly on the failure path where cleanup must be reliable. A thread-checking Player implementation can throw before the token is released, recreating the stale-guard failure the fallback was intended to prevent.
+
+Reproduction: make the main-thread scheduler reject the completion callback and make a Player double reject `getUniqueId()` off-thread; the catch path throws before `unguard`, leaving the operation token until shutdown cleanup. Capture the immutable player UUID before starting the operation and pass it to `finishOperation`, using that UUID in both the normal completion and scheduler-failure cleanup paths.
+
+No other remaining P1/P2 finding was identified in this narrow re-review. The requested full verification was already reported passing (63 tests: 12 core, 17 storage, 34 plugin); no additional build was run.

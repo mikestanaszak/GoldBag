@@ -58,3 +58,9 @@ Scope: `goldbag-plugin/src/**` and this report. No Git staging or commits perfor
 - The current plugin test suite uses pure classes; Bukkit event and inventory behavior remain unverified until a compatible server harness is available.
 - InventoryAdapter evidence/plan hardening is implemented by the parent-assigned worker and wired in GoldBagPlugin. The focused plugin suite includes nine adapter tests; I have not edited InventoryAdapter.java.
 - Quantity menus and conversation prompts still need a live Bukkit smoke check; the pure/coordinator coverage is green. No server smoke is claimed because accepting the Minecraft EULA remains an operator action.
+
+## Final completion callback disposition
+
+- Fixed the remaining callback-thread identity issue in `GoldBagPlugin`: the four physical operation entry points capture the immutable player UUID before starting the coordinator future, pass that UUID through the durable operation and completion path, and use it for both normal and scheduler-failure guard release. The fallback path performs no Bukkit `Player` access.
+- Extracted the token-matching guard release into package-private `releaseGuard(Map<UUID, UUID>, UUID, UUID)`, which is used by the production instance method and covered by `GoldBagPluginCompletionTest.staleCompletionCannotReleaseNewerOperationGuard`; a late completion cannot release a newer operation's guard.
+- Red test before the production change: `mvn -B -pl goldbag-plugin -am '-Dtest=GoldBagPluginCompletionTest' '-Dsurefire.failIfNoSpecifiedTests=false' test` failed at test compilation because `releaseGuard` was absent. Green focused verification after the change: the same command passed 1 test with zero failures and built core, storage, and plugin modules.

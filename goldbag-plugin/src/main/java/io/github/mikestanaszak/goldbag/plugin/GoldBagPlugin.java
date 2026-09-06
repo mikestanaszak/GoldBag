@@ -154,8 +154,11 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
     }
     /** Releases only the guard owned by this operation; late callbacks cannot release a newer guard. */
     public void unguard(UUID player, UUID operation) {
-        synchronized (guardedPlayers) {
-            if (operation.equals(guardedPlayers.get(player))) guardedPlayers.remove(player);
+        releaseGuard(guardedPlayers, player, operation);
+    }
+    static void releaseGuard(Map<UUID, UUID> guards, UUID player, UUID operation) {
+        synchronized (guards) {
+            if (operation.equals(guards.get(player))) guards.remove(player);
         }
     }
     /** Clears a player guard when the player leaves; the operation callback remains token-safe. */
@@ -284,15 +287,16 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
     }
 
     private void redeem(Player player, int slot, UUID noteId) {
+        UUID playerId = player.getUniqueId();
         UUID op = UUID.randomUUID();
         InventoryAdapter.Plan physicalPlan;
         try { physicalPlan = inventory.planSlotRemoval(player.getInventory(), slot); }
         catch (RuntimeException error) { tell(player, "Could not read the banknote inventory state."); return; }
-        if (!guard(player.getUniqueId(), op)) { tell(player, "A GoldBag operation is already in progress."); return; }
+        if (!guard(playerId, op)) { tell(player, "A GoldBag operation is already in progress."); return; }
         String evidence = "right-click|" + physicalPlan.evidence();
         CompletableFuture<SqliteStore.Receipt> operation;
         try {
-            operation = coordinator().executeRedemption(op, player.getUniqueId(), noteId, evidence, this::runMain,
+            operation = coordinator().executeRedemption(op, playerId, noteId, evidence, this::runMain,
                     new ExchangeCoordinator.InventoryPort() {
                         @Override public boolean ready() {
                             return player.isOnline() && !player.isDead()
@@ -303,8 +307,8 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
                         }
                         @Override public void apply() { physicalPlan.apply(player.getInventory()); }
                     });
-        } catch (RuntimeException error) { unguard(player.getUniqueId(), op); tell(player, ChatColor.RED + "Could not redeem this banknote."); return; }
-        operation.whenComplete((receipt, error) -> finishOperation(player, op, error,
+        } catch (RuntimeException error) { unguard(playerId, op); tell(player, ChatColor.RED + "Could not redeem this banknote."); return; }
+        operation.whenComplete((receipt, error) -> finishOperation(playerId, player, op, error,
                 () -> tell(player, "Banknote redeemed."), "Banknote redemption is unresolved or was cancelled: " + op));
     }
 
@@ -500,12 +504,13 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
         try { physicalPlan = inventory.planRemoval(player.getInventory(), removals); }
         catch (RuntimeException error) { tell(player, "Inventory changed; nothing was deposited."); return; }
         if (!player.isOnline() || player.isDead()) { tell(player, "Inventory changed; nothing was deposited."); return; }
+        UUID playerId = player.getUniqueId();
         UUID op = UUID.randomUUID();
-        if (!guard(player.getUniqueId(), op)) { tell(player, "A GoldBag operation is already in progress."); return; }
+        if (!guard(playerId, op)) { tell(player, "A GoldBag operation is already in progress."); return; }
         String payload = (quote.payload() == null ? quote.material() + ":" + quote.count() : quote.payload()) + "|" + physicalPlan.evidence();
         CompletableFuture<SqliteStore.Receipt> operation;
         try {
-            operation = coordinator().execute(op, player.getUniqueId(), SqliteStore.Kind.DEPOSIT, quote.amount(), payload, null, this::runMain,
+            operation = coordinator().execute(op, playerId, SqliteStore.Kind.DEPOSIT, quote.amount(), payload, null, this::runMain,
                     new ExchangeCoordinator.InventoryPort() {
                         @Override public boolean ready() {
                             return player.isOnline() && !player.isDead()
@@ -517,11 +522,11 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
                         @Override public void apply() { physicalPlan.apply(player.getInventory()); }
                     });
         } catch (RuntimeException error) {
-            unguard(player.getUniqueId(), op);
+            unguard(playerId, op);
             tell(player, ChatColor.RED + "Deposit is unresolved; no inventory change was applied.");
             return;
         }
-        operation.whenComplete((receipt, error) -> finishOperation(player, op, error,
+        operation.whenComplete((receipt, error) -> finishOperation(playerId, player, op, error,
                 () -> tell(player, "Deposited " + quote.count() + " for " + money(quote.amount()) + "."),
                 "Deposit was cancelled or is unresolved; operation " + op + "."));
     }
@@ -533,12 +538,13 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
         try { physicalPlan = inventory.planAddition(player.getInventory(), item); }
         catch (RuntimeException error) { tell(player, "Inventory changed; nothing was withdrawn."); return; }
         if (!player.isOnline() || player.isDead()) { tell(player, "Inventory changed; nothing was withdrawn."); return; }
+        UUID playerId = player.getUniqueId();
         UUID op = UUID.randomUUID();
-        if (!guard(player.getUniqueId(), op)) { tell(player, "A GoldBag operation is already in progress."); return; }
+        if (!guard(playerId, op)) { tell(player, "A GoldBag operation is already in progress."); return; }
         String payload = quote.material() + ":" + quote.count() + "|" + physicalPlan.evidence();
         CompletableFuture<SqliteStore.Receipt> operation;
         try {
-            operation = coordinator().execute(op, player.getUniqueId(), SqliteStore.Kind.WITHDRAW, quote.amount(), payload, null, this::runMain,
+            operation = coordinator().execute(op, playerId, SqliteStore.Kind.WITHDRAW, quote.amount(), payload, null, this::runMain,
                     new ExchangeCoordinator.InventoryPort() {
                         @Override public boolean ready() {
                             return player.isOnline() && !player.isDead()
@@ -550,11 +556,11 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
                         @Override public void apply() { physicalPlan.apply(player.getInventory()); }
                     });
         } catch (RuntimeException error) {
-            unguard(player.getUniqueId(), op);
+            unguard(playerId, op);
             tell(player, ChatColor.RED + "Withdrawal is unresolved; no inventory change was applied.");
             return;
         }
-        operation.whenComplete((receipt, error) -> finishOperation(player, op, error,
+        operation.whenComplete((receipt, error) -> finishOperation(playerId, player, op, error,
                 () -> tell(player, "Withdrew " + quote.count() + " for " + money(quote.amount()) + "."),
                 "Withdrawal was cancelled or is unresolved; operation " + op + "."));
     }
@@ -567,11 +573,12 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
         InventoryAdapter.Plan physicalPlan;
         try { physicalPlan = inventory.planAddition(player.getInventory(), noteItem); }
         catch (RuntimeException error) { tell(player, "Inventory changed; no banknote was issued."); return; }
-        if (!guard(player.getUniqueId(), op)) { tell(player, "A GoldBag operation is already in progress."); return; }
+        UUID playerId = player.getUniqueId();
+        if (!guard(playerId, op)) { tell(player, "A GoldBag operation is already in progress."); return; }
         String payload = "command|" + physicalPlan.evidence();
         CompletableFuture<SqliteStore.Receipt> operation;
         try {
-            operation = coordinator().execute(op, player.getUniqueId(), SqliteStore.Kind.NOTE_ISSUE, amount, payload, note, this::runMain,
+            operation = coordinator().execute(op, playerId, SqliteStore.Kind.NOTE_ISSUE, amount, payload, note, this::runMain,
                     new ExchangeCoordinator.InventoryPort() {
                         @Override public boolean ready() {
                             return player.isOnline() && !player.isDead()
@@ -583,11 +590,11 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
                         @Override public void apply() { physicalPlan.apply(player.getInventory()); }
                     });
         } catch (RuntimeException error) {
-            unguard(player.getUniqueId(), op);
+            unguard(playerId, op);
             tell(player, ChatColor.RED + "Banknote issuance is unresolved; no inventory change was applied.");
             return;
         }
-        operation.whenComplete((receipt, error) -> finishOperation(player, op, error,
+        operation.whenComplete((receipt, error) -> finishOperation(playerId, player, op, error,
                 () -> tell(player, "Banknote issued for " + money(amount) + "."),
                 "Banknote issuance was cancelled or is unresolved; operation " + op + "."));
     }
@@ -641,15 +648,15 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
         try { storageExecutor.submit(task).whenComplete((value, error) -> runMain(() -> { if (error != null) { if (sender != null) tell(sender, ChatColor.RED + configuredFailure + " " + rootMessage(error)); } else success.accept(value); })); }
         catch (RuntimeException error) { if (sender != null) tell(sender, ChatColor.RED + configuredFailure); }
     }
-    private void finishOperation(Player player, UUID operation, Throwable error, Runnable success, String failure) {
+    private void finishOperation(UUID playerId, Player player, UUID operation, Throwable error, Runnable success, String failure) {
         Runnable completion = () -> {
-            unguard(player.getUniqueId(), operation);
+            unguard(playerId, operation);
             if (error != null) tell(player, ChatColor.RED + failure);
             else success.run();
         };
         try { runMain(completion); }
         catch (Throwable schedulerError) {
-            unguard(player.getUniqueId(), operation);
+            unguard(playerId, operation);
             getLogger().warning("Could not schedule GoldBag operation completion " + operation + "; durable state remains authoritative.");
         }
     }
