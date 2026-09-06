@@ -44,7 +44,7 @@ public final class MenuService {
 
     public void openDeposit(Player player, int page) {
         List<Resource> eligible = inventory.eligible(player.getInventory(), plugin.config().catalog().resources());
-        MenuHolder holder = new MenuHolder(player.getUniqueId(), MenuHolder.Screen.DEPOSIT, page, plugin.quotes().catalogRevision(), eligible.stream().map(Resource::id).collect(java.util.stream.Collectors.toList()), page * 45 < eligible.size());
+        MenuHolder holder = new MenuHolder(player.getUniqueId(), MenuHolder.Screen.DEPOSIT, page, plugin.quotes().catalogRevision(), eligible.stream().map(Resource::id).collect(java.util.stream.Collectors.toList()), hasNextResourcePage(page, eligible.size()));
         Inventory menu = Bukkit.createInventory(holder, 54, ChatColor.GREEN + "GoldBag Deposit " + page);
         holder.inventory(menu);
         int from = (page - 1) * 45;
@@ -55,7 +55,7 @@ public final class MenuService {
                     "Value: " + plugin.money(resource.depositPrice()));
         }
         if (page > 1) set(menu, 45, Material.ARROW, "Previous page");
-        if (page * 45 < eligible.size()) set(menu, 53, Material.ARROW, "Next page");
+        if (hasNextResourcePage(page, eligible.size())) set(menu, 53, Material.ARROW, "Next page");
         set(menu, 49, Material.BARRIER, "Close", "Cancel");
         set(menu, 52, Material.GOLD_INGOT, "Deposit all eligible", "Preview every eligible main-inventory stack");
         player.openInventory(menu);
@@ -63,7 +63,7 @@ public final class MenuService {
 
     public void openWithdraw(Player player, int page) {
         List<Resource> resources = plugin.config().catalog().resources().stream().filter(Resource::withdrawEnabled).collect(java.util.stream.Collectors.toList());
-        MenuHolder holder = new MenuHolder(player.getUniqueId(), MenuHolder.Screen.WITHDRAW, page, plugin.quotes().catalogRevision(), resources.stream().map(Resource::id).collect(java.util.stream.Collectors.toList()));
+        MenuHolder holder = new MenuHolder(player.getUniqueId(), MenuHolder.Screen.WITHDRAW, page, plugin.quotes().catalogRevision(), resources.stream().map(Resource::id).collect(java.util.stream.Collectors.toList()), hasNextResourcePage(page, resources.size()));
         Inventory menu = Bukkit.createInventory(holder, 54, ChatColor.YELLOW + "GoldBag Withdraw " + page);
         holder.inventory(menu);
         int from = (page - 1) * 45;
@@ -73,14 +73,19 @@ public final class MenuService {
             set(menu, i, material, resource.id(), "Price: " + plugin.money(resource.withdrawPrice()), "Use /goldbag withdraw " + resource.id() + " <count|max>");
         }
         if (page > 1) set(menu, 45, Material.ARROW, "Previous page");
-        if (from + 45 < resources.size()) set(menu, 53, Material.ARROW, "Next page");
+        if (hasNextResourcePage(page, resources.size())) set(menu, 53, Material.ARROW, "Next page");
         set(menu, 49, Material.BARRIER, "Close", "Cancel");
         player.openInventory(menu);
     }
 
     public void openTop(Player player, List<SqliteStore.Account> accounts, int page) {
+        plugin.submit(() -> plugin.store().top(page + 1), nextPage -> renderTop(player, accounts, page, hasNextTopPage(nextPage)), player,
+                "Could not read leaderboard.");
+    }
+
+    private void renderTop(Player player, List<SqliteStore.Account> accounts, int page, boolean hasNext) {
         MenuHolder holder = new MenuHolder(player.getUniqueId(), MenuHolder.Screen.TOP, page, 0,
-                accounts.stream().map(SqliteStore.Account::name).collect(java.util.stream.Collectors.toList()), accounts.size() == 10);
+                accounts.stream().map(SqliteStore.Account::name).collect(java.util.stream.Collectors.toList()), hasNext);
         Inventory menu = Bukkit.createInventory(holder, 27, ChatColor.AQUA + "GoldBag Top " + page);
         holder.inventory(menu);
         int slot = 0;
@@ -89,7 +94,7 @@ public final class MenuService {
             set(menu, slot++, Material.GOLD_NUGGET, account.name(), "Balance: " + plugin.money(account.balance()));
         }
         if (page > 1) set(menu, 18, Material.ARROW, "Previous page");
-        if (accounts.size() == 10) set(menu, 26, Material.ARROW, "Next page");
+        if (hasNext) set(menu, 26, Material.ARROW, "Next page");
         set(menu, 22, Material.BARRIER, "Close", "Cancel");
         player.openInventory(menu);
     }
@@ -108,6 +113,10 @@ public final class MenuService {
     }
 
     public boolean belongs(Inventory inventory) { return inventory != null && inventory.getHolder() instanceof MenuHolder; }
+
+    static boolean hasNextResourcePage(int page, int total) { return page > 0 && page * 45 < total; }
+
+    static boolean hasNextTopPage(List<SqliteStore.Account> nextPage) { return nextPage != null && !nextPage.isEmpty(); }
 
     private static void set(Inventory inventory, int slot, Material material, String name, String... lore) {
         if (material == null) return;
