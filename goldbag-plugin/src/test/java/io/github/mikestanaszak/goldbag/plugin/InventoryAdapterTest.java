@@ -7,7 +7,6 @@ import org.bukkit.Server;
 import org.bukkit.inventory.ItemFactory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
-import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
@@ -43,6 +42,8 @@ class InventoryAdapterTest {
                 ItemFactory.class.getClassLoader(), new Class<?>[]{ItemFactory.class}, (proxy, method, args) -> {
                     if (method.getName().equals("getItemMeta")) return TestMeta.proxy(new TestMeta.State());
                     if (method.getName().equals("asMetaFor")) return args[0];
+                    if (method.getName().equals("isApplicable")) return true;
+                    if (method.getName().equals("updateMaterial")) return args[1];
                     if (method.getName().equals("equals")) return java.util.Objects.equals(args[0], args[1]);
                     return defaultValue(method.getReturnType());
                 });
@@ -83,7 +84,7 @@ class InventoryAdapterTest {
 
         InventoryAdapter.Plan plan = adapter.planRemoval(fixture.inventory(), Material.RAW_IRON, 2);
 
-        assertEquals(2, plan.affectedSlots().size());
+        assertEquals(1, plan.affectedSlots().size());
         assertTrue(plan.evidence().contains("slot=0"));
         assertTrue(plan.ready(fixture.inventory()));
         plan.apply(fixture.inventory());
@@ -97,13 +98,14 @@ class InventoryAdapterTest {
         InventoryAdapter adapter = new InventoryAdapter();
         InventoryFixture fixture = new InventoryFixture();
         fixture.set(0, new ItemStack(Material.PAPER, 63));
-        for (int slot = 1; slot < 36; slot++) fixture.set(slot, new ItemStack(Material.STONE, 64));
+        fixture.set(1, new ItemStack(Material.PAPER, 63));
+        for (int slot = 2; slot < 36; slot++) fixture.set(slot, new ItemStack(Material.STONE, 64));
 
         InventoryAdapter.Plan plan = adapter.planAddition(fixture.inventory(), new ItemStack(Material.PAPER, 2));
-        assertEquals(1, plan.affectedSlots().size());
+        assertEquals(2, plan.affectedSlots().size());
         plan.apply(fixture.inventory());
         assertEquals(64, fixture.get(0).getAmount());
-        assertEquals(1, fixture.get(1).getAmount());
+        assertEquals(64, fixture.get(1).getAmount());
 
         assertThrows(IllegalStateException.class,
                 () -> adapter.planAddition(fixture.inventory(), new ItemStack(Material.PAPER, 2)));
@@ -214,6 +216,7 @@ class InventoryAdapterTest {
                             case "set": state.pdc.put(args[0], args[2]); return null;
                             case "remove": state.pdc.remove(args[0]); return null;
                             case "has": return state.pdc.containsKey(args[0]);
+                            case "get": return state.pdc.get(args[0]);
                             case "isEmpty": return state.pdc.isEmpty();
                             case "getKeys": return Set.copyOf(state.pdc.keySet());
                             case "toString": return state.pdc.toString();
@@ -222,7 +225,7 @@ class InventoryAdapterTest {
                             default: return defaultValue(method.getReturnType());
                         }
                     });
-            return (ItemMeta) Proxy.newProxyInstance(ItemMeta.class.getClassLoader(), new Class<?>[]{ItemMeta.class, Damageable.class},
+            return (ItemMeta) Proxy.newProxyInstance(ItemMeta.class.getClassLoader(), new Class<?>[]{ItemMeta.class},
                     (proxy, method, args) -> {
                         switch (method.getName()) {
                             case "clone": return proxy(state.copy());
@@ -234,9 +237,6 @@ class InventoryAdapterTest {
                             case "hasDisplayName": return state.displayName != null;
                             case "setUnbreakable": state.unbreakable = (Boolean) args[0]; return null;
                             case "isUnbreakable": return state.unbreakable;
-                            case "getDamage": return 0;
-                            case "setDamage": return null;
-                            case "hasDamage": return false;
                             case "hasLore": case "hasEnchants": case "hasCustomModelData": case "hasLocalizedName": case "hasAttributeModifiers": return false;
                             case "serialize": return Map.of("display", state.displayName == null ? "" : state.displayName, "flags", state.flags.toString(), "pdc", state.pdc.toString(), "unbreakable", state.unbreakable);
                             case "hashCode": return stateHash(state);

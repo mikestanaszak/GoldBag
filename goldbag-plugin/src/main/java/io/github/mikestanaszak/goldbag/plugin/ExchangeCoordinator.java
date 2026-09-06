@@ -80,12 +80,16 @@ public final class ExchangeCoordinator {
     public CompletableFuture<SqliteStore.Receipt> execute(UUID operation, UUID player, SqliteStore.Kind kind,
                                                             long amount, String payload, UUID noteId,
                                                             MainThread mainThread, InventoryPort inventory) {
+        Objects.requireNonNull(mainThread, "Main-thread scheduler is required");
+        Objects.requireNonNull(inventory, "Inventory port is required");
         return executePrepared(prepare(operation, player, kind, amount, payload, noteId), operation, player, mainThread, inventory);
     }
 
     public CompletableFuture<SqliteStore.Receipt> executeRedemption(UUID operation, UUID player, UUID noteId,
                                                                       String payload, MainThread mainThread,
                                                                       InventoryPort inventory) {
+        Objects.requireNonNull(mainThread, "Main-thread scheduler is required");
+        Objects.requireNonNull(inventory, "Inventory port is required");
         return executePrepared(executor.submit(() -> store.prepareRedemption(operation, player, noteId, payload)),
                 operation, player, mainThread, inventory);
     }

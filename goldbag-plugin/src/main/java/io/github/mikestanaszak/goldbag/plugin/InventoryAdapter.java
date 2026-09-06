@@ -2,16 +2,21 @@ package io.github.mikestanaszak.goldbag.plugin;
 
 import io.github.mikestanaszak.goldbag.core.Resource;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
 
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.TreeMap;
+import java.util.stream.Collectors;
 
 /** All methods are intended for the Bukkit main thread. */
 public final class InventoryAdapter {
@@ -172,7 +177,7 @@ public final class InventoryAdapter {
         int remaining = stack.getAmount();
         for (int slot = 0; slot < MAIN_INVENTORY_SLOTS && remaining > 0; slot++) {
             ItemStack existing = after[slot];
-            if (existing == null || !existing.isSimilar(stack)) continue;
+            if (existing == null || !sameTypeAndMeta(existing, stack)) continue;
             int room = Math.max(0, existing.getMaxStackSize() - existing.getAmount());
             int used = Math.min(remaining, room);
             if (used > 0) {
@@ -214,7 +219,8 @@ public final class InventoryAdapter {
     /** A plain item is exactly the same metadata as a fresh vanilla stack. */
     public boolean isPlain(ItemStack item, Material expected) {
         if (item == null || expected == null || item.getType() != expected || item.getAmount() <= 0) return false;
-        return new ItemStack(expected).isSimilar(item);
+        ItemStack pristine = new ItemStack(expected);
+        return Objects.equals(pristine.getItemMeta(), item.getItemMeta());
     }
 
     private static ItemStack[] readSlots(Inventory inventory) {
@@ -251,6 +257,11 @@ public final class InventoryAdapter {
                 && Objects.equals(left.getItemMeta(), right.getItemMeta());
     }
 
+    private static boolean sameTypeAndMeta(ItemStack left, ItemStack right) {
+        return left != null && right != null && left.getType() == right.getType()
+                && Objects.equals(left.getItemMeta(), right.getItemMeta());
+    }
+
     private static String snapshot(ItemStack[] slots) {
         StringBuilder result = new StringBuilder();
         for (int slot = 0; slot < MAIN_INVENTORY_SLOTS; slot++) {
@@ -271,7 +282,35 @@ public final class InventoryAdapter {
     private static String metadata(ItemStack item) {
         ItemMeta meta = item.getItemMeta();
         if (meta == null) return "-";
-        return meta.getClass().getName() + ":" + meta.serialize() + ":pdc="
-                + meta.getPersistentDataContainer();
+        PersistentDataContainer pdc = meta.getPersistentDataContainer();
+        String keys = pdc.getKeys().stream().map(NamespacedKey::toString).sorted().collect(Collectors.joining(","));
+        String noteId = pdc.get(new NamespacedKey("goldbag", "note-id"), PersistentDataType.STRING);
+        return meta.getClass().getName() + ":" + canonical(meta.serialize()) + ":pdcKeys=[" + keys + "]"
+                + ":noteId=" + (noteId == null ? "-" : noteId);
+    }
+
+    private static String canonical(Object value) {
+        if (value == null) return "null";
+        if (value instanceof Map<?, ?>) {
+            Map<String, Object> sorted = new TreeMap<>();
+            for (Map.Entry<?, ?> entry : ((Map<?, ?>) value).entrySet()) {
+                sorted.put(String.valueOf(entry.getKey()), entry.getValue());
+            }
+            StringBuilder result = new StringBuilder("{");
+            boolean first = true;
+            for (Map.Entry<String, Object> entry : sorted.entrySet()) {
+                if (!first) result.append(',');
+                first = false;
+                result.append(entry.getKey()).append('=').append(canonical(entry.getValue()));
+            }
+            return result.append('}').toString();
+        }
+        if (value instanceof Iterable<?>) {
+            List<String> values = new ArrayList<>();
+            for (Object element : (Iterable<?>) value) values.add(canonical(element));
+            Collections.sort(values);
+            return values.toString();
+        }
+        return String.valueOf(value);
     }
 }

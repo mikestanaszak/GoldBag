@@ -267,7 +267,10 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
     private void redeem(Player player, ItemStack item, UUID noteId) {
         UUID op = UUID.randomUUID();
         if (!guard(player.getUniqueId(), op)) { tell(player, "A GoldBag operation is already in progress."); return; }
-        String evidence = "right-click|" + inventory.evidenceAfterHeldRemoval(player.getInventory());
+        InventoryAdapter.Plan physicalPlan;
+        try { physicalPlan = inventory.planHeldRemoval(player.getInventory()); }
+        catch (RuntimeException error) { unguard(player.getUniqueId(), op); tell(player, "Could not read the banknote inventory state."); return; }
+        String evidence = "right-click|" + physicalPlan.evidence();
         CompletableFuture<SqliteStore.Receipt> operation;
         try {
             operation = coordinator().executeRedemption(op, player.getUniqueId(), noteId, evidence, this::runMain,
@@ -276,9 +279,10 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
                             return player.isOnline() && !player.isDead()
                                     && gameModeAllowed(player)
                                     && permissions.has(player, "goldbag.note", "goldpurse.use")
-                                    && sameNote(player.getInventory().getItemInMainHand(), noteId);
+                                    && sameNote(player.getInventory().getItemInMainHand(), noteId)
+                                    && physicalPlan.ready(player.getInventory());
                         }
-                        @Override public void apply() { ItemStack held = player.getInventory().getItemInMainHand(); held.setAmount(held.getAmount() - 1); player.getInventory().setItemInMainHand(held.getAmount() == 0 ? null : held); }
+                        @Override public void apply() { physicalPlan.apply(player.getInventory()); }
                     });
         } catch (RuntimeException error) { unguard(player.getUniqueId(), op); tell(player, ChatColor.RED + "Could not redeem this banknote."); return; }
         operation.whenComplete((receipt, error) -> runMain(() -> { unguard(player.getUniqueId(), op); if (error != null) tell(player, ChatColor.RED + "Banknote redemption is unresolved or was cancelled: " + op); else tell(player, "Banknote redeemed."); }));
@@ -429,44 +433,65 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
     public void cancel(Player player) { if (quotes.current(player.getUniqueId()).isPresent()) { quotes.current(player.getUniqueId()).ifPresent(q -> quotes.remove(player.getUniqueId(), q.id())); tell(player, "GoldBag operation cancelled."); } else tell(player, "There is no active GoldBag quote."); }
 
     private void executeDeposit(Player player, QuoteBook.Quote quote) {
-        List<MaterialCount> plan = depositPlan(quote);
-        if (!player.isOnline() || player.isDead() || !plan.stream().allMatch(entry -> inventory.canRemove(player.getInventory(), entry.material(), entry.count()))) { tell(player, "Inventory changed; nothing was deposited."); return; }
+        List<MaterialCount> materialPlan = depositPlan(quote);
+        java.util.Map<Material, Integer> removals = new java.util.LinkedHashMap<>();
+        for (MaterialCount entry : materialPlan) removals.merge(entry.material(), entry.count(), Integer::sum);
+        InventoryAdapter.Plan physicalPlan;
+        try { physicalPlan = inventory.planRemoval(player.getInventory(), removals); }
+        catch (RuntimeException error) { tell(player, "Inventory changed; nothing was deposited."); return; }
+        if (!player.isOnline() || player.isDead()) { tell(player, "Inventory changed; nothing was deposited."); return; }
         UUID op = UUID.randomUUID();
         if (!guard(player.getUniqueId(), op)) { tell(player, "A GoldBag operation is already in progress."); return; }
-        java.util.Map<Material, Integer> removals = new java.util.LinkedHashMap<>(); for (MaterialCount entry : plan) removals.merge(entry.material(), entry.count(), Integer::sum);
-        String payload = (quote.payload() == null ? quote.material() + ":" + quote.count() : quote.payload()) + "|" + inventory.evidenceAfterRemoval(player.getInventory(), removals);
-        CompletableFuture<SqliteStore.Receipt> operation = coordinator().execute(op, player.getUniqueId(), SqliteStore.Kind.DEPOSIT, quote.amount(), payload, null, this::runMain,
-                new ExchangeCoordinator.InventoryPort() {
-                    @Override public boolean ready() {
-                        return player.isOnline() && !player.isDead()
-                                && gameModeAllowed(player)
-                                && permissions.has(player, "goldbag.deposit", "goldpurse.use")
-                                && quote.catalogRevision() == quotes.catalogRevision()
-                                && plan.stream().allMatch(entry -> inventory.canRemove(player.getInventory(), entry.material(), entry.count()));
-                    }
-                    @Override public void apply() { for (MaterialCount entry : plan) inventory.remove(player.getInventory(), entry.material(), entry.count()); }
-                });
+        String payload = (quote.payload() == null ? quote.material() + ":" + quote.count() : quote.payload()) + "|" + physicalPlan.evidence();
+        CompletableFuture<SqliteStore.Receipt> operation;
+        try {
+            operation = coordinator().execute(op, player.getUniqueId(), SqliteStore.Kind.DEPOSIT, quote.amount(), payload, null, this::runMain,
+                    new ExchangeCoordinator.InventoryPort() {
+                        @Override public boolean ready() {
+                            return player.isOnline() && !player.isDead()
+                                    && gameModeAllowed(player)
+                                    && permissions.has(player, "goldbag.deposit", "goldpurse.use")
+                                    && quote.catalogRevision() == quotes.catalogRevision()
+                                    && physicalPlan.ready(player.getInventory());
+                        }
+                        @Override public void apply() { physicalPlan.apply(player.getInventory()); }
+                    });
+        } catch (RuntimeException error) {
+            unguard(player.getUniqueId(), op);
+            tell(player, ChatColor.RED + "Deposit is unresolved; no inventory change was applied.");
+            return;
+        }
         operation.whenComplete((receipt, error) -> runMain(() -> { unguard(player.getUniqueId(), op); if (error != null) tell(player, ChatColor.RED + "Deposit was cancelled or is unresolved; operation " + op + "."); else tell(player, "Deposited " + quote.count() + " for " + money(quote.amount()) + "."); }));
     }
 
     private void executeWithdrawal(Player player, QuoteBook.Quote quote) {
         Material material = Material.matchMaterial(quote.material());
         ItemStack item = new ItemStack(material, quote.count());
-        if (!player.isOnline() || player.isDead() || !inventory.canFit(player.getInventory(), item)) { tell(player, "Inventory changed; nothing was withdrawn."); return; }
+        InventoryAdapter.Plan physicalPlan;
+        try { physicalPlan = inventory.planAddition(player.getInventory(), item); }
+        catch (RuntimeException error) { tell(player, "Inventory changed; nothing was withdrawn."); return; }
+        if (!player.isOnline() || player.isDead()) { tell(player, "Inventory changed; nothing was withdrawn."); return; }
         UUID op = UUID.randomUUID();
         if (!guard(player.getUniqueId(), op)) { tell(player, "A GoldBag operation is already in progress."); return; }
-        String payload = quote.material() + ":" + quote.count() + "|" + inventory.evidenceAfterAddition(player.getInventory(), item);
-        CompletableFuture<SqliteStore.Receipt> operation = coordinator().execute(op, player.getUniqueId(), SqliteStore.Kind.WITHDRAW, quote.amount(), payload, null, this::runMain,
-                new ExchangeCoordinator.InventoryPort() {
-                    @Override public boolean ready() {
-                        return player.isOnline() && !player.isDead()
-                                && gameModeAllowed(player)
-                                && permissions.has(player, "goldbag.withdraw", "goldpurse.use")
-                                && quote.catalogRevision() == quotes.catalogRevision()
-                                && inventory.canFit(player.getInventory(), item);
-                    }
-                    @Override public void apply() { inventory.add(player.getInventory(), item); }
-                });
+        String payload = quote.material() + ":" + quote.count() + "|" + physicalPlan.evidence();
+        CompletableFuture<SqliteStore.Receipt> operation;
+        try {
+            operation = coordinator().execute(op, player.getUniqueId(), SqliteStore.Kind.WITHDRAW, quote.amount(), payload, null, this::runMain,
+                    new ExchangeCoordinator.InventoryPort() {
+                        @Override public boolean ready() {
+                            return player.isOnline() && !player.isDead()
+                                    && gameModeAllowed(player)
+                                    && permissions.has(player, "goldbag.withdraw", "goldpurse.use")
+                                    && quote.catalogRevision() == quotes.catalogRevision()
+                                    && physicalPlan.ready(player.getInventory());
+                        }
+                        @Override public void apply() { physicalPlan.apply(player.getInventory()); }
+                    });
+        } catch (RuntimeException error) {
+            unguard(player.getUniqueId(), op);
+            tell(player, ChatColor.RED + "Withdrawal is unresolved; no inventory change was applied.");
+            return;
+        }
         operation.whenComplete((receipt, error) -> runMain(() -> { unguard(player.getUniqueId(), op); if (error != null) tell(player, ChatColor.RED + "Withdrawal was cancelled or is unresolved; operation " + op + "."); else tell(player, "Withdrew " + quote.count() + " for " + money(quote.amount()) + "."); }));
     }
 
@@ -477,18 +502,28 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
         UUID note = UUID.randomUUID(), op = UUID.randomUUID();
         if (!guard(player.getUniqueId(), op)) { tell(player, "A GoldBag operation is already in progress."); return; }
         ItemStack noteItem = createNote(note, amount);
-        String payload = "command|" + inventory.evidenceAfterAddition(player.getInventory(), noteItem);
-        CompletableFuture<SqliteStore.Receipt> operation = coordinator().execute(op, player.getUniqueId(), SqliteStore.Kind.NOTE_ISSUE, amount, payload, note, this::runMain,
-                new ExchangeCoordinator.InventoryPort() {
-                    @Override public boolean ready() {
-                        return player.isOnline() && !player.isDead()
-                                && gameModeAllowed(player)
-                                && permissions.has(player, "goldbag.note", "goldpurse.use")
-                                && config().settings().banknotesEnabled()
-                                && inventory.canFit(player.getInventory(), noteItem);
-                    }
-                    @Override public void apply() { inventory.add(player.getInventory(), noteItem); }
-                });
+        InventoryAdapter.Plan physicalPlan;
+        try { physicalPlan = inventory.planAddition(player.getInventory(), noteItem); }
+        catch (RuntimeException error) { unguard(player.getUniqueId(), op); tell(player, "Inventory changed; no banknote was issued."); return; }
+        String payload = "command|" + physicalPlan.evidence();
+        CompletableFuture<SqliteStore.Receipt> operation;
+        try {
+            operation = coordinator().execute(op, player.getUniqueId(), SqliteStore.Kind.NOTE_ISSUE, amount, payload, note, this::runMain,
+                    new ExchangeCoordinator.InventoryPort() {
+                        @Override public boolean ready() {
+                            return player.isOnline() && !player.isDead()
+                                    && gameModeAllowed(player)
+                                    && permissions.has(player, "goldbag.note", "goldpurse.use")
+                                    && config().settings().banknotesEnabled()
+                                    && physicalPlan.ready(player.getInventory());
+                        }
+                        @Override public void apply() { physicalPlan.apply(player.getInventory()); }
+                    });
+        } catch (RuntimeException error) {
+            unguard(player.getUniqueId(), op);
+            tell(player, ChatColor.RED + "Banknote issuance is unresolved; no inventory change was applied.");
+            return;
+        }
         operation.whenComplete((receipt, error) -> runMain(() -> { unguard(player.getUniqueId(), op); if (error != null) tell(player, ChatColor.RED + "Banknote issuance was cancelled or is unresolved; operation " + op + "."); else tell(player, "Banknote issued for " + money(amount) + "."); }));
     }
 
