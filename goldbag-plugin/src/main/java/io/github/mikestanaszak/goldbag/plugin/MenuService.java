@@ -50,6 +50,7 @@ public final class MenuService {
                     "Value: " + plugin.money(resource.depositPrice()));
         }
         set(menu, 49, Material.BARRIER, "Close", "Cancel");
+        set(menu, 53, Material.GOLD_INGOT, "Deposit all eligible", "Preview every eligible main-inventory stack");
         player.openInventory(menu);
     }
 
@@ -57,11 +58,10 @@ public final class MenuService {
         MenuHolder holder = new MenuHolder(player.getUniqueId(), MenuHolder.Screen.WITHDRAW, page);
         Inventory menu = Bukkit.createInventory(holder, 54, ChatColor.YELLOW + "GoldBag Withdraw " + page);
         holder.inventory(menu);
-        List<Resource> resources = plugin.config().catalog().resources();
+        List<Resource> resources = plugin.config().catalog().resources().stream().filter(Resource::withdrawEnabled).collect(java.util.stream.Collectors.toList());
         int from = (page - 1) * 45;
         for (int i = 0; i < 45 && from + i < resources.size(); i++) {
             Resource resource = resources.get(from + i);
-            if (!resource.withdrawEnabled()) continue;
             Material material = Material.matchMaterial(resource.material());
             set(menu, i, material, resource.id(), "Price: " + plugin.money(resource.withdrawPrice()), "Use /goldbag withdraw " + resource.id() + " <count|max>");
         }
@@ -83,6 +83,19 @@ public final class MenuService {
         if (page > 1) set(menu, 18, Material.ARROW, "Previous page");
         if (accounts.size() == 10) set(menu, 26, Material.ARROW, "Next page");
         set(menu, 22, Material.BARRIER, "Close", "Cancel");
+        player.openInventory(menu);
+    }
+
+    public void openQuantity(Player player, Resource resource, QuoteBook.Kind kind) {
+        MenuHolder holder = new MenuHolder(player.getUniqueId(), MenuHolder.Screen.PREVIEW, resource.material(), kind);
+        Inventory menu = Bukkit.createInventory(holder, 27, ChatColor.YELLOW + "Choose " + resource.id() + " quantity");
+        holder.inventory(menu);
+        set(menu, 10, Material.IRON_NUGGET, "1", "Preview one item");
+        set(menu, 12, Material.IRON_INGOT, "16", "Preview a stack");
+        set(menu, 14, Material.IRON_BLOCK, "64", "Preview a full stack");
+        set(menu, 16, Material.GOLD_BLOCK, "Max", "Preview the maximum allowed");
+        set(menu, 22, Material.NAME_TAG, "Exact count", "Enter a whole item count privately");
+        set(menu, 26, Material.BARRIER, "Close", "Cancel");
         player.openInventory(menu);
     }
 

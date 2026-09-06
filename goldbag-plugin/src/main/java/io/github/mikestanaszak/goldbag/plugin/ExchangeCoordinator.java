@@ -5,10 +5,14 @@ import io.github.mikestanaszak.goldbag.storage.SqliteStore;
 import java.util.EnumMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.BooleanSupplier;
 
 /** Durable operation boundary. Bukkit inventory work stays outside the storage executor. */
 public final class ExchangeCoordinator {
     public enum Stage { PREPARED, APPLYING, COMPLETED, CANCELLED }
+    public interface MainThread { void execute(Runnable action); }
+    public interface InventoryPort { boolean ready(); void apply(); }
 
     public static final class StateMachine {
         private final Map<UUID, Stage> stages = new java.util.HashMap<>();
@@ -67,5 +71,52 @@ public final class ExchangeCoordinator {
 
     public java.util.concurrent.CompletableFuture<Void> cancel(UUID operation, String reason) {
         return executor.submit(() -> { store.cancelPrepared(operation, reason); return null; });
+    }
+
+    /**
+     * Executes a physical exchange while making the journal boundary explicit. The supplied
+     * scheduler is the Bukkit main-thread bridge; inventory callbacks are never run on the
+     * storage executor. A physical exception leaves APPLYING pending for operator recovery.
+     */
+    public CompletableFuture<SqliteStore.Receipt> execute(UUID operation, UUID player, SqliteStore.Kind kind,
+                                                            long amount, String payload, UUID noteId,
+                                                            MainThread mainThread, InventoryPort inventory) {
+        return executePrepared(prepare(operation, player, kind, amount, payload, noteId), operation, player, mainThread, inventory);
+    }
+
+    public CompletableFuture<SqliteStore.Receipt> executeRedemption(UUID operation, UUID player, UUID noteId,
+                                                                      String payload, MainThread mainThread,
+                                                                      InventoryPort inventory) {
+        return executePrepared(executor.submit(() -> store.prepareRedemption(operation, player, noteId, payload)),
+                operation, player, mainThread, inventory);
+    }
+
+    private CompletableFuture<SqliteStore.Receipt> executePrepared(CompletableFuture<SqliteStore.Pending> prepared,
+                                                                    UUID operation, UUID player,
+                                                                    MainThread mainThread, InventoryPort inventory) {
+        CompletableFuture<SqliteStore.Receipt> outcome = new CompletableFuture<>();
+        prepared.whenComplete((pending, prepareError) -> {
+            if (prepareError != null) { outcome.completeExceptionally(prepareError); return; }
+            mainThread.execute(() -> {
+                if (!inventory.ready()) {
+                    cancel(operation, "inventory or player state changed before APPLYING").whenComplete((ignored, cancelError) ->
+                            outcome.completeExceptionally(cancelError == null ? new IllegalStateException("Inventory changed") : cancelError));
+                    return;
+                }
+                markApplying(operation).whenComplete((ignored, applyingError) -> {
+                    if (applyingError != null) { outcome.completeExceptionally(applyingError); return; }
+                    mainThread.execute(() -> {
+                        if (!inventory.ready()) { outcome.completeExceptionally(new IllegalStateException("Inventory changed after APPLYING")); return; }
+                        try { inventory.apply(); }
+                        catch (Throwable physicalError) { outcome.completeExceptionally(physicalError); return; }
+                        complete(operation).whenComplete((receipt, completeError) -> {
+                            if (completeError != null) outcome.completeExceptionally(completeError);
+                            else outcome.complete(receipt);
+                        });
+                    });
+                });
+            });
+        });
+        return outcome;
     }
 }

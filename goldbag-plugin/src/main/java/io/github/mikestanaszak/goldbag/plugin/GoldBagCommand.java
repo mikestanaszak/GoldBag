@@ -61,7 +61,7 @@ public final class GoldBagCommand implements CommandExecutor, TabCompleter {
                 }
                 return true;
             case RATES: require(sender, "goldbag.use", "goldpurse.use"); if (parsed.material() == null) { plugin.tell(sender, "Use /goldbag rates <material>."); } else plugin.showRates(sender, parsed.material()); return true;
-            case DEPOSIT: requirePlayerPermission(sender, "goldbag.deposit", "goldpurse.use"); player(sender).ifPresent(p -> { if (parsed.all()) plugin.menus().openDeposit(p); else plugin.quoteDeposit(p, plugin.config().catalog().require(parsed.material()), parsed.count()); }); return true;
+            case DEPOSIT: requirePlayerPermission(sender, "goldbag.deposit", "goldpurse.use"); player(sender).ifPresent(p -> { if (parsed.all()) plugin.quoteDepositAll(p); else plugin.quoteDeposit(p, plugin.config().catalog().require(parsed.material()), parsed.count()); }); return true;
             case WITHDRAW: requirePlayerPermission(sender, "goldbag.withdraw", "goldpurse.use"); player(sender).ifPresent(p -> plugin.quoteWithdrawal(p, plugin.config().catalog().require(parsed.material()), parsed.count(), parsed.max())); return true;
             case PAY: requirePlayerPermission(sender, "goldbag.pay", "goldpurse.use"); pay(sender, parsed); return true;
             case NOTE: requirePlayerPermission(sender, "goldbag.note", "goldpurse.use"); player(sender).ifPresent(p -> { plugin.quotes().put(p.getUniqueId(), QuoteBook.Kind.NOTE, null, 0, parsed.amount(), plugin.quotes().catalogRevision() + 1, plugin.config().settings().quoteTimeoutSeconds()); plugin.tell(p, "Banknote preview for " + plugin.money(parsed.amount()) + ". Use /goldbag confirm or /goldbag cancel."); }); return true;
@@ -72,6 +72,7 @@ public final class GoldBagCommand implements CommandExecutor, TabCompleter {
             case RELOAD: require(sender, "goldbag.admin.reload", "goldpurse.admin"); plugin.reloadConfiguration(sender); return true;
             case STORAGE_STATUS: require(sender, "goldbag.admin.storage", "goldpurse.admin"); storageStatus(sender); return true;
             case STORAGE_EXPORT: require(sender, "goldbag.admin.storage", "goldpurse.admin"); export(sender); return true;
+            case STORAGE_IMPORT: require(sender, "goldbag.admin.storage", "goldpurse.admin"); importData(sender); return true;
             case RECOVERY_LIST: require(sender, "goldbag.admin.storage", "goldpurse.admin"); recoveryList(sender); return true;
             case RECOVERY_RESOLVE: require(sender, "goldbag.admin.storage", "goldpurse.admin"); recoveryResolve(sender, parsed); return true;
             default: throw new IllegalArgumentException("Unsupported command");
@@ -108,6 +109,11 @@ public final class GoldBagCommand implements CommandExecutor, TabCompleter {
 
     private void export(CommandSender sender) {
         plugin.submit(() -> plugin.store().exportJson(), json -> { try { java.nio.file.Path file = plugin.getDataFolder().toPath().resolve("goldbag-export.json"); Files.writeString(file, json, StandardCharsets.UTF_8); plugin.tell(sender, "GoldBag export written to " + file.getFileName()); } catch (Exception e) { plugin.tell(sender, ChatColor.RED + "Export failed: " + e.getMessage()); } }, sender, "Could not export storage.");
+    }
+
+    private void importData(CommandSender sender) {
+        java.nio.file.Path file = plugin.getDataFolder().toPath().resolve("goldbag-import.json");
+        plugin.submit(() -> { if (!Files.exists(file)) throw new IllegalArgumentException("Place an export at goldbag-import.json first"); plugin.store().importJson(Files.readString(file, StandardCharsets.UTF_8)); return true; }, ignored -> plugin.tell(sender, "GoldBag import completed from " + file.getFileName() + "."), sender, "Could not import storage.");
     }
 
     private void recoveryList(CommandSender sender) {

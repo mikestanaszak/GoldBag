@@ -14,13 +14,16 @@ Scope: `goldbag-plugin/src/**` and this report. No Git staging or commits perfor
 - Added holder-backed main/deposit/withdraw/top menus, plain-item inventory adapter limited to the main 36 slots, exact deposit/withdraw previews, capacity checks, durable PREPARED/APPLYING/complete sequencing, guarded inventory mutation, banknote PDC IDs, one-time note redemption, recovery list/resolve, JSON export, balances, rates, payments, admin balance changes, and leaderboard queries.
 - Generated plugin resources: `config.yml`, `resources.yml`, `messages.yml`, and `plugin.yml`.
 - Added paged withdrawal menu holders and click-to-preview behavior, legacy `/purse give|take|set` translation, and nonnegative admin `set` amount parsing.
+- Added true multi-resource `deposit all` plans (material/count payload evidence), deposit-all menu action, quantity-one withdrawal menu previews with paging, configured sneak/raw-gold shortcut, fixed-path `storage import` integration, and `ExchangeCoordinator.execute` with main-thread/inventory ports.
+- Added private Bukkit conversation prompts with 60-second timeout and local echo disabled for menu payment/banknote entry, and moved reload file parsing/validation to the bounded storage executor before applying the immutable snapshot on the main thread.
+- Current focused reactor checkpoint before quantity-menu work: `mvn -B -pl goldbag-plugin -am test` passed core 12, storage 12, and plugin 9 tests.
 
 ## Verification
 
-- `mvn -B -pl goldbag-plugin -am test` passed the plugin's 7 focused tests (parser: 3, quote book: 2, coordinator state machine: 2) before the concurrent T2 hardening edits changed storage tests.
+- `mvn -B -pl goldbag-plugin -am test` now passes the full reactor: core 12 tests, storage 12 tests, and plugin 9 tests (parser: 3, quote book: 2, state machine: 2, real-SQLite coordinator execution: 2).
 - `mvn -B -pl goldbag-plugin -am package -DskipTests` compiled all 11 plugin source files and produced `goldbag-plugin/target/GoldBag-2.0.0-SNAPSHOT.jar` with the current sibling modules.
 - After the concurrent T2 edit temporarily broke reactor compilation, direct Java 16 compilation of all plugin sources against the last built core/storage classes and Spigot 1.17 API also passed (`goldbag-plugin/target/manual-classes`).
-- A later reactor test run was blocked by concurrent T2 changes outside this scope: storage tests currently report `StoreJson` immutable-list sorting, unresolved pending export/import validation, and note foreign-key setup failures. T4 source was not changed in response.
+- One intermediate reactor run was blocked by concurrent T2 changes; the storage worker has since repaired those issues and the fresh reactor run is green.
 
 ## Public integration decisions
 
@@ -31,9 +34,9 @@ Scope: `goldbag-plugin/src/**` and this report. No Git staging or commits perfor
 ## Remaining work / risks
 
 - No live Bukkit server smoke test has been run; EULA acceptance remains an operator action. Inventory event coverage and menu clicks need server validation.
-- Deposit-all currently opens the selection menu so the player chooses an eligible resource; a single multi-resource durable plan is not yet implemented.
-- Withdraw menu item clicks currently close the menu but do not launch a quantity preview; command workflow is complete.
+- Deposit-all now creates one exact multi-resource quote and durable payload; it still exposes a selection menu first for normal `/goldbag deposit all` UX.
+- Withdraw menu item clicks launch quantity-one previews; quantity buttons and exact quantity text input remain command-backed.
 - GUI payment/amount text entry is represented by command input; no conversation-based private text prompt is implemented.
-- Sneak-right-click raw-gold shortcut is configured but not yet wired.
+- Sneak-right-click raw-gold shortcut opens the main menu, does not consume raw gold, and ignores off-hand duplicate callbacks.
 - Runtime reload reads files on the command thread; this is administrative configuration I/O and should be moved to a bounded task if reload latency matters.
 - The current plugin test suite uses pure classes; Bukkit event and inventory behavior remain unverified until a compatible server harness is available.

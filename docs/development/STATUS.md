@@ -10,7 +10,7 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and curr
 |---|---|---|---|---|
 | T0 Build foundation and durable handoff | Complete | Controller: root/module POMs, AGENTS, RESUME, STATUS | None | This file |
 | T1 Exact money, resource catalog, configuration | Complete; review clear | Luna `/root/core`, reviewer `/root/review_core`: `goldbag-core/src/**` | T0 | `reports/T1-core.md`, `reports/T1-review.md` |
-| T2 SQLite economy, notes, journal, exports | Fix round 1 | Luna `/root/storage`, reviewer `/root/review_storage`: `goldbag-storage/src/**` | T0 | `reports/T2-storage.md`, `reports/T2-review.md` |
+| T2 SQLite economy, notes, journal, exports | Fixes committed; re-review resumed | Luna `/root/storage`, reviewer `/root/review_storage`: `goldbag-storage/src/**` | T0 | `reports/T2-storage.md`, `reports/T2-review.md` |
 | T3 Build automation and operator documentation | Complete; review clear | Luna `/root/operations`, reviewer `/root/review_operations`: `.github/**`, `scripts/**`, `docs/operations/**` | T0 | `reports/T3-operations.md`, `reports/T3-review.md` |
 | T4 Bukkit plugin: lifecycle, commands, menus, exchange coordinator | Running | Luna `/root/plugin`: `goldbag-plugin/src/**` | T1, T2 public API | `reports/T4-plugin.md` |
 | T5 Independent review and integration fixes | Waiting | Luna reviewer; fixes routed to owners | T1–T4 | `reports/T5-review.md` |
@@ -21,13 +21,14 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and curr
 - Existing repository fetched into this workspace; switched to a new development branch. No original branch changed.
 - Java 21 and Maven 3.9.11 available. Original repository has no build definition or tests, so no baseline test suite exists.
 - Foundation checkpoint: `a7bcfcd` (design, task plan, Maven foundation, AGENTS, RESUME).
-- Remote backup: through `82306c4` pushed to `origin/codex/goldbag-rebuild`; main unchanged. Later edits are not backed up until another push.
+- Remote backup: through `bf5e6dd` pushed to `origin/codex/goldbag-rebuild`; main unchanged. Later edits are not backed up until another push.
 - Core checkpoint: `d1b5253`, 12 focused tests passed, including current SnakeYAML 2.7. Independent scoped review clear; original quartz/amethyst finding withdrawn by reviewer.
 - Tooling checkpoint: `82306c4`, controlled PowerShell fixture checks passed. Independent scoped review clear; no real Minecraft server has been started.
-- SQLite checkpoint: `946b731`, six focused tests and module verify passed. Independent review pending, especially import consistency and note/account locking.
-- SQLite review found negative-delta restore failure, missing full ledger/note reconciliation, ambiguous fingerprint encoding, unknown-schema adoption, and dense formatting. All routed to the original storage worker. Plugin API remains stable while fixes proceed.
+- SQLite fixes checkpoint: `bf5e6dd`, 12 focused tests and module verify reported passing; public API unchanged. The six original review findings were addressed by the implementer; independent re-review was interrupted by usage limits and has now resumed.
+- Plugin base checkpoint: `65dd1b7`. Additional source and actual coordinator-execution tests survived the interruption as uncommitted files; they are being checkpointed as WIP. Report claims 33 reactor tests passed before interruption, but fresh verification is still required after resumed edits.
+- Usage interruption recovery: T4 plugin implementation, T2 scoped re-review, and T4 boundary review restarted from their existing files and reports. T1/T3 remain complete and were not restarted. T4 report has some stale remaining-work bullets; implementer is reconciling them with actual source before its final checkpoint.
 - Core fixes: whitelist reversible blocks, quoted decimal settings and strict scalar types, simple DB filenames, and retain currency display fields. Tooling fix: reject junction/symlink ancestors before copying files.
-- Next controller step: act on T2 storage review findings, collect/checkpoint T4 implementation milestones, and perform independent T4 review. Resume existing files after interruption; do not restart T1/T3.
+- Next controller step: finish T2 scoped re-review; complete T4 quantity/menu flows and actual coordinator tests; act on bounded boundary-review findings; run full integration verification and final T4 review. Resume existing files after interruption; do not restart T1/T3 or redo the six already-implemented T2 fixes without a concrete finding.
 
 ## Decisions and boundaries
 

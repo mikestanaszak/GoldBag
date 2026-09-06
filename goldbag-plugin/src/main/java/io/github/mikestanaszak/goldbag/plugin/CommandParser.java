@@ -10,7 +10,7 @@ import java.util.Locale;
 /** Strict parser shared by the Bukkit command executor and tab completion. */
 public final class CommandParser {
     public enum Action { MAIN, BALANCE, RATES, DEPOSIT, WITHDRAW, PAY, NOTE, TOP,
-        ADMIN, RELOAD, STORAGE_STATUS, STORAGE_EXPORT, RECOVERY_LIST, RECOVERY_RESOLVE,
+        ADMIN, RELOAD, STORAGE_STATUS, STORAGE_EXPORT, STORAGE_IMPORT, RECOVERY_LIST, RECOVERY_RESOLVE,
         CONFIRM, CANCEL }
 
     public record Command(Action action, String material, String target, long amount, int count,
@@ -105,6 +105,7 @@ public final class CommandParser {
         String sub = lower(args.get(0));
         if (sub.equals("status")) return simple(Action.STORAGE_STATUS);
         if (sub.equals("export")) return simple(Action.STORAGE_EXPORT);
+        if (sub.equals("import")) return simple(Action.STORAGE_IMPORT);
         throw new IllegalArgumentException("Unknown storage operation: " + sub);
     }
 
