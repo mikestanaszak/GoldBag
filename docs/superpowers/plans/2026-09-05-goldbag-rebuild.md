@@ -143,7 +143,7 @@ Own `goldbag-plugin/src/**` and report `T4-plugin.md`. Consume exact core/storag
 ## T6: Verification and checkpoint
 
 - [x] Run full `mvn -B verify`, inspect shaded artifact, plugin descriptor, dependency bytecode, and repository diff.
-- [ ] Prepare local server smoke validation and run it only where terms are already accepted. Record exact server build/Java/plugin result; untested stays unverified.
+- [x] Prepare local server smoke validation and run it only where terms are already accepted. Record exact server build/Java/plugin result; untested stays unverified.
 - [x] Update STATUS with tests, artifact location, open work, next exact command and commits. Create a feature-branch checkpoint; never merge main automatically.
 - [x] Report resumable state and any limits honestly. No claim of complete broad compatibility until matrix evidence exists.
 

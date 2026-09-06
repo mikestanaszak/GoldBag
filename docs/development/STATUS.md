@@ -16,18 +16,18 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and curr
 | T4a Offline restore helper | Complete; review clear | Luna `/root/offline_import`: new `cli/**` source/test packages, backup/restore guide | T2 public API | `reports/T4-offline-import.md` |
 | T4b Inventory plans and evidence | Complete; review clear | Luna inventory/helper workers: `InventoryAdapter.java`, its tests | T4 integration | `reports/T4-inventory.md` |
 | T5 Independent review and integration fixes | Complete; review clear | Luna player-flow and physical-flow reviewers | T1–T4 | `reports/T4-player-flows-review.md`, `reports/T4-physical-review.md` |
-| T6 Server validation, packaging, final checkpoint | Automated checks complete; local server tests running | Luna automation worker + controller | T5 | `reports/T6-validation.md`, `reports/T6-automation.md` |
+| T6 Server validation, packaging, final checkpoint | Local server smoke complete; harness review pending | Luna automation worker + controller | T5 | `reports/T6-validation.md`, `reports/T6-automation.md` |
 
 ## Latest checkpoint
 
-- Implementation fixes: `5b2efb8` and `51238d8`; independent fix reviews: `7df6a6b`; packaged verification automation: `39c93b7`. All are pushed to `origin/codex/goldbag-rebuild`; main is unchanged. Final handoff documentation follows in a documentation-only commit.
-- Controller `mvn -B clean verify`: PASS, 66 tests (12 core, 17 storage, 37 plugin), zero failures/errors/skips on Java 21.0.11 / Maven 3.9.11 / Windows.
-- GitHub Linux Java 17 and 21: both Maven and the new packaged verifier PASS at `39c93b7`, run [34008700654](https://github.com/mikestanaszak/GoldBag/actions/runs/34008700654). Each job retained the canonical shaded JAR, checksum, and test reports.
-- Development artifact: `goldbag-plugin/target/GoldBag-2.0.0-SNAPSHOT.jar`; adjacent `.sha256` file. SHA-256: `43377E3C0C2E8AAB9F5AB22F4DD65A38B0353ED48363683CEFBC2F0ACBB4AE0E`.
-- All scoped core, storage, operations, plugin, inventory, offline restore, and final automation reviews are clear. The last cleanup and pagination fixes were independently reviewed by the other Luna worker; see `T4-completion-review.md`, `T4-pagination-review.md`, and `T6-automation-review.md`.
-- The user-requested automatable work is complete. Future builds can repeat the package checks using `pwsh -File scripts/Invoke-GoldBagBuild.ps1`; CI runs the same verifier on Java 17/21. Completed work must not be restarted after an interruption.
-- On 2026-09-06 the user explicitly authorized setting EULA to true and server testing. Paper 1.21.11 build 132 is now running in an isolated loopback-only directory. Startup enabled GoldBag with 18 resources; actual player and lifecycle checks are underway. See `reports/T6-server-validation.md` and `reports/T6-player-server-tests.md`. No other server version is certified.
-- This is a tested development artifact, not a verified Minecraft server release. Do not merge main or publish a compatibility claim without actual server evidence.
+- Production source: `37fb85f`; independent banknote-fix review: `3ba815e`. Both are pushed to `origin/codex/goldbag-rebuild`; main unchanged. The final player harness, recovery helper, and reports follow in the next checkpoint.
+- Controller `mvn -B verify`: PASS, 69 tests (12 core, 17 storage, 40 plugin) on Java 21.0.11/Maven 3.9.11/Windows. Packaged verifier PASS. GitHub Linux Java 17/21 Maven and packaged checks PASS at `3ba815e`, [run 34040881714](https://github.com/mikestanaszak/GoldBag/actions/runs/34040881714).
+- Current artifact: `goldbag-plugin/target/GoldBag-2.0.0-SNAPSHOT.jar`; adjacent `.sha256`. SHA-256: `676E04E0112B2411FE10C95262EE3F2E5AE8E32FDEDCCF2B512DCC8CEC530472`.
+- User explicitly authorized `eula=true` and local server testing on 2026-09-06. Paper 1.21.11 build 132 on Windows/Java 21 passed startup, all 18 resources, 16 actual-player checks, restart balances/note persistence and copied-note replay, invalid/valid reload, synthetic recovery apply/cancel/quarantine, actual server export/restore, and clean shutdown.
+- Server testing found and fixed banknote air interaction filtering; the three new regression tests and independent Luna review are clear. Core/storage/operations/plugin/offline-restore and recovery-fixture reviews remain complete.
+- Server directory: `C:\Users\mfsta\Documents\ChatGPT\GoldBag-local-tests\paper-1.21.11-132`. It is STOPPED, loopback port 25575 has no listener, and `eula=true` remains saved. Database final balances: SmokeA=G90.00, SmokeB=G15.00, RecoveryApply=G2.00, RecoveryCancel=G0.00; unresolved operations zero. Worlds/logs/database are preserved outside Git.
+- Only the independent Luna review of the new JavaScript player-test harness was interrupted by usage limits. Resume the exact bounded brief in `reports/T6-player-harness-review.md`; do not silently replace Luna or repeat completed plugin/server work. No production defect is open from the completed reviews.
+- Exact Paper smoke evidence is in `reports/T6-server-validation.md` and `reports/T6-player-server-tests.md`. Other versions/platforms and extended hard-crash/disconnect/death/protection-plugin scenarios remain unverified. This is a development build with an exact-server smoke pass, not a broad compatibility certificate.
 ## Decisions and boundaries
 
 - Ruling: use the existing repo on a fresh development branch, retaining old source outside new Maven roots — preserves history and avoids accidental compilation of the old plugin — cost if wrong: source layout can be revised without losing history.
@@ -36,12 +36,13 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and curr
 - Ruling: keep quartz and amethyst shards enabled — reviewer misread "Not enabled" in the spec's storage-block column as applying to the resource itself; approved prices and default catalog include both resources — cost if wrong: default flags can be changed before release. The scoped reviewer withdrew the finding.
 - Ruling: append currencyName/currencySymbol to Settings and restrict DB path to a simple filename — resolves an omitted API field and prevents accidental path escape while preserving configurable display names — cost: a small API adjustment before plugin integration.
 - Ruling: permit storage schema 2 with per-account entry revisions; reject unreleased prototype schema 1 with an explicit diagnostic — deterministic ledger validation cannot infer ordering from timestamps or random UUIDs, and the user has no live server data — cost if wrong: prototype data requires a separately validated migration, not silent adoption.
-- Paper/Spigot direction accepted by the user's instruction to implement after reviewing the revised spec. Full catalog requires Minecraft 1.17 or later. No actual server compatibility claim exists yet.
+- Paper/Spigot direction accepted by the user's instruction to implement after reviewing the revised spec. Full catalog requires Minecraft 1.17 or later. Exact Paper 1.21.11 build 132 now has a recorded smoke pass; other builds remain unverified.
 - Server startup requiring acceptance of third-party terms is a manual operator step unless already authorized separately.
 
 ## Verification
 
-- Full clean reactor: PASS, 66 tests. Java 17/21 Linux CI: PASS, including packaged runtime checks.
-- Shaded artifact: 712 base classes, maximum major 60 (Java 16), 20 native SQLite entries, required descriptor/manifest/relocated libraries, and no bundled Bukkit classes. Header inspection is not proof of all Java 16 or Minecraft behavior.
-- Packaged SQLite restart and offline validation/restore: PASS, preserving balances, issued notes, pending evidence, and source bytes. Details are in `reports/T6-validation.md`.
-- No open findings remain in the completed scoped reviews. Actual server compatibility remains unverified.
+- Full reactor: PASS, 69 tests. Java 17/21 Linux CI: PASS, including packaged runtime checks.
+- Shaded artifact: 712 base classes, maximum major 60 (Java 16),20 native SQLite entries, expected descriptor/manifest/relocated libraries, no bundled Bukkit classes.
+- Packaged SQLite restart/restore and actual server-export restore: PASS.
+- Paper 1.21.11 build 132 actual smoke: PASS; see detailed server/player reports. Clean shutdown and released database ownership confirmed.
+- Pending: independent review of new test harness only; extended compatibility/fault scenarios are unverified. Source and evidence survive usage exhaustion; completed work stays complete.

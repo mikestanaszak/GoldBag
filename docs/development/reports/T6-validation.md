@@ -51,3 +51,13 @@ This is an incremental record, not a completed server-release certificate. The f
 - Local artifact: `goldbag-plugin/target/GoldBag-2.0.0-SNAPSHOT.jar`; SHA-256 `43377E3C0C2E8AAB9F5AB22F4DD65A38B0353ED48363683CEFBC2F0ACBB4AE0E`, saved beside it as `.jar.sha256`.
 - Original source/history retained; `main` unchanged. Feature-branch source and review checkpoints pushed. Final documentation-only handoff follows this checkpoint.
 - Repeat automatic verification with `pwsh -File scripts/Invoke-GoldBagBuild.ps1`. Actual server startup, inventory behavior, and exact-version compatibility remain unverified until the operator supplies a server and makes the EULA decision. The test-server preparation helper and compatibility checklist are ready.
+
+## Actual server checkpoint `37fb85f`
+
+The user authorized EULA acceptance and local server startup on 2026-09-06. Paper 1.21.11 build 132 exposed a banknote air-event filtering defect, fixed with three regression tests and independently reviewed at `3ba815e`.
+
+- Current full reactor: PASS, 69 tests (12 core, 17 storage, 40 plugin). Packaged verifier PASS; Java 17/21 GitHub checks PASS in run `34040881714`.
+- Current artifact SHA-256: `676E04E0112B2411FE10C95262EE3F2E5AE8E32FDEDCCF2B512DCC8CEC530472`.
+- Actual Paper smoke: 16 player checks, clean restart/note persistence and copy rejection, synthetic recovery/quarantine/apply/cancel, live export/restore, and clean shutdown passed. See `T6-server-validation.md` and `T6-player-server-tests.md`.
+- Server is stopped with `eula=true` saved. Other server versions and extended fault scenarios remain unverified.
+- The final independent Luna review of the new JavaScript test harness hit the usage limit. This does not undo the completed runtime results or cleared production reviews; its narrow remaining brief is saved in `T6-player-harness-review.md`.

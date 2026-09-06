@@ -1,9 +1,10 @@
 # Compatibility matrix and checklist
 
-This matrix starts unverified. Compilation and a successful Maven build do not prove that GoldBag runs on a Minecraft server. Add a row only after the exact server build, Java runtime, platform, plugin JAR, startup result, catalog validation, exchange, note, recovery, restart, and shutdown checks have been recorded.
+Compilation and a successful Maven build do not prove that GoldBag runs on a Minecraft server. The exact Paper build below has a recorded automated smoke pass. Broad version rows remain unverified, and the extended fault scenarios below are still pending.
 
 | Minecraft server | Platform/build | Java runtime | GoldBag artifact | Status | Evidence |
 | --- | --- | --- | --- | --- | --- |
+| 1.21.11 | Paper build 132, c5eb079 | Temurin 21.0.11+10, Windows 11 amd64 | GoldBag 2.0.0-SNAPSHOT, source 37fb85f; SHA 676E04E0…C530472 | Automated smoke PASS; extended validation pending | [Server/recovery/restart evidence](../development/reports/T6-server-validation.md), [16 player checks](../development/reports/T6-player-server-tests.md) |
 | 1.17.x | Spigot exact build: unverified | Required Java: unverified | GoldBag 2.0.0-SNAPSHOT: unverified | Unverified | No server test recorded |
 | 1.17.x | Paper exact build: unverified | Required Java: unverified | GoldBag 2.0.0-SNAPSHOT: unverified | Unverified | No server test recorded |
 | 1.18.x | Spigot exact build: unverified | Required Java: unverified | GoldBag 2.0.0-SNAPSHOT: unverified | Unverified | No server test recorded |
@@ -26,4 +27,6 @@ The target is Spigot/Bukkit public API 1.17 with Java 16-compatible bytecode. Pa
 - Confirm no required behavior depends on a Paper-only API when testing Spigot.
 - Record failures and unavailable server builds instead of silently broadening the supported range.
 
-The matrix must be updated with evidence by the integration/server-validation owner. Until then every row remains unverified.
+The exact Paper smoke included startup/shutdown, all 18 resources, deposits/withdrawals/payments, main/offhand notes and copy rejection, custom/full-inventory/ingot/creative rejection, menus, reload validation, synthetic recovery apply/cancel and account blocking, restart persistence, and actual server export/restore.
+
+Still unverified: forced crashes at each inventory/journal stage, disconnect/death during APPLYING, interactions with other permission/protection plugins, and other server builds/platforms. Synthetic recovery records exercised operator accounting; they do not substitute for hard-crash inventory-persistence evidence.

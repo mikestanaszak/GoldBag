@@ -4,7 +4,7 @@ A Minecraft resource-exchange plugin: deposit raw metals and mining resources in
 
 ## Development build
 
-The SQLite-only rewrite lives on [`codex/goldbag-rebuild`](https://github.com/mikestanaszak/GoldBag/tree/codex/goldbag-rebuild). It is under development, not yet a verified server release. The original implementation remains in `java/` and `resources/` as reference; Maven builds only the new `goldbag-*` modules.
+The SQLite-only rewrite lives on [`codex/goldbag-rebuild`](https://github.com/mikestanaszak/GoldBag/tree/codex/goldbag-rebuild). It has passed 69 automated tests and an actual Paper 1.21.11 build 132 smoke test, including player exchanges, banknotes, restart persistence, and recovery. Other versions and extended crash scenarios remain unverified; see the [compatibility evidence](docs/operations/compatibility.md). The original implementation remains in `java/` and `resources/` as reference; Maven builds only the new `goldbag-*` modules.
 
 - [Current task board and verification status](docs/development/STATUS.md)
 - [Resume development after an interruption](RESUME.md)

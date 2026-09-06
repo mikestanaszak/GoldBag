@@ -21,3 +21,7 @@ All implementation and independent review agents used the requested **gpt-5.6-lu
 - No Minecraft server was started, no EULA accepted, and no exact server version is certified. The remaining server validation is described in `docs/operations/compatibility.md`.
 
 Do not restart completed modules or reviews when resuming. Read STATUS for the latest checkpoint and any concrete remaining work.
+
+## Live-server follow-up
+
+Paper 1.21.11 build 132 exposed a banknote air-interaction filtering defect after this initial integration review. It was fixed at `37fb85f`, covered by three new tests, and independently cleared in `T6-banknote-review.md` at `3ba815e`. The reactor now passes 69 tests and the actual-server scenarios are recorded in `T6-server-validation.md`. Only independent review of the new JavaScript test harness remains interrupted by Luna usage limits; production reviews are complete.
