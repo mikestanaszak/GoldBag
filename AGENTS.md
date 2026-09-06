@@ -16,6 +16,7 @@ The executable task plan is `docs/superpowers/plans/2026-09-05-goldbag-rebuild.m
 - Target Bukkit/Spigot public API 1.17 with Java 16-compatible bytecode; current development JDK is 21. Dependencies must remain compatible with the target runtime. Exact server versions are supported only after testing.
 - Use focused tests first, then full reactor verification at integration. Do not claim in-game behavior or compatibility from compilation alone.
 - Do not accept Minecraft's EULA for the user or buy/provision external hosting. Local server preparation may download artifacts and prepare instructions without accepting terms.
+- Explicit exception recorded 2026-09-06: the user instructed "Set EULA to true and also test the server." The controller may set `eula=true` and run the isolated local validation server; public deployment and hosting purchases remain outside this authorization.
 - Preserve pending transaction evidence. Database commit and Minecraft inventory persistence are separate; uncertain operations must be quarantined, not guessed at.
 
 ## Resume safety

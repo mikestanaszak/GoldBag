@@ -2,7 +2,7 @@
 
 A Minecraft resource-exchange plugin: deposit raw metals and mining resources into one Gold balance, then withdraw diamonds, redstone, or other configured resources.
 
-## Rebuild in progress
+## Development build
 
 The SQLite-only rewrite lives on [`codex/goldbag-rebuild`](https://github.com/mikestanaszak/GoldBag/tree/codex/goldbag-rebuild). It is under development, not yet a verified server release. The original implementation remains in `java/` and `resources/` as reference; Maven builds only the new `goldbag-*` modules.
 
@@ -11,7 +11,7 @@ The SQLite-only rewrite lives on [`codex/goldbag-rebuild`](https://github.com/mi
 - [Approved plugin specification](docs/superpowers/specs/2026-09-05-goldbag-design.md)
 - [Implementation tasks and API contracts](docs/superpowers/plans/2026-09-05-goldbag-rebuild.md)
 
-The rebuild targets Spigot and Paper from Minecraft 1.17 onward, subject to a tested compatibility matrix. It uses SQLite without an external database, preserves original ore prices, and excludes smelted ingots. Commands, menus, payments, one-time banknotes, and a leaderboard are implemented and undergoing integration review. Fabric and interest are outside this release.
+The rebuild targets Spigot and Paper from Minecraft 1.17 onward, subject to a tested compatibility matrix. It uses SQLite without an external database, preserves original ore prices, and excludes smelted ingots. Commands, menus, payments, one-time banknotes, and a leaderboard are implemented and have passed the scoped integration reviews. Fabric and interest are outside this release.
 
 For example, depositing 25 raw iron credits 50.00 G, enough to withdraw one diamond. Each player has one balance across all worlds, identified by their Minecraft UUID. Ordinary resources and reversible storage blocks share consistent rates; custom items are excluded from exchange.
 

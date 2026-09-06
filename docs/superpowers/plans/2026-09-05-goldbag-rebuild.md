@@ -125,27 +125,27 @@ Own `.github/**`, `scripts/**`, `docs/operations/**`, report `T3-operations.md`.
 
 Own `goldbag-plugin/src/**` and report `T4-plugin.md`. Consume exact core/storage interfaces above; shared POM edits requested from controller.
 
-- [ ] Build plugin lifecycle with async serialized bounded storage executor, startup catalog/material/runtime validation, existing account initialization on join, orderly close, status failures, reload all-or-nothing, and default file generation.
-- [ ] Register traditional plugin.yml API 1.17 and canonical commands, optional compatibility aliases, permissions (modern explicit deny wins over legacy grants). Console can administer/query but not mutate inventory. Write tests for parser/permission/quote logic first.
-- [ ] Add main menu, catalog/pagination, deposit selection, quantity preview/confirmation, rates, max-count capacity, payments, notes, leaderboard, and admin operations. Keep player items in inventory during previews; expire/cancel quotes and invalidate on reload. Use plugin InventoryHolder sessions, not titles.
-- [ ] Implement inventory adapter and durable exchange coordinator. Reserve a session on main thread before async prepare, lock relevant inventory paths during operation, persist APPLYING before changing inventory, then complete asynchronously. On late/uncertain results keep affected accounts quarantined and report operation ID. Never mutate inventories from DB thread; reject offline/dead/changed state before mutation. Do not roll back unrelated slots. Scan only main 36 slots and reject custom metadata. Note issuance/redeem use PDC UUID and authoritative store record; copied notes cannot credit twice.
-- [ ] Provide `/goldbag recovery list` and `/goldbag recovery resolve <op> <apply|cancel> <reason>` for operators/console, clearly identifying ambiguity and resulting balance action. Command resolves database accounting after operator checks inventory, without silently restoring inventory snapshots.
-- [ ] Add storage export and offline import entrypoint or helper integration. Export path fixed under plugin data folder; avoid arbitrary player-controlled paths.
-- [ ] Test pure coordinator state transitions using controlled scheduler/inventory doubles and real SQLite; include delayed callback, cancellation, offline/death, changed inventory, full stacks, drag/hotbar/offhand, note-copy redemption and backend exceptions. Use real server smoke checks separately for Bukkit behavior.
-- [ ] Run `mvn -B verify`; save remaining in-game validation steps if server cannot run without user-owned EULA acceptance.
+- [x] Build plugin lifecycle with async serialized bounded storage executor, startup catalog/material/runtime validation, existing account initialization on join, orderly close, status failures, reload all-or-nothing, and default file generation.
+- [x] Register traditional plugin.yml API 1.17 and canonical commands, optional compatibility aliases, permissions (modern explicit deny wins over legacy grants). Console can administer/query but not mutate inventory. Write tests for parser/permission/quote logic first.
+- [x] Add main menu, catalog/pagination, deposit selection, quantity preview/confirmation, rates, max-count capacity, payments, notes, leaderboard, and admin operations. Keep player items in inventory during previews; expire/cancel quotes and invalidate on reload. Use plugin InventoryHolder sessions, not titles.
+- [x] Implement inventory adapter and durable exchange coordinator. Reserve a session on main thread before async prepare, lock relevant inventory paths during operation, persist APPLYING before changing inventory, then complete asynchronously. On late/uncertain results keep affected accounts quarantined and report operation ID. Never mutate inventories from DB thread; reject offline/dead/changed state before mutation. Do not roll back unrelated slots. Scan only main 36 slots and reject custom metadata. Note issuance/redeem use PDC UUID and authoritative store record; copied notes cannot credit twice.
+- [x] Provide `/goldbag recovery list` and `/goldbag recovery resolve <op> <apply|cancel> <reason>` for operators/console, clearly identifying ambiguity and resulting balance action. Command resolves database accounting after operator checks inventory, without silently restoring inventory snapshots.
+- [x] Add storage export and offline import entrypoint or helper integration. Export path fixed under plugin data folder; avoid arbitrary player-controlled paths.
+- [x] Test pure coordinator state transitions using controlled scheduler/inventory doubles and real SQLite; include delayed callback, cancellation, offline/death, changed inventory, full stacks, drag/hotbar/offhand, note-copy redemption and backend exceptions. Use real server smoke checks separately for Bukkit behavior.
+- [x] Run `mvn -B verify`; save remaining in-game validation steps if server cannot run without user-owned EULA acceptance.
 
 ## T5: Review and integration fixes (fresh Luna reviewer)
 
-- [ ] Review T1/T2/T3/T4 diffs against their tasks and spec. Report concrete priority findings with file/line and reproduction, focusing on duplicate money, custom item acceptance, async races, loss/duplication, invalid config, missing required behavior, restore integrity, and runtime compatibility.
-- [ ] Route each fix to its owner with regression test and persist report. Re-review only fixes. Do not mark open important findings complete.
-- [ ] Write root README with actual implemented capabilities, build instructions, limitations, and durable task links; archive original source explicitly without losing Git history.
+- [x] Review T1/T2/T3/T4 diffs against their tasks and spec. Report concrete priority findings with file/line and reproduction, focusing on duplicate money, custom item acceptance, async races, loss/duplication, invalid config, missing required behavior, restore integrity, and runtime compatibility.
+- [x] Route each fix to its owner with regression test and persist report. Re-review only fixes. Do not mark open important findings complete.
+- [x] Write root README with actual implemented capabilities, build instructions, limitations, and durable task links; archive original source explicitly without losing Git history.
 
 ## T6: Verification and checkpoint
 
-- [ ] Run full `mvn -B verify`, inspect shaded artifact, plugin descriptor, dependency bytecode, and repository diff.
+- [x] Run full `mvn -B verify`, inspect shaded artifact, plugin descriptor, dependency bytecode, and repository diff.
 - [ ] Prepare local server smoke validation and run it only where terms are already accepted. Record exact server build/Java/plugin result; untested stays unverified.
-- [ ] Update STATUS with tests, artifact location, open work, next exact command and commits. Create a feature-branch checkpoint; never merge main automatically.
-- [ ] Report resumable state and any limits honestly. No claim of complete broad compatibility until matrix evidence exists.
+- [x] Update STATUS with tests, artifact location, open work, next exact command and commits. Create a feature-branch checkpoint; never merge main automatically.
+- [x] Report resumable state and any limits honestly. No claim of complete broad compatibility until matrix evidence exists.
 
 ## Preflight interface/ownership review
 

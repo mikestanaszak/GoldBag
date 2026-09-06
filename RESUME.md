@@ -17,4 +17,4 @@ Suggested continuation request:
 
 Usage exhaustion stops active work; it does not delete the repository, task reports, or commits. Work does not automatically restart when usage resets. Reopen this project and use the continuation request above. Remote branch backup status is recorded in STATUS; do not assume an unpushed local commit exists on GitHub.
 
-Current next step: read `docs/development/reports/T5-review.md` and resume the two final scoped Luna reviews of implementation checkpoint `904e67f`. The build already passes 63 tests and Java 17/21 CI. Core, storage, and offline restore reviews are complete; do not restart them.
+Current next step: automatic build/package checks and reviews are complete (66 tests, Java 17/21 CI). User explicitly authorized `eula=true` and actual server testing on 2026-09-06. Resume the in-progress Paper 1.21.11 build 132 checks from `docs/development/reports/T6-server-validation.md` and the player-test report; inspect the local process/log before starting another server. Do not restart completed modules or reviews.

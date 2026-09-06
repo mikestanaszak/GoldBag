@@ -1,6 +1,6 @@
 # T6 validation record
 
-This is an incremental record, not a completed server-release certificate. Recheck the final artifact after T4 and storage review fixes.
+This is an incremental record, not a completed server-release certificate. The final automated result is recorded at the end; older checkpoints are historical.
 
 ## Foundation checkpoint (before Bukkit adapter)
 
@@ -39,3 +39,15 @@ This is an incremental record, not a completed server-release certificate. Reche
 - Artifact SHA-256: `F9B0F5F1ED777EB77E52A0A24C51B5B0272537039E6FF34D2AD8E8CFAA728388`.
 - Final header inspection: 712 base classes, maximum major version 60 (Java 16); multi-release overrides excluded. This is a bytecode check, not a server compatibility claim.
 - Final scoped Luna review dispositions are pending because both reviewers hit the usage limit. Exact continuation briefs are in `T5-review.md`. The artifact remains a development build; no actual Minecraft server behavior or version compatibility is certified.
+
+## Final automated checkpoint `39c93b7`
+
+- Production fixes at `5b2efb8` and `51238d8` independently cleared by the other Luna reviewer. Automation independently cleared in `T6-automation-review.md`. No open findings remain in those scoped reviews.
+- Controller `mvn -B clean verify`: PASS, 66 tests (12 core, 17 storage, 37 plugin), zero failures/errors/skips. Environment: Windows, Java 21.0.11, Maven 3.9.11.
+- Controller compiled `scripts/verification/PackagedJarVerification.java` against only the shaded JAR and ran it with `.runtime/final-verifier` plus that JAR on the classpath: PASS. Worker also verified the PowerShell build helper end to end and parsed its final script successfully.
+- Archive: 712 base classes, maximum major 60 (Java 16), 20 native SQLite libraries, expected main class/descriptor/manifest, relocated dependencies, and no bundled Bukkit classes.
+- Packaged behavior: real SQLite restart persistence, CLI validate-only with no destination/SQLite sidecars, empty-destination restore preserving account balance, issued banknote, pending evidence/account quarantine, unchanged source JSON, and temporary fixture cleanup all passed.
+- GitHub Linux Java 17 and 21 both passed Maven and packaged verification at this same source: [run 34008700654](https://github.com/mikestanaszak/GoldBag/actions/runs/34008700654). Both uploaded canonical shaded JARs, portable SHA-256 files, and test reports. Build artifacts are retained for 14 days; source remains on the feature branch and can reproduce them.
+- Local artifact: `goldbag-plugin/target/GoldBag-2.0.0-SNAPSHOT.jar`; SHA-256 `43377E3C0C2E8AAB9F5AB22F4DD65A38B0353ED48363683CEFBC2F0ACBB4AE0E`, saved beside it as `.jar.sha256`.
+- Original source/history retained; `main` unchanged. Feature-branch source and review checkpoints pushed. Final documentation-only handoff follows this checkpoint.
+- Repeat automatic verification with `pwsh -File scripts/Invoke-GoldBagBuild.ps1`. Actual server startup, inventory behavior, and exact-version compatibility remain unverified until the operator supplies a server and makes the EULA decision. The test-server preparation helper and compatibility checklist are ready.
