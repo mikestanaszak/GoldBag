@@ -19,3 +19,13 @@ Server directory: `C:\Users\mfsta\Documents\ChatGPT\GoldBag-local-tests\paper-1.
 Initial startup and generated configuration validation are running. Luna worker owns `scripts/server-tests/**` and `T6-player-server-tests.md` for actual protocol-client exchange/menu tests. Controller owns server lifecycle, commands, logs, compatibility/status updates, and commits.
 
 The server is a local validation fixture; do not certify any other Minecraft/Paper/Spigot build from its results. Exact results and remaining checks will be appended here and in the player-test report.
+
+## First startup and console checks
+
+- PASS: Paper startup completed, GoldBag enabled with SQLite and all 18 default resources. `plugins` listed GoldBag as enabled. Listening socket confirmed `127.0.0.1:25575`.
+- PASS: `goldbag rates` printed original/default rates including raw iron G2.00 and diamond G50.00; ingots absent.
+- PASS: `goldbag reload` with valid configuration; invalid `exchange.allow-creative` text rejected with a precise diagnostic while active rates remained available. Original config restored and successful reload repeated.
+- PASS: `goldbag storage status` reported healthy with no pending operations; `goldbag storage export` wrote schema2 JSON; `goldbag recovery list` empty.
+- PASS: console deposit rejected because inventory operations require a player.
+- Setup-only observations: flat-world generation used default empty generator settings and logged `No key layers in MapLike[{}]` during initial world creation; server continued normally. Paper warns about deliberate offline mode and newer releases, and uses its Java profiler on Windows. These are not GoldBag exceptions. Initial mistyped `goldbag export` correctly returned unknown command; canonical `goldbag storage export` passed.
+- Actual clients created GoldBagSmokeA/B accounts. Controller opped only those fixture users. Basic deposit, withdrawal and payment progressed; a banknote air-interaction check then failed. Investigation is scoped to event cancellation semantics versus protocol-client behavior; do not mark the banknote test passing yet. See the player-test and banknote-fix reports.
