@@ -27,6 +27,8 @@ mvn -B verify
 
 The build targets Java 16 bytecode. Each Minecraft server still needs its own supported Java runtime. The packaged plugin will be `goldbag-plugin/target/GoldBag-2.0.0-SNAPSHOT.jar`; compilation alone does not certify in-game behavior.
 
+On Windows, run `pwsh -File scripts/Invoke-GoldBagBuild.ps1` to also check the packaged libraries, SQLite restart persistence, and offline restore, and generate the JAR's SHA-256 checksum. GitHub Actions runs these package checks on Java 17 and 21 and retains the JAR, checksum, and test reports.
+
 ## Operator guides
 
 - [Installation and preparing a local test server](docs/operations/installation.md)

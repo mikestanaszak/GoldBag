@@ -23,7 +23,7 @@ From the repository root, run:
 pwsh -File .\scripts\Invoke-GoldBagBuild.ps1
 ```
 
-The helper checks Java and Maven, runs `mvn -B verify`, returns a failure exit code when verification fails, and prints the produced plugin JAR on success. It does not publish or deploy an artifact.
+The helper checks the JDK and Maven, runs `mvn -B verify`, then verifies the actual packaged JAR, SQLite restart persistence, and offline restore. It returns a failure exit code if any check fails and prints the plugin JAR and SHA-256 checksum paths on success. It does not publish or deploy an artifact.
 
 ## Prepare a local test directory
 

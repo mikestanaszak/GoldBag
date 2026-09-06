@@ -24,6 +24,7 @@ try {
     }
 
     $java = Resolve-Tool $JavaCommand
+    $javac = Resolve-Tool "javac"
     $maven = Resolve-Tool $MavenCommand
 
     Write-Host "Java executable: $($java.Source)"
@@ -48,15 +49,40 @@ try {
         exit $verifyExit
     }
 
-    $artifacts = @(Get-ChildItem -LiteralPath (Join-Path $root "goldbag-plugin\target") -Filter "GoldBag-*.jar" -File -ErrorAction SilentlyContinue |
-        Where-Object { $_.Name -notmatch "(^|-)original\.jar$" } |
+    $artifacts = @(Get-ChildItem -LiteralPath (Join-Path $root "goldbag-plugin\target") -Filter "*.jar" -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Name -cmatch "^GoldBag-[^/\\]+\.jar$" -and $_.Name -cnotmatch "-original\.jar$" } |
         Sort-Object LastWriteTimeUtc -Descending)
-    if ($artifacts.Count -eq 0) {
-        Write-Error "Maven verify succeeded but no GoldBag plugin JAR was found under goldbag-plugin\target."
+    if ($artifacts.Count -ne 1) {
+        Write-Error "Expected exactly one shaded GoldBag plugin JAR under goldbag-plugin\target; found $($artifacts.Count)."
         exit 1
     }
 
-    Write-Host "Plugin artifact: $($artifacts[0].FullName)"
+    $artifact = $artifacts[0]
+    $verificationSource = Join-Path $root "scripts\verification\PackagedJarVerification.java"
+    if (-not (Test-Path -LiteralPath $verificationSource -PathType Leaf)) {
+        throw "Packaged verifier source is missing: $verificationSource"
+    }
+    $verificationClasses = Join-Path ([IO.Path]::GetTempPath()) ("goldbag-packaged-verifier-" + [Guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Path $verificationClasses -Force | Out-Null
+    try {
+        Write-Host "Compiling packaged verifier: $verificationSource"
+        & $javac.Source -encoding UTF-8 -cp $artifact.FullName -d $verificationClasses $verificationSource
+        if ($LASTEXITCODE -ne 0) { throw "Packaged verifier compilation failed with exit code $LASTEXITCODE." }
+
+        $classpath = $verificationClasses + [IO.Path]::PathSeparator + $artifact.FullName
+        Write-Host "Running packaged verifier against: $($artifact.FullName)"
+        & $java.Source -cp $classpath verification.PackagedJarVerification $artifact.FullName
+        if ($LASTEXITCODE -ne 0) { throw "Packaged verifier failed with exit code $LASTEXITCODE." }
+    }
+    finally {
+        Remove-Item -LiteralPath $verificationClasses -Recurse -Force -ErrorAction SilentlyContinue
+    }
+
+    $checksumPath = Join-Path $artifact.DirectoryName ($artifact.Name + ".sha256")
+    $hash = (Get-FileHash -LiteralPath $artifact.FullName -Algorithm SHA256).Hash.ToUpperInvariant()
+    "$hash  $($artifact.Name)" | Set-Content -LiteralPath $checksumPath -Encoding ASCII
+    Write-Host "Verified shaded JAR: $($artifact.FullName)"
+    Write-Host "SHA-256 checksum: $checksumPath"
     exit 0
 }
 catch {

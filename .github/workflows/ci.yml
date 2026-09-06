@@ -19,7 +19,7 @@ concurrency:
 
 jobs:
   verify:
-    name: Maven verify (Java ${{ matrix.java }})
+    name: Maven and packaged verification (Java ${{ matrix.java }})
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -40,7 +40,28 @@ jobs:
       - name: Verify with Maven
         run: mvn -B verify
 
-      - name: Retain test reports and plugin artifact
+      - name: Verify the shaded package
+        shell: bash
+        run: |
+          set -euo pipefail
+          mapfile -t jars < <(find goldbag-plugin/target -maxdepth 1 -type f -name 'GoldBag-*.jar' ! -name '*-original.jar' -print)
+          if [[ "${#jars[@]}" -ne 1 ]]; then
+            printf 'Expected exactly one shaded plugin JAR, found %s:\n' "${#jars[@]}" >&2
+            printf '%s\n' "${jars[@]:-<none>}" >&2
+            exit 1
+          fi
+          jar="${jars[0]}"
+          verifier="$RUNNER_TEMP/goldbag-packaged-verifier"
+          rm -rf "$verifier"
+          mkdir -p "$verifier" ci-artifacts
+          javac -encoding UTF-8 -cp "$jar" -d "$verifier" scripts/verification/PackagedJarVerification.java
+          java -cp "$verifier:$jar" verification.PackagedJarVerification "$jar"
+          cp "$jar" ci-artifacts/
+          (cd ci-artifacts && sha256sum "$(basename "$jar")" > "$(basename "$jar").sha256")
+          printf 'Verified shaded JAR: %s\n' "$jar"
+          printf 'SHA-256 file: %s\n' "ci-artifacts/$(basename "$jar").sha256"
+
+      - name: Retain packaged JAR, checksum, and test reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -48,5 +69,6 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
           path: |
+            ci-artifacts/*.jar
+            ci-artifacts/*.sha256
             **/target/surefire-reports/**
-            goldbag-plugin/target/*.jar
