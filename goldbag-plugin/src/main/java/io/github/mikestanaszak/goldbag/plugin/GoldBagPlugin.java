@@ -151,7 +151,7 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
     }
     /** Clears a player guard when the player leaves; the operation callback remains token-safe. */
     private void unguard(UUID player) { synchronized (guardedPlayers) { guardedPlayers.remove(player); } }
-    public boolean guarded(UUID player) { synchronized (guardedPlayers) { return guardedPlayers.contains(player); } }
+    public boolean guarded(UUID player) { synchronized (guardedPlayers) { return guardedPlayers.containsKey(player); } }
 
     public void ensureAccount(Player player) {
         submit(() -> store().ensureAccount(player.getUniqueId(), player.getName()), result -> { }, player,
