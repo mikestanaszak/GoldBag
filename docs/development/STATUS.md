@@ -17,6 +17,7 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and curr
 | T4b Inventory plans and evidence | Complete; review clear | Luna inventory/helper workers: `InventoryAdapter.java`, its tests | T4 integration | `reports/T4-inventory.md` |
 | T5 Independent review and integration fixes | Complete; review clear | Luna player-flow and physical-flow reviewers | T1–T4 | `reports/T4-player-flows-review.md`, `reports/T4-physical-review.md` |
 | T6 Server validation, packaging, final checkpoint | Complete; reviews and local smoke clear | Luna automation worker + controller | T5 | `reports/T6-validation.md`, `reports/T6-automation.md` |
+| T7 README follow-up | Complete; Luna review clear; PR publication tracked on GitHub | Controller: README/STATUS; Luna: review report | PR #1 merged | `reports/T7-readme-review.md` |
 
 ## Latest checkpoint
 
