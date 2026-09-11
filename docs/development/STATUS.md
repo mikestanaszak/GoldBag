@@ -2,7 +2,7 @@
 
 Plan: `docs/superpowers/plans/2026-09-05-goldbag-rebuild.md`
 
-Branch: `codex/goldbag-rebuild`; original code preserved in Git history and currently outside Maven source roots.
+Branch: `codex/goldbag-rebuild`; original code preserved in Git history and removed from the working tree at the user's request.
 
 ## Task board
 
@@ -18,6 +18,7 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and curr
 | T5 Independent review and integration fixes | Complete; review clear | Luna player-flow and physical-flow reviewers | T1–T4 | `reports/T4-player-flows-review.md`, `reports/T4-physical-review.md` |
 | T6 Server validation, packaging, final checkpoint | Complete; reviews and local smoke clear | Luna automation worker + controller | T5 | `reports/T6-validation.md`, `reports/T6-automation.md` |
 | T7 README follow-up | Complete; Luna review clear; PR publication tracked on GitHub | Controller: README/STATUS; Luna: review report | PR #1 merged | `reports/T7-readme-review.md` |
+| T8 Remove superseded files and stale build outputs | Complete; clean build, packaged verification, and Luna review clear; included in PR #2 | Controller: legacy directories, README/STATUS, build outputs; Luna: review report | T7 | `reports/T8-cleanup.md`, `reports/T8-cleanup-review.md` |
 
 ## Latest checkpoint
 
@@ -31,7 +32,7 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and curr
 - Exact Paper smoke evidence is in `reports/T6-server-validation.md` and `reports/T6-player-server-tests.md`. Other versions/platforms and extended hard-crash/disconnect/death/protection-plugin scenarios remain unverified. This is a development build with an exact-server smoke pass, not a broad compatibility certificate.
 ## Decisions and boundaries
 
-- Ruling: use the existing repo on a fresh development branch, retaining old source outside new Maven roots — preserves history and avoids accidental compilation of the old plugin — cost if wrong: source layout can be revised without losing history.
+- Ruling: the rebuild initially retained old source outside Maven roots. The user subsequently requested its removal; the original source is now retained in Git history only.
 - Ruling: tracked reports and task board remain permanently, overriding disposable skill scratch cleanup — user specifically wants resumable progress — cost: a small amount of maintained documentation.
 - Ruling: independent modules may be implemented concurrently in disjoint file sets; controller serializes Git commits — satisfies parallel-work request without shared-index races — cost: task completion waits briefly for controller checkpoint.
 - Ruling: keep quartz and amethyst shards enabled — reviewer misread "Not enabled" in the spec's storage-block column as applying to the resource itself; approved prices and default catalog include both resources — cost if wrong: default flags can be changed before release. The scoped reviewer withdrew the finding.

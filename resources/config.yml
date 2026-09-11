@@ -1,9 +1,0 @@
-interest:
-  enabled: false
-  rate: 0.05
-savetype: "mysql"
-databaseDetails:
-  url: "localhost:3306"
-  database: "players"
-  user: "administrator"
-  password: "123"

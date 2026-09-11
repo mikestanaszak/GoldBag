@@ -111,7 +111,7 @@ Minecraft inventory saves and database commits are separate. GoldBag records pen
 | `goldbag-storage` | SQLite accounts, transactions, banknotes, recovery journal |
 | `goldbag-plugin` | Bukkit/Spigot lifecycle, commands, menus, inventory coordination |
 
-Maven builds the `goldbag-*` modules. The original implementation remains in `java/` and `resources/` as reference, with its Git history preserved.
+Maven builds the `goldbag-*` modules. The superseded implementation has been removed from the working tree; the [original source remains available in Git history](https://github.com/mikestanaszak/GoldBag/tree/45c349257a1f8a1e87683a7e24d0d6befdef6ad4).
 
 - [Approved specification](docs/superpowers/specs/2026-09-05-goldbag-design.md)
 - [Implementation plan and API contracts](docs/superpowers/plans/2026-09-05-goldbag-rebuild.md)
