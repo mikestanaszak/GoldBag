@@ -2,6 +2,8 @@
 
 Repository: https://github.com/mikestanaszak/GoldBag
 
+Current follow-up (2026-10-11): `codex/minecraft-26.3-semantic-release` adds Minecraft 26.3 validation and releases on `main` merges. Read the new STATUS section and `26.3-*` reports. The current user requests a PR only, with no merge. Historical rebuild instructions below describe completed work.
+
 Development branch: `codex/goldbag-rebuild`. Original base: `45c3492`.
 
 1. Read `AGENTS.md` and `docs/development/STATUS.md`.

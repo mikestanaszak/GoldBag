@@ -20,6 +20,14 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and remo
 | T7 README follow-up | Complete; Luna review clear; PR publication tracked on GitHub | Controller: README/STATUS; Luna: review report | PR #1 merged | `reports/T7-readme-review.md` |
 | T8 Remove superseded files and stale build outputs | Complete; clean build, packaged verification, and Luna review clear; included in PR #2 | Controller: legacy directories, README/STATUS, build outputs; Luna: review report | T7 | `reports/T8-cleanup.md`, `reports/T8-cleanup-review.md` |
 
+## Minecraft 26.3 and semantic releases (2026-10-11)
+
+- Active branch: `codex/minecraft-26.3-semantic-release`, based on `main` at `ea464d7`. Current request is to open a PR only; historical rebuild merge authorization does not apply to this PR.
+- Baseline Java 17 `mvn -B verify`: PASS. Java 25.0.4.1 `mvn -B clean verify`: PASS, 69 tests. Java 25 shaded verifier: PASS with Java 16 base bytecode retained.
+- Semantic-release tooling: five commit analysis checks PASS. Disposable-copy `bash scripts/Prepare-GoldBagRelease.sh 2.0.0`: PASS, all module versions updated, full verification, descriptor/manifest agreement, JAR and checksum generated.
+- Live Paper 26.3 investigation and independent release review are in progress; see new reports as they are saved.
+- Root release-tooling `npm audit` remains nonzero (13 reported vulnerabilities: 11 high, 2 moderate), including upstream `braces`/`micromatch` and bundled npm dependencies. `npm audit fix --ignore-scripts` did not eliminate them; no forced downgrade applied. These are development tooling, not shaded plugin dependencies.
+
 ## Latest checkpoint
 
 - Final implementation: runtime source `37fb85f`, reproducible packaging `63331a0`, reviewed harness fixes `fa378ef`. Integration is [PR #1](https://github.com/mikestanaszak/GoldBag/pull/1) into default branch `main`; GitHub records its check and merge status. The user authorized merging after checks, preserving the original history and checkpoint commits.

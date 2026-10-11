@@ -48,7 +48,7 @@ Reversible storage blocks for coal, redstone, lapis, raw metals, diamonds, and e
 
 ## Build and install
 
-1. Check out `main` and build from the repository root with JDK 17 or 21 and Maven 3.9 or newer:
+1. Check out `main` and build from the repository root with JDK 17, 21, or 25 and Maven 3.9 or newer:
 
    ```sh
    mvn -B verify
@@ -68,7 +68,9 @@ Reversible storage blocks for coal, redstone, lapis, raw metals, diamonds, and e
 
 The plugin targets Java 16 bytecode; use the Java runtime required by your chosen server build. Check the compatibility matrix above before choosing a server.
 
-On Windows, `pwsh -File scripts/Invoke-GoldBagBuild.ps1` also verifies the packaged libraries, SQLite restart persistence, and offline restore, and generates a SHA-256 checksum. [GitHub Actions](https://github.com/mikestanaszak/GoldBag/actions/workflows/ci.yml) runs package checks on Java 17 and 21 and retains the JAR, checksum, and test reports as build artifacts.
+On Windows, `pwsh -File scripts/Invoke-GoldBagBuild.ps1` also verifies the packaged libraries, SQLite restart persistence, and offline restore, and generates a SHA-256 checksum. [GitHub Actions](https://github.com/mikestanaszak/GoldBag/actions/workflows/ci.yml) runs package checks on Java 17, 21, and 25 and retains the JAR, checksum, and test reports as build artifacts.
+
+Merges to `main` also run semantic-release after all checks pass. Conventional `fix:` and `feat:` commits select patch and minor releases; a `BREAKING CHANGE:` footer selects a major release. Download the versioned plugin JAR and checksum from [GitHub Releases](https://github.com/mikestanaszak/GoldBag/releases). See [release automation](docs/development/releases.md) for merge conventions, permissions, and verification.
 
 See the [installation guide](docs/operations/installation.md) for the full setup procedure and local test-server preparation. Existing installations of the original plugin need a migration plan: this build has no legacy database importer, and old handwritten banknotes cannot be redeemed.
 
