@@ -10,7 +10,8 @@ fi
 
 # Only the disposable release checkout is updated; source POMs stay snapshots.
 mvn -B org.codehaus.mojo:versions-maven-plugin:2.19.1:set \
-  -DnewVersion="$version" -DprocessAllModules=true -DgenerateBackupPoms=false
+  -DnewVersion="$version" -DprocessAllModules=true -DgenerateBackupPoms=false \
+  -DupdateBuildOutputTimestampPolicy=never
 mvn -B clean verify
 
 jar="goldbag-plugin/target/GoldBag-$version.jar"
