@@ -10,11 +10,12 @@ The SQLite rebuild is merged into `main`. The current version is **2.0.0-SNAPSHO
 
 | Platform | Status |
 | --- | --- |
+| Paper 26.3 build 175, Java 25, Linux | Startup, storage, catalog and console checks pass; player smoke blocked by missing client protocol data |
 | Paper 1.21.11 build 132, Java 21, Windows | Passed local server and automated player smoke tests |
 | Other Bukkit/Spigot-compatible builds from Minecraft 1.17 onward | Targeted by the API; exact builds still need testing |
 | Fabric, Forge, vanilla servers, and Realms | Not supported |
 
-Recorded validation includes 69 Java tests, five test-client lifecycle tests, and 16 actual-player checks, plus restart persistence, banknotes, operator recovery, and export/restore. Other server versions and extended crash scenarios remain unverified. See the [compatibility matrix](docs/operations/compatibility.md) for exact evidence and limits.
+Recorded validation includes 69 Java tests, five test-client lifecycle tests, and 16 actual-player checks on the earlier Paper 1.21.11 build, plus restart persistence, banknotes, operator recovery, and export/restore. Paper 26.3 requires Java 25; its player flows remain unverified because the available Mineflayer clients lack 26.3 protocol data. See the [compatibility matrix](docs/operations/compatibility.md) for exact evidence and limits.
 
 ## Features
 
@@ -48,7 +49,7 @@ Reversible storage blocks for coal, redstone, lapis, raw metals, diamonds, and e
 
 ## Build and install
 
-1. Check out `main` and build from the repository root with JDK 17 or 21 and Maven 3.9 or newer:
+1. Check out `main` and build from the repository root with JDK 17, 21, or 25 and Maven 3.9 or newer:
 
    ```sh
    mvn -B verify
@@ -68,7 +69,9 @@ Reversible storage blocks for coal, redstone, lapis, raw metals, diamonds, and e
 
 The plugin targets Java 16 bytecode; use the Java runtime required by your chosen server build. Check the compatibility matrix above before choosing a server.
 
-On Windows, `pwsh -File scripts/Invoke-GoldBagBuild.ps1` also verifies the packaged libraries, SQLite restart persistence, and offline restore, and generates a SHA-256 checksum. [GitHub Actions](https://github.com/mikestanaszak/GoldBag/actions/workflows/ci.yml) runs package checks on Java 17 and 21 and retains the JAR, checksum, and test reports as build artifacts.
+On Windows, `pwsh -File scripts/Invoke-GoldBagBuild.ps1` also verifies the packaged libraries, SQLite restart persistence, and offline restore, and generates a SHA-256 checksum. [GitHub Actions](https://github.com/mikestanaszak/GoldBag/actions/workflows/ci.yml) runs package checks on Java 17, 21, and 25 and retains the JAR, checksum, and test reports as build artifacts.
+
+Merges to `main` also run semantic-release after all checks pass. Conventional `fix:` and `feat:` commits select patch and minor releases; a `BREAKING CHANGE:` footer selects a major release. Download the versioned plugin JAR and checksum from [GitHub Releases](https://github.com/mikestanaszak/GoldBag/releases). See [release automation](docs/development/releases.md) for merge conventions, permissions, and verification.
 
 See the [installation guide](docs/operations/installation.md) for the full setup procedure and local test-server preparation. Existing installations of the original plugin need a migration plan: this build has no legacy database importer, and old handwritten banknotes cannot be redeemed.
 

@@ -4,6 +4,10 @@ Read `RESUME.md`, `docs/development/STATUS.md`, and the current task brief befor
 The accepted specification is `docs/superpowers/specs/2026-09-05-goldbag-design.md`.
 The executable task plan is `docs/superpowers/plans/2026-09-05-goldbag-rebuild.md`.
 
+## Current follow-up (2026-10-11)
+
+The current user request supersedes historical rebuild branch/integration instructions: work on `codex/minecraft-26.3-semantic-release`, validate Minecraft 26.3 and semantic release automation, and open a PR against `main`. Do not merge this PR. Keep the Spigot 1.17/Java 16 API baseline unless an observed compatibility failure requires changing it; use Java 25 for Paper 26.3 runtime validation.
+
 ## Working agreement
 
 - The user explicitly requests **gpt-5.6-luna** subagents for parallel implementation. Use that model for implementation and review agents; do not silently upgrade it. Use isolated context and bounded tasks.

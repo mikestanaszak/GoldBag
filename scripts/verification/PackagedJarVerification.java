@@ -71,6 +71,8 @@ public final class PackagedJarVerification {
                     "plugin.yml main class is not " + MAIN_CLASS);
             require("1.17".equals(descriptorValue(pluginYml, "api-version")),
                     "plugin.yml api-version is not 1.17");
+            require(attributes.getValue("Implementation-Version").equals(descriptorValue(pluginYml, "version")),
+                    "plugin.yml version differs from Implementation-Version");
             require(jar.getJarEntry(MAIN_CLASS.replace('.', '/') + ".class") != null,
                     "plugin main class is missing from the JAR");
 
