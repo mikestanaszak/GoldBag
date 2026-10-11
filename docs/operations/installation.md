@@ -15,6 +15,8 @@ The compatibility matrix in [compatibility.md](compatibility.md) is the source o
 
 GoldBag's database is local to one running server. Do not put it on a network share or allow two server processes to open it. The first release has no legacy database importer; old handwritten banknotes have no trusted issuance identity and are not redeemable.
 
+For Paper 26.3, use Java 25. Startup and console checks have been exercised on build 175; complete player-flow validation is still pending. Automated releases after qualifying `main` merges provide the shaded `GoldBag-X.Y.Z.jar` and matching `.sha256` file in [GitHub Releases](https://github.com/mikestanaszak/GoldBag/releases). See [release automation](../development/releases.md).
+
 ## Build locally
 
 From the repository root, run:

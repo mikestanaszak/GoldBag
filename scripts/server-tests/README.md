@@ -2,6 +2,8 @@
 
 This directory contains the Mineflayer protocol smoke intended for an isolated local Paper test server. Its default address is `127.0.0.1:25575`; the host is configurable. It does not start a server or accept an EULA. The full smoke resets its test accounts and inventories.
 
+Minecraft 26.3 validation is currently blocked: pinned Mineflayer 4.38.0 rejects protocol 777, and tested latest 4.39.0 reports `No data available for version 26.3`. Unit lifecycle tests still run, but they do not validate live 26.3 player behavior. Keep the pin until a client update supplies working protocol support; use an actual 26.3 client for manual inventory/banknote checks. See the [runtime report](../../docs/development/reports/26.3-runtime.md).
+
 ## Setup
 
 Use Node 22 or newer. Install the pinned dependency into the ignored runtime directory:

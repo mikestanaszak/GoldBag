@@ -25,7 +25,9 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and remo
 - Active branch: `codex/minecraft-26.3-semantic-release`, based on `main` at `ea464d7`. Current request is to open a PR only; historical rebuild merge authorization does not apply to this PR.
 - Baseline Java 17 `mvn -B verify`: PASS. Java 25.0.4.1 `mvn -B clean verify`: PASS, 69 tests. Java 25 shaded verifier: PASS with Java 16 base bytecode retained.
 - Semantic-release tooling: five commit analysis checks PASS. Disposable-copy `bash scripts/Prepare-GoldBagRelease.sh 2.0.0`: PASS, all module versions updated, full verification, descriptor/manifest agreement, JAR and checksum generated.
-- Live Paper 26.3 investigation and independent release review are in progress; see new reports as they are saved.
+- Release review is clear after pinning Action SHAs and preserving the fixed build timestamp. Two release preparations produce identical hashes. Authenticated semantic-release dry-run selects `2.0.0` without publishing.
+- Java 17/21/25 CI and both Node check jobs PASS at `8ff86df`, [run 38169021947](https://github.com/mikestanaszak/GoldBag/actions/runs/38169021947). See `reports/26.3-validation.md` and `reports/26.3-release-review.md`.
+- Paper 26.3 build 175 startup, SQLite/catalog, console checks, clean restart and shutdown pass with the versioned release JAR; live player smoke remains blocked by missing Mineflayer protocol data. See `reports/26.3-runtime.md` for exact runtime evidence.
 - Root release-tooling `npm audit` remains nonzero (13 reported vulnerabilities: 11 high, 2 moderate), including upstream `braces`/`micromatch` and bundled npm dependencies. `npm audit fix --ignore-scripts` did not eliminate them; no forced downgrade applied. These are development tooling, not shaded plugin dependencies.
 
 ## Latest checkpoint
