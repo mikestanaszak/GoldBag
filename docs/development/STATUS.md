@@ -83,3 +83,8 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and remo
 - Packaged SQLite restart/restore and actual server-export restore: PASS.
 - Paper 1.21.11 build 132 actual smoke: PASS; see detailed server/player reports. Clean shutdown and released database ownership confirmed.
 - All requested implementation and scoped reviews are complete. Extended compatibility/fault scenarios remain unverified and are documented future validation. User explicitly authorized creating a PR to the default branch and merging after checks; See PR #1 for the authoritative integration result. The source, tests, and review handoff contain no unfinished implementation task.
+
+## Gold theme follow-up (2026-10-12)
+
+- Branch `codex/gold-theme`: every chat line uses a gold `[GoldBag]` prefix, including legacy errors, configured text, multiline help and conversation prompts. Gold menu titles/items, yellow lore and warmer banknote/success wording preserve existing controls, rates and transactions.
+- Focused theme checks2, full Java tests86, packaged verifier, harness13 and release-analysis5 PASS. Independent Luna review found the prompt bypass; fixed and review clear. Native theme probe and publication/deployment evidence are recorded in `reports/gold-theme.md`.
