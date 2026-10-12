@@ -123,6 +123,18 @@ function count(bot, itemName) {
     .reduce((total, item) => total + item.count, 0);
 }
 
+function stagedItems(window) {
+  return window && Array.isArray(window.slots)
+    ? window.slots.slice(0, 45).filter(Boolean)
+    : [];
+}
+
+function stagedCount(window, itemName, predicate = () => true) {
+  return stagedItems(window)
+    .filter((item) => item.name === itemName && predicate(item))
+    .reduce((total, item) => total + item.count, 0);
+}
+
 function noteIdentity(item) {
   if (!item || item.name !== 'paper') return null;
   const serialized = JSON.stringify(item.nbt || item.components || {});
@@ -160,7 +172,6 @@ function assertMenuControl(window, slot, matcher, description) {
 
 function assertDepositLayout(window) {
   assert(window && window.slots && window.slots.length >= 90, 'deposit menu is not a 54-slot chest window');
-  assert(window.slots.slice(0, 45).every(item => item == null), 'deposit chest top 0-44 must remain blank');
   assertMenuControl(window, 45, /back|main|menu/i, 'deposit main');
   assertMenuControl(window, 48, /withdraw/i, 'deposit withdrawal');
   assertMenuControl(window, 49, /close|cancel/i, 'deposit close');
@@ -208,13 +219,29 @@ async function clickDepositCursor(bot, itemName, targetSlot, mouseButton = 0, mo
   if (mode === 1) {
     await bot.clickWindow(source, 0, mode);
   } else {
-    await bot.clickWindow(source, mouseButton === 1 ? 1 : 0, 0);
+    // Always pick up the full stack first. A right-click on the source would
+    // split the stack before the intended one-item placement and leaves the
+    // cursor/source observations dependent on client prediction.
+    await bot.clickWindow(source, 0, 0);
     await sleep(100);
     if (!window.selectedItem || window.selectedItem.name !== itemName) {
       if (mouseButton === 1) return { window, start, supported: false };
       assert(false, `${itemName} was not picked up to the cursor`);
     }
-    await bot.clickWindow(targetSlot, mouseButton, 0);
+    let destination = targetSlot;
+    if (destination < 0 || destination >= 45 || window.slots[destination]) {
+      destination = window.slots.findIndex((item, slot) => slot >= 0 && slot < 45 && !item);
+    }
+    assert(destination >= 0, 'deposit chest has no empty staging slot for cursor placement');
+    await bot.clickWindow(destination, mouseButton, 0);
+    await sleep(100);
+    // Native right-click placement leaves the rest of the picked-up stack on
+    // the cursor. Put it back into the original player slot so the helper
+    // leaves the same inventory state as a real client.
+    if (mouseButton === 1 && window.selectedItem) {
+      await bot.clickWindow(source, 0, 0);
+      await sleep(100);
+    }
   }
   return { window, start, supported: true };
 }
@@ -237,6 +264,18 @@ async function clickWithdrawal(bot, itemName, mouseButton, mode, matcher, descri
   if (matcher) await waitForExchange(bot, window, start, matcher, description);
   else await assertSameWindow(bot, window, description);
   return window;
+}
+
+function queueWithdrawalClicks(bot, itemName, clickCount, mouseButton = 0, mode = 0) {
+  const window = bot.currentWindow;
+  const slot = findTopItem(window, itemName);
+  assert(slot >= 0, `withdraw menu omitted ${itemName}`);
+  const start = bot.lines.length;
+  const pending = [];
+  for (let index = 0; index < clickCount; index += 1) {
+    pending.push(bot.clickWindow(slot, mouseButton, mode));
+  }
+  return { window, start, pending };
 }
 
 function currentLines(bot, start) {
@@ -390,61 +429,158 @@ async function run() {
     await expectBalance(a, '100.00');
     passed.push('repeated direct withdrawals remain independent and journal one item each');
 
-    // Deposit is a virtual chest. Its upper 45 slots stay empty while the
-    // listener consumes player-inventory shift clicks and cursor placements.
+    // Deposit is a native editable staging chest. Rapid shift-clicks and
+    // cursor placements only move physical items into slots 0-44; the one
+    // Deposit button click below creates the batch transaction.
+    await command(a, `/goldbag admin set ${BOT_A} 0 reset staging fixture`, /Balance set.*0\.00/i, 'staging balance');
     await clear(a);
+    await give(a, 'coal', 320);
     await give(a, 'raw_iron', 25);
-    await give(a, 'raw_gold', 2);
     await openMenu(a);
     let depositMenu = await clickMenu(a, 12, 'GoldBag Deposit');
     assertDepositLayout(depositMenu);
-    const shift = await clickDepositCursor(a, 'raw_iron', 0, 0, 1);
-    await waitForExchange(a, shift.window, shift.start, /Deposited.*50\.00/i, 'shift-click deposit');
-    assert(count(a, 'raw_iron') === 0, 'shift-click deposit left raw iron in the inventory');
+    const stagingSources = [];
+    for (let slot = depositMenu.inventoryStart; slot < depositMenu.inventoryEnd; slot += 1) {
+      const item = depositMenu.slots[slot];
+      if (item && (item.name === 'coal' || item.name === 'raw_iron')) stagingSources.push(slot);
+    }
+    assert(stagingSources.length >= 6, `many-stack fixture only exposed ${stagingSources.length} player stacks`);
+    await Promise.all(stagingSources.map(slot => a.clickWindow(slot, 0, 1)));
+    await sleep(900);
+    assert(count(a, 'coal') === 0 && count(a, 'raw_iron') === 0, 'rapid shift-click staging left eligible stacks in inventory');
+    assert(stagedCount(depositMenu, 'coal') === 320, 'rapid shift-click staging lost coal');
+    assert(stagedCount(depositMenu, 'raw_iron') === 25, 'rapid shift-click staging lost raw iron');
+    const stagingStart = a.lines.length;
+    await expectBalance(a, '0.00');
+    assert(!currentLines(a, stagingStart).some(line => /Deposited|invalid|unsupported/i.test(line)), 'staging emitted an economy or invalid-item message');
 
-    const cursor = await clickDepositCursor(a, 'raw_gold', 1, 0, 0);
-    await waitForExchange(a, cursor.window, cursor.start, /Deposited.*10\.00/i, 'cursor placement deposit');
-    assert(count(a, 'raw_gold') === 0, 'cursor placement deposit left raw gold in the inventory');
-    await expectBalance(a, '160.00');
-    let interactionBalance = 160;
-    passed.push('deposit chest shift-click and cursor placement journal immediately without Confirm or menu replacement');
-
-    // A right-click picks one item from a two-item stack. Mineflayer exposes
-    // this normal click path on supported protocol versions.
-    await give(a, 'raw_iron', 2);
-    const right = await clickDepositCursor(a, 'raw_iron', 2, 1, 0);
+    await give(a, 'redstone', 5);
+    const cursor = await clickDepositCursor(a, 'redstone', 3, 0, 0);
+    assert(cursor.supported, 'cursor staging was not supported');
+    await assertSameWindow(a, depositMenu, 'cursor staging');
+    assert(stagedCount(depositMenu, 'redstone') === 5, 'cursor placement did not stage redstone');
+    await give(a, 'raw_gold', 2);
+    const right = await clickDepositCursor(a, 'raw_gold', 4, 1, 0);
     if (right.supported) {
-      await waitForExchange(a, right.window, right.start, /Deposited.*2\.00/i, 'right-click single deposit');
-      assert(count(a, 'raw_iron') === 1, 'right-click deposit did not leave one item from the two-item stack');
-      await expectBalance(a, '162.00');
-      interactionBalance = 162;
-      passed.push('right-click cursor placement deposits one item when the client supports split-stack clicks');
+      await assertSameWindow(a, depositMenu, 'right-click staging');
+      assert(stagedCount(depositMenu, 'raw_gold') === 1, 'right-click staging did not place one raw gold');
+      assert(count(a, 'raw_gold') === 1, 'right-click staging did not leave one raw gold in inventory');
+      passed.push('right-click single placement stages one item when the client supports split-stack clicks');
     } else {
       passed.push('right-click single placement skipped because the connected client did not expose split-stack clicks');
-      await expectBalance(a, '160.00');
     }
+    assert(stagedCount(depositMenu, 'redstone') === 5, 'cursor staging changed before submission');
+    const stagedBalance = right.supported ? '216.25' : '211.25';
+    const batchStart = a.lines.length;
+    await a.clickWindow(52, 0, 0);
+    await waitForExchange(a, depositMenu, batchStart, new RegExp(`Deposited.*${stagedBalance.replace('.', '\\.')}`, 'i'), 'batch deposit button');
+    assert(stagedCount(depositMenu, 'coal') === 0 && stagedCount(depositMenu, 'raw_iron') === 0, 'batch deposit left eligible stacks staged');
+    assert(stagedCount(depositMenu, 'redstone') === 0, 'batch deposit left cursor stack staged');
+    await expectBalance(a, stagedBalance);
+    const duplicateStart = a.lines.length;
+    await a.clickWindow(52, 0, 0);
+    await sleep(700);
+    assert(!currentLines(a, duplicateStart).some(line => /Deposited.*(?:216\.25|211\.25)/i.test(line)), 'duplicate Deposit click credited the batch twice');
+    await expectBalance(a, stagedBalance);
+    passed.push('rapid multi-stack staging remains uneconomic until one Deposit button batch and duplicate clicks do not double-credit');
 
-    // Custom and uncatalogued items are rejected at the virtual chest and are
-    // returned to the player inventory.
-    await give(a, 'iron_ingot', 1);
-    const ineligible = await clickDepositCursor(a, 'iron_ingot', 3, 0, 1);
-    await sleep(500);
-    await assertSameWindow(a, ineligible.window, 'ineligible shift-click rejection');
-    assert(count(a, 'iron_ingot') === 1, 'uncatalogued shift-click item was consumed');
-    await expectBalance(a, `${interactionBalance}.00`);
-    await command(a, `/minecraft:give ${a.username} minecraft:raw_iron[custom_name='{"text":"Forged"}'] 1`, null);
-    const custom = await clickDepositCursor(a, 'raw_iron', 4, 0, 0,
-      item => /forged/i.test(itemText(item)));
-    await sleep(500);
-    await returnCursor(a);
-    await assertSameWindow(a, custom.window, 'custom cursor rejection');
-    assert(count(a, 'raw_iron') >= 2, 'custom cursor item was consumed');
-    await expectBalance(a, `${interactionBalance}.00`);
+    // Unsupported and custom items may be staged, but the batch leaves them
+    // untouched. Closing the chest returns each unsold item exactly once.
     a.closeWindow(depositMenu);
+    await sleep(500);
+    await clear(a);
+    await give(a, 'iron_ingot', 1);
+    await command(a, `/minecraft:give ${a.username} minecraft:raw_iron[custom_name='{"text":"Forged"}'] 1`, null);
+    await openMenu(a);
+    depositMenu = await clickMenu(a, 12, 'GoldBag Deposit');
+    const invalidShift = await clickDepositCursor(a, 'iron_ingot', 0, 0, 1);
+    await assertSameWindow(a, depositMenu, 'ineligible staging');
+    const custom = await clickDepositCursor(a, 'raw_iron', 1, 0, 0, item => /forged/i.test(itemText(item)));
+    assert(custom.supported, 'custom cursor staging was not supported');
+    assert(stagedCount(depositMenu, 'iron_ingot') === 1, 'uncatalogued item was not staged');
+    assert(stagedCount(depositMenu, 'raw_iron', item => /forged/i.test(itemText(item))) === 1, 'custom item was not staged');
+    const invalidStart = a.lines.length;
+    await a.clickWindow(52, 0, 0);
+    await sleep(700);
+    assert(!currentLines(a, invalidStart).some(line => /Deposited/i.test(line)), 'invalid-only batch changed the balance');
+    assert(stagedCount(depositMenu, 'iron_ingot') === 1, 'uncatalogued staged item was consumed');
+    assert(stagedCount(depositMenu, 'raw_iron', item => /forged/i.test(itemText(item))) === 1, 'custom staged item was consumed');
+    await a.clickWindow(49, 0, 0);
+    await sleep(700);
+    assert(count(a, 'iron_ingot') === 1, 'closing the chest did not return the uncatalogued item');
+    assert(inventoryItems(a).some(item => item.name === 'raw_iron' && /forged/i.test(itemText(item))), 'closing the chest did not return the custom item');
+    await expectBalance(a, stagedBalance);
 
+    // Switching to withdrawal also returns unsold staging before replacing
+    // the window. Closing an eligible staged item without submitting is safe.
+    await clear(a);
+    await give(a, 'cobblestone', 1);
+    await openMenu(a);
+    depositMenu = await clickMenu(a, 12, 'GoldBag Deposit');
+    await clickDepositCursor(a, 'cobblestone', 0, 0, 1);
+    await a.clickWindow(48, 0, 0);
+    const switchedWithdraw = await waitForWindow(a, 'GoldBag Withdraw');
+    assert(count(a, 'cobblestone') === 1, 'switching menus did not return the unsold staged item');
+    a.closeWindow(switchedWithdraw);
+    await sleep(400);
+    await clear(a);
+    await give(a, 'raw_iron', 1);
+    await openMenu(a);
+    depositMenu = await clickMenu(a, 12, 'GoldBag Deposit');
+    await clickDepositCursor(a, 'raw_iron', 0, 0, 1);
+    await a.clickWindow(49, 0, 0);
+    await sleep(700);
+    assert(count(a, 'raw_iron') === 1, 'close without Deposit did not return eligible item');
+    await expectBalance(a, stagedBalance);
+    passed.push('invalid/custom staging, close and menu switch return unsold items without economy changes');
+
+    await command(a, `/goldbag admin set ${BOT_A} 200 withdrawal fixture`, /Balance set.*200\.00/i, 'withdrawal balance');
+    const interactionBalance = 200;
     await openMenu(a);
     const withdrawMenu = await clickMenu(a, 14, 'GoldBag Withdraw');
     assertWithdrawLayout(withdrawMenu);
+
+    // Queue several same-resource clicks without waiting for each journal
+    // response. The guarded listener coalesces these requests, but every
+    // requested item must still be delivered.
+    await command(a, `/goldbag admin set ${BOT_A} 200 rapid withdrawal fixture`, /Balance set.*200\.00/i, 'rapid withdrawal balance');
+    await clear(a);
+    a.closeWindow(withdrawMenu);
+    await sleep(500);
+    await openMenu(a);
+    const rapidWithdrawMenu = await clickMenu(a, 14, 'GoldBag Withdraw');
+    const rapid = queueWithdrawalClicks(a, 'diamond', 3, 0, 0);
+    await Promise.allSettled(rapid.pending);
+    await waitForLine(a, rapid.start, /Withdrew/i, 'rapid queued withdrawals');
+    await sleep(1100);
+    assert(count(a, 'diamond') === 3, 'rapid queued withdrawal clicks did not all deliver');
+    await expectBalance(a, '50.00');
+    passed.push('rapid queued withdrawal clicks all count and deliver three diamonds');
+
+    // Closing while a guarded request is active removes waiting requests. A
+    // request already handed to the journal may finish, but queued requests
+    // must not execute against a closed menu.
+    await command(a, `/goldbag admin set ${BOT_A} 200 withdrawal close-queue fixture`, /Balance set.*200\.00/i, 'close queue balance');
+    await clear(a);
+    a.closeWindow(rapidWithdrawMenu);
+    await sleep(500);
+    await openMenu(a);
+    const closeQueueMenu = await clickMenu(a, 14, 'GoldBag Withdraw');
+    const closing = queueWithdrawalClicks(a, 'raw_gold', 4, 0, 0);
+    a.closeWindow(closeQueueMenu);
+    await Promise.allSettled(closing.pending);
+    await sleep(1300);
+    const closeQueueLines = currentLines(a, closing.start).filter(line => /Withdrew/i.test(line));
+    assert(closeQueueLines.length <= 1, `closing withdrawal menu allowed ${closeQueueLines.length} queued requests to finish`);
+    assert(count(a, 'raw_gold') <= 1, 'closing withdrawal menu did not clear queued requests');
+    await expectBalance(a, closeQueueLines.length === 0 ? '200.00' : '195.00');
+    passed.push('closing a withdrawal menu clears waiting requests while allowing at most one in-flight request');
+
+    await command(a, `/goldbag admin set ${BOT_A} 200 withdrawal fixture`, /Balance set.*200\.00/i, 'withdrawal balance reset');
+    await clear(a);
+    await openMenu(a);
+    const persistentWithdrawMenu = await clickMenu(a, 14, 'GoldBag Withdraw');
+    assertWithdrawLayout(persistentWithdrawMenu);
     await clickWithdrawal(a, 'diamond', 0, 0, /Withdrew.*1/i, 'left-click one withdrawal');
     await clickWithdrawal(a, 'raw_iron', 1, 0, /Withdrew.*16/i, 'right-click sixteen withdrawal');
     const clampedGold = Math.floor((interactionBalance - 82) / 5);
@@ -454,7 +590,7 @@ async function run() {
 
     // Repeat the shift gesture against a full ordinary inventory. The menu
     // remains open and the request is rejected without scattering an item.
-    a.closeWindow(withdrawMenu);
+    a.closeWindow(persistentWithdrawMenu);
     await clear(a);
     await command(a, `/goldbag admin set ${BOT_A} 50 capacity fixture`, /Balance set.*50\.00/i, 'capacity balance');
     await give(a, 'cobblestone', 2304);
@@ -473,15 +609,10 @@ async function run() {
     await command(a, `/goldbag admin set ${BOT_A} 0 reset deposit-all fixture`, /Balance set.*0\.00/i, 'deposit-all balance');
     await give(a, 'raw_iron', 25);
     await give(a, 'redstone', 5);
-    await openMenu(a);
-    depositMenu = await clickMenu(a, 12, 'GoldBag Deposit');
-    assertDepositLayout(depositMenu);
-    const allStart = a.lines.length;
-    await a.clickWindow(52, 0, 0);
-    await waitForExchange(a, depositMenu, allStart, /Deposited.*51\.25/i, 'deposit-all control');
+    await command(a, '/goldbag deposit all', /Deposited.*51\.25/i, 'deposit-all command');
     assert(count(a, 'raw_iron') === 0 && count(a, 'redstone') === 0, 'deposit-all left eligible items in inventory');
     await expectBalance(a, '51.25');
-    passed.push('deposit-all control journals multiple resources while leaving the chest open');
+    passed.push('deposit-all command journals multiple resources at the revised catalog prices');
 
     await openMenu(a);
     const payStart = a.lines.length;
@@ -626,13 +757,17 @@ module.exports = {
   assertDepositLayout,
   assertSameWindow,
   assertWithdrawLayout,
+  clickDepositCursor,
   closeBots,
   connect,
   count,
   findNote,
   findWindowItem,
+  queueWithdrawalClicks,
   installCursorPacketAdapter,
   inventoryItems,
+  stagedCount,
+  stagedItems,
   mainInventoryEmptySlots,
   noteIdentity,
   confirmPreview,

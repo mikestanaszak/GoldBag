@@ -20,6 +20,13 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and remo
 | T7 README follow-up | Complete; Luna review clear; PR publication tracked on GitHub | Controller: README/STATUS; Luna: review report | PR #1 merged | `reports/T7-readme-review.md` |
 | T8 Remove superseded files and stale build outputs | Complete; clean build, packaged verification, and Luna review clear; included in PR #2 | Controller: legacy directories, README/STATUS, build outputs; Luna: review report | T7 | `reports/T8-cleanup.md`, `reports/T8-cleanup-review.md` |
 
+## Batch chest follow-up (2026-10-12)
+
+- User testing of v2.1.0 found per-stack latency and invalid-item chat while rapidly shift-clicking. The user now requests a real chest to fill before clicking one Deposit button. This supersedes instant per-gesture selling.
+- Active branch `codex/batch-deposit-chest` from main after PR #5. Controller owns rendering/docs/integration; bounded Luna workers own physical transactions, harness and independent review.
+- Target: native fast chest movement, staged eligible batch sale, quiet invalid-item handling, exact unsold returns on close, interruption evidence and responsive queued withdrawals. Approved rates remain unchanged. Implementation complete at `8a4acd4`: full reactor84, harness13, release5 and packaged checks PASS; 23 actual-player checks plus quit/rejoin staged return PASS. Clean restart validation/integration/release/deployment remain in progress; v2.1.0 remains installed. Independent review resolved blockers; native gesture-to-snapshot abrupt-crash window is retained as a documented manual-recovery limitation.
+- Reports: `batch-deposit.md`, `batch-deposit-review.md`, `batch-player-tests.md`.
+
 ## Direct chest exchange and approved prices (2026-10-12)
 
 - PR #4 merged at `4b28e6c`; semantic-release published v2.1.0. The user superseded the older resource quantity/confirmation flow: chest shift-click/cursor/drag deposits and direct withdrawal clicks now execute journaled transactions immediately and keep the chest open.

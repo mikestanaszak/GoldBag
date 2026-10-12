@@ -4,11 +4,11 @@ Read `RESUME.md`, `docs/development/STATUS.md`, and the current task brief befor
 The accepted specification is `docs/superpowers/specs/2026-09-05-goldbag-design.md`.
 The executable task plan is `docs/superpowers/plans/2026-09-05-goldbag-rebuild.md`.
 
-## Current follow-up (2026-10-12)
+## Current follow-up (2026-10-12, batch chest)
 
-Immediate chest-style deposits and direct withdrawals without confirmation or quantity screens are complete in merged PR #4 and published/installed v2.1.0. Preserve this accepted UX for future changes; start new work from fresh main. Banknotes may retain their existing confirmation. The user approved applying the revised resource table; see the accepted specification amendment and resource-value-review report.
+The owner found immediate per-stack deposits laggy and requested a true editable deposit chest followed by one Deposit button. This supersedes the earlier instant-conversion gesture UX. Work on `codex/batch-deposit-chest` from fresh main. Staging has no per-stack economy transaction or invalid-item chat. Sell eligible staged items in one journaled batch, return unsold items on close/switch, and preserve durable evidence for interrupted storage. Keep the approved resource values. Queue rapid withdrawals safely and clear queued requests when their screen closes.
 
-The GoldBag workflow skill records later standing authorization for implementation, review, passing-check integration, semantic release and appropriate local `maya-funtimes` installation/restart. It supersedes historical PR-only instructions below. Keep the Spigot 1.17/Java 16 baseline; use Java 25 for Paper 26.3 runtime validation.
+v2.1.0 from PR #4 is published and installed; PR #5 recorded its release evidence. The new batch implementation is a follow-up feature, not yet installed. Standing workflow authorization covers review, passing-check integration, release and appropriate local deployment/restart. Keep the Spigot 1.17/Java 16 baseline and exact integer cents.
 
 ## Working agreement
 

@@ -135,6 +135,65 @@ public final class InventoryAdapter {
         }
     }
 
+    /** Immutable physical plan for consuming eligible stacks from a staged menu chest. */
+    public static final class StagedPlan {
+        private final ItemStack[] chestBefore;
+        private final ItemStack[] chestAfter;
+        private final ItemStack[] playerBefore;
+        private final ItemStack[] playerAfter;
+        private final List<Integer> affectedChestSlots;
+        private final String evidence;
+
+        private StagedPlan(ItemStack[] chestBefore, ItemStack[] chestAfter, ItemStack[] playerBefore) {
+            this.chestBefore = cloneArray(chestBefore);
+            this.chestAfter = cloneArray(chestAfter);
+            this.playerBefore = cloneSlots(playerBefore);
+            this.playerAfter = cloneSlots(playerBefore);
+            List<Integer> changed = new ArrayList<>();
+            for (int slot = 0; slot < this.chestBefore.length; slot++) {
+                if (!same(this.chestBefore[slot], this.chestAfter[slot])) changed.add(slot);
+            }
+            this.affectedChestSlots = List.copyOf(changed);
+            this.evidence = "chestBefore=" + snapshotArray(this.chestBefore)
+                    + ";chestAfter=" + snapshotArray(this.chestAfter)
+                    + ";playerBefore=" + snapshot(this.playerBefore)
+                    + ";playerAfter=" + snapshot(this.playerAfter);
+        }
+
+        public List<Integer> affectedChestSlots() { return affectedChestSlots; }
+        public String evidence() { return evidence; }
+        public List<ItemStack> chestBefore() { return immutableClones(chestBefore); }
+        public List<ItemStack> chestAfter() { return immutableClones(chestAfter); }
+        public List<ItemStack> playerBefore() { return immutableClones(playerBefore); }
+        public List<ItemStack> playerAfter() { return immutableClones(playerAfter); }
+
+        public boolean ready(Inventory chest, PlayerInventory player) {
+            if (chest == null || player == null || chest.getSize() < 54) return false;
+            try {
+                for (int slot = 0; slot < chestBefore.length; slot++) {
+                    if (!same(chestBefore[slot], normalize(chest.getItem(slot)))) return false;
+                }
+                for (int slot = 0; slot < MAIN_INVENTORY_SLOTS; slot++) {
+                    if (!same(playerBefore[slot], normalize(player.getItem(slot)))) return false;
+                }
+                return true;
+            } catch (RuntimeException ignored) {
+                return false;
+            }
+        }
+
+        public void apply(Inventory chest, PlayerInventory player) {
+            if (!ready(chest, player)) throw new IllegalStateException("Staged inventory changed; physical plan is no longer ready");
+            for (int slot : affectedChestSlots) chest.setItem(slot, copy(chestAfter[slot]));
+        }
+
+        private static List<ItemStack> immutableClones(ItemStack[] slots) {
+            List<ItemStack> result = new ArrayList<>(slots.length);
+            for (ItemStack slot : slots) result.add(copy(slot));
+            return Collections.unmodifiableList(result);
+        }
+    }
+
     public int count(PlayerInventory inventory, Material material) {
         if (inventory == null || material == null) return 0;
         int total = 0;
@@ -265,6 +324,31 @@ public final class InventoryAdapter {
         return new Plan(before, before, -1, null, null, cursor, afterCursor);
     }
 
+    /** Captures exact eligible removal from the first 45 slots of a staged chest. */
+    public StagedPlan planStagedRemoval(Inventory chest, PlayerInventory player,
+                                        Map<Material, Integer> removals) {
+        if (chest == null || chest.getSize() < 54) throw new IllegalArgumentException("A 54-slot staging chest is required");
+        if (player == null || removals == null || removals.isEmpty()) throw new IllegalArgumentException("Staged removals are required");
+        ItemStack[] chestBefore = readStagedSlots(chest);
+        ItemStack[] chestAfter = cloneArray(chestBefore);
+        for (Map.Entry<Material, Integer> entry : removals.entrySet()) {
+            Material material = entry.getKey();
+            Integer requested = entry.getValue();
+            if (material == null || requested == null || requested <= 0) throw new IllegalArgumentException("Removal counts must be positive");
+            int remaining = requested;
+            for (int slot = 0; slot < 45 && remaining > 0; slot++) {
+                ItemStack item = chestAfter[slot];
+                if (!isPlain(item, material)) continue;
+                int used = Math.min(remaining, item.getAmount());
+                int next = item.getAmount() - used;
+                chestAfter[slot] = next == 0 ? null : withAmount(item, next);
+                remaining -= used;
+            }
+            if (remaining != 0) throw new IllegalStateException("Staged chest does not contain the required plain items");
+        }
+        return new StagedPlan(chestBefore, chestAfter, readSlots(player));
+    }
+
     public boolean canFit(PlayerInventory inventory, ItemStack stack) {
         if (stack == null || stack.getType() == Material.AIR || stack.getAmount() <= 0) return false;
         try {
@@ -352,6 +436,24 @@ public final class InventoryAdapter {
         return result;
     }
 
+    private static ItemStack[] readInventory(Inventory inventory) {
+        ItemStack[] result = new ItemStack[inventory.getSize()];
+        for (int slot = 0; slot < result.length; slot++) result[slot] = normalize(inventory.getItem(slot));
+        return result;
+    }
+
+    private static ItemStack[] readStagedSlots(Inventory inventory) {
+        ItemStack[] result = new ItemStack[45];
+        for (int slot = 0; slot < result.length; slot++) result[slot] = normalize(inventory.getItem(slot));
+        return result;
+    }
+
+    private static ItemStack[] cloneArray(ItemStack[] source) {
+        ItemStack[] result = new ItemStack[source.length];
+        for (int slot = 0; slot < source.length; slot++) result[slot] = copy(source[slot]);
+        return result;
+    }
+
     private static ItemStack normalize(ItemStack item) {
         return item == null || item.getType() == Material.AIR || item.getAmount() <= 0 ? null : item;
     }
@@ -391,6 +493,15 @@ public final class InventoryAdapter {
         if (selectedSlot >= MAIN_INVENTORY_SLOTS) {
             result.append('|');
             appendSlot(result, selectedSlot, selected);
+        }
+        return result.toString();
+    }
+
+    private static String snapshotArray(ItemStack[] slots) {
+        StringBuilder result = new StringBuilder();
+        for (int slot = 0; slot < slots.length; slot++) {
+            if (slot > 0) result.append('|');
+            appendSlot(result, slot, slots[slot]);
         }
         return result.toString();
     }

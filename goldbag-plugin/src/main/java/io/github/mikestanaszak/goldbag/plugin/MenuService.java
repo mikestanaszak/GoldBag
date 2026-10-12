@@ -18,6 +18,7 @@ import java.util.List;
 public final class MenuService {
     private final GoldBagPlugin plugin;
     private final InventoryAdapter inventory;
+    private final java.util.Set<java.util.UUID> summaryUpdates = new java.util.HashSet<>();
 
     public MenuService(GoldBagPlugin plugin, InventoryAdapter inventory) {
         this.plugin = plugin;
@@ -29,7 +30,7 @@ public final class MenuService {
         Inventory menu = Bukkit.createInventory(holder, 27, ChatColor.GOLD + "GoldBag");
         holder.inventory(menu);
         set(menu, 10, Material.GOLD_INGOT, "Balance", "View your purse balance");
-        set(menu, 12, Material.CHEST, "Deposit", "Shift-click or place resources to deposit");
+        set(menu, 12, Material.CHEST, "Deposit", "Fill the chest, then click Deposit");
         set(menu, 14, Material.DIAMOND, "Withdraw Resources", "Click resources to withdraw immediately");
         set(menu, 15, Material.PAPER, "Pay Player", "Click to enter a payment");
         set(menu, 16, Material.PAPER, "Create Banknote", "Click to enter a banknote amount");
@@ -53,9 +54,9 @@ public final class MenuService {
         set(menu, 50, Material.PAPER, "Deposit resources here",
                 "Shift-click a stack from your inventory",
                 "Or place items in any empty chest slot",
-                "Items convert to Gold immediately",
-                "Only enabled, ordinary resources are accepted");
-        set(menu, 52, Material.GOLD_INGOT, "Deposit all eligible", "Deposit eligible inventory items immediately");
+                "Click the green Deposit button when ready",
+                "Unsold items return when you close the chest");
+        set(menu, 52, Material.LIME_WOOL, "Deposit", "Fill the chest, then click here", "Only ordinary enabled resources are sold");
         display(player, menu);
     }
 
@@ -161,6 +162,40 @@ public final class MenuService {
             if (player.isOnline()) {
                 player.openInventory(menu);
                 refreshBalance(player);
+                refreshDepositSummary(player);
+            }
+        });
+    }
+
+    /** One cheap next-tick redraw, regardless of how many stacks moved this tick. */
+    public void refreshDepositSummary(Player player) {
+        Inventory menu = player.getOpenInventory().getTopInventory();
+        if (!(menu.getHolder() instanceof MenuHolder)) return;
+        MenuHolder holder = (MenuHolder) menu.getHolder();
+        if (holder.screen() != MenuHolder.Screen.DEPOSIT || !summaryUpdates.add(holder.sessionId())) return;
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            summaryUpdates.remove(holder.sessionId());
+            if (!player.isOnline() || player.getOpenInventory().getTopInventory() != menu) return;
+            int selected = 0;
+            long value = 0;
+            int limit = plugin.config().settings().maxItemsPerTransaction();
+            try {
+                for (int slot = 0; slot < 45 && selected < limit; slot++) {
+                    ItemStack stack = menu.getItem(slot);
+                    if (stack == null || stack.getType() == Material.AIR) continue;
+                    Resource resource;
+                    try { resource = plugin.config().catalog().require(stack.getType().name()); }
+                    catch (IllegalArgumentException ignored) { continue; }
+                    if (!resource.depositEnabled() || !inventory.isPlain(stack, stack.getType())) continue;
+                    int count = Math.min(stack.getAmount(), limit - selected);
+                    value = Math.addExact(value, plugin.config().catalog().depositValue(resource.material(), count));
+                    selected += count;
+                }
+                set(menu, 52, Material.LIME_WOOL, "Deposit " + selected + " items",
+                        "Receive: " + plugin.money(value), "Click once to deposit this batch",
+                        "Unsold items stay in the chest", "Transaction limit: " + limit + " items");
+            } catch (RuntimeException error) {
+                set(menu, 52, Material.LIME_WOOL, "Deposit", "This batch exceeds the configured value limit");
             }
         });
     }

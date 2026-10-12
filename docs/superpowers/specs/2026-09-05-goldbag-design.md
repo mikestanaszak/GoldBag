@@ -2,6 +2,12 @@
 
 Version: 1.1 draft • Date: September 5, 2026
 
+## Accepted follow-up — October 12, 2026 (batch chest)
+
+After trying v2.1.0, the owner requested filling a real chest and clicking one Deposit button because per-stack exchanges felt laggy. This supersedes instant gesture selling in the amendment below.
+
+Use 45 editable content slots and native chest transfers. Stage arbitrary items quietly; there is no sale or economy guard per stack. A green Deposit button sells ordinary enabled staged resources in one journaled batch within configured limits, leaving unsupported/custom items untouched. Show count/value in the button and keep the chest open. Return unsold items exactly once on close/switch/quit/shutdown, with safe overflow handling. Preserve staged/physical evidence for uncertain interrupted operations rather than automatically guessing refunds. Rapid withdrawal gestures should be safely queued/coalesced and revalidated, with queues discarded when their menu closes. Approved resource values are unchanged.
+
 ## Accepted amendment — October 12, 2026
 
 The owner requested easier chest-style deposits and immediate withdrawals, and approved the proposed revised resource prices. This amendment supersedes the original preservation-of-rates and resource confirmation/quantity-screen requirements below.

@@ -20,7 +20,7 @@ Recorded direct-exchange validation includes 83 Java tests, eleven test-client c
 ## Features
 
 - One balance per Minecraft UUID, shared across worlds, with exact cent amounts.
-- Resource deposits and withdrawals through commands and menus, with immediate chest deposits and direct withdrawal buttons.
+- Resource deposits and withdrawals through commands and menus, with a chest for batch deposits and direct withdrawal buttons.
 - Player payments, one-time redeemable banknotes, and a balance leaderboard.
 - Configurable prices, messages, permissions, and transaction limits.
 - Local SQLite storage, JSON exports, and an offline restore tool.
@@ -85,9 +85,9 @@ With 25 ordinary raw iron in your main inventory:
 
 The deposit immediately credits 50.00 G. Run `/goldbag withdraw diamond 1` to receive a diamond for 50.00 G immediately.
 
-For everyday use, open `/goldbag` and select **Deposit**. Shift-click ordinary resources from your inventory, or pick up a stack and place it in an empty deposit slot. Accepted items convert to Gold immediately; right-click placement deposits one item. **Deposit All** exchanges eligible inventory items within the transaction limit.
+For everyday use, open `/goldbag` and select **Deposit**. Shift-click stacks into the chest, or place and rearrange items as you would in a normal chest. The green **Deposit** button shows the eligible item count and Gold value; click it to sell the staged resources together. Unsupported, custom and excess items stay in the chest. Closing it or switching screens returns unsold items to your inventory, with overflow dropped beside you.
 
-Switch directly to **Withdraw Resources**: left-click a resource for one item, right-click for up to 16, or shift-click for up to 64. Larger purchases are limited by your balance, inventory space and transaction limit. The menu stays open so you can keep exchanging. No quantity screen, confirmation button or chat command is needed for deposits and resource withdrawals.
+Switch directly to **Withdraw Resources**: left-click a resource for one item, right-click for up to 16, or shift-click for up to 64. Larger purchases are limited by your balance, inventory space and transaction limit. The menu stays open so you can keep exchanging. Rapid withdrawal clicks queue in order; closing the screen clears waiting clicks. No quantity screen, confirmation button or chat command is needed for deposits and resource withdrawals.
 
 Pay Player and Create Banknote collect their input privately in chat. Banknotes retain their amount preview and confirmation. `/goldbag help` lists the commands.
 

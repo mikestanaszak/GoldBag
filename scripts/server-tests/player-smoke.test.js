@@ -7,6 +7,7 @@ const {
   assertDepositLayout,
   assertSameWindow,
   assertWithdrawLayout,
+  clickDepositCursor,
   closeBots,
   connect,
   count,
@@ -16,6 +17,9 @@ const {
   installCursorPacketAdapter,
   mainInventoryEmptySlots,
   noteIdentity,
+  queueWithdrawalClicks,
+  stagedCount,
+  stagedItems,
 } = require('./player-smoke');
 
 function fakeBot() {
@@ -107,12 +111,45 @@ test('connect resolves spawned clients for normal cleanup', async () => {
   assert.equal(bot.quitCalls, 1);
 });
 
-test('deposit layout keeps the virtual chest empty and reserves direct controls', () => {
+test('deposit layout allows staged items and reserves batch controls', () => {
   const slots = Array(90).fill(null);
+  slots[0] = { name: 'coal', count: 64 };
+  slots[1] = { name: 'iron_ingot', count: 1, components: [{ type: 'custom_name', data: { text: 'Forged' } }] };
   for (const [slot, name] of [[45, 'Back to Main menu'], [48, 'Withdraw'], [49, 'Close'], [50, 'Balance and deposit instructions'], [52, 'Deposit all']]) {
     slots[slot] = { name: 'paper', components: [{ type: 'custom_name', data: { text: name } }] };
   }
   assert.doesNotThrow(() => assertDepositLayout({ slots, title: 'GoldBag Deposit 1' }));
+  assert.equal(stagedCount({ slots }, 'coal'), 64);
+  assert.equal(stagedCount({ slots }, 'iron_ingot'), 1);
+  assert.equal(stagedItems({ slots }).length, 2);
+});
+
+test('cursor staging picks an empty top slot and returns right-click remainder', async () => {
+  const slots = Array(90).fill(null);
+  slots[3] = { name: 'coal', count: 64 };
+  slots[4] = { name: 'coal', count: 64 };
+  slots[54] = { name: 'raw_gold', count: 2 };
+  const window = { slots, inventoryStart: 54, inventoryEnd: 90, selectedItem: null };
+  const bot = { currentWindow: window, lines: [], clickWindow: async (slot, mouseButton) => {
+    if (slot === 54 && mouseButton === 0 && !window.selectedItem) {
+      window.selectedItem = window.slots[54];
+      window.slots[54] = null;
+    } else if (slot < 45 && mouseButton === 1 && window.selectedItem) {
+      window.slots[slot] = { name: window.selectedItem.name, count: 1 };
+      window.selectedItem.count -= 1;
+      if (window.selectedItem.count === 0) window.selectedItem = null;
+    } else if (slot === 54 && mouseButton === 0 && window.selectedItem) {
+      window.slots[54] = window.selectedItem;
+      window.selectedItem = null;
+    }
+  } };
+  const result = await clickDepositCursor(bot, 'raw_gold', 4, 1, 0);
+  assert.equal(result.supported, true);
+  assert.equal(window.slots[0].name, 'raw_gold');
+  assert.equal(window.slots[0].count, 1);
+  assert.equal(window.slots[54].name, 'raw_gold');
+  assert.equal(window.slots[54].count, 1);
+  assert.equal(window.selectedItem, null);
 });
 
 test('withdraw layout reserves deposit, close, info and back controls', () => {
@@ -121,6 +158,22 @@ test('withdraw layout reserves deposit, close, info and back controls', () => {
     slots[slot] = { name: 'paper', components: [{ type: 'custom_name', data: { text: name } }] };
   }
   assert.doesNotThrow(() => assertWithdrawLayout({ slots, title: 'GoldBag Withdraw 1' }));
+});
+
+test('rapid withdrawal helper queues the requested bounded click count', async () => {
+  const calls = [];
+  const bot = {
+    lines: [],
+    currentWindow: { slots: [{ name: 'diamond', count: 1 }], title: 'GoldBag Withdraw 1' },
+    clickWindow: (slot, mouseButton, mode) => {
+      calls.push([slot, mouseButton, mode]);
+      return Promise.resolve();
+    },
+  };
+  const queued = queueWithdrawalClicks(bot, 'diamond', 3, 0, 0);
+  await Promise.all(queued.pending);
+  assert.equal(queued.pending.length, 3);
+  assert.deepEqual(calls, [[0, 0, 0], [0, 0, 0], [0, 0, 0]]);
 });
 
 test('direct exchange guards require the same open exchange window', async () => {
