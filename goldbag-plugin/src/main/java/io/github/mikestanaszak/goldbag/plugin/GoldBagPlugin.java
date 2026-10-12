@@ -431,7 +431,7 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
             request = queue.removeFirst();
             if (queue.isEmpty()) withdrawalQueues.remove(player.getUniqueId());
         }
-        quoteWithdrawal(player, request.resource, request.count, false, request.clamp, request.session);
+        quoteWithdrawal(player, request.resource, request.count, false, request.clamp || request.count > 1, request.session);
     }
 
     private void startStagedDeposit(Player player, Inventory chest, MenuHolder holder) {
