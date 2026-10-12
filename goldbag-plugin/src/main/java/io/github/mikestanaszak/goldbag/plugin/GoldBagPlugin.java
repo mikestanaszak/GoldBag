@@ -221,8 +221,8 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
         ItemMeta meta = item.getItemMeta();
         meta.setDisplayName(ChatColor.GOLD + "[GoldBag] " + config().settings().currencyName() + " banknote");
         meta.setLore(List.of(ChatColor.GOLD + "Value: " + money(amount),
-                ChatColor.YELLOW + "Right-click to redeem your treasure.",
-                ChatColor.GOLD + "One note. One redemption. All yours."));
+                ChatColor.YELLOW + "Right-click to redeem this banknote.",
+                ChatColor.GOLD + "Each banknote can be redeemed once."));
         meta.getPersistentDataContainer().set(noteKey, PersistentDataType.STRING, id.toString());
         item.setItemMeta(meta);
         return item;
@@ -543,7 +543,7 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
         }
         drafts.clearInFlight(draft);
         unguard(player.getUniqueId(), operation);
-        tell(player, "Deposited " + count + " for " + money(amount) + ". A little more treasure in your bag!");
+        tell(player, "Deposited " + count + " for " + money(amount) + ".");
         menus.refreshBalance(player);
         menus.refreshDepositSummary(player);
         if (draft.closing()) returnDraft(player, draft);
@@ -633,7 +633,7 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
                     });
         } catch (RuntimeException error) { unguard(playerId, op); tell(player, ChatColor.RED + "Could not redeem this banknote."); return; }
         operation.whenComplete((receipt, error) -> finishOperation(playerId, player, op, error,
-                () -> tell(player, "Banknote redeemed. Treasure safely tucked away!"), "Banknote redemption is unresolved or was cancelled: " + op));
+                () -> tell(player, "Banknote redeemed."), "Banknote redemption is unresolved or was cancelled: " + op));
     }
 
     public void quoteDeposit(Player player, Resource resource, int count) {
@@ -690,7 +690,7 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
     public void startPayPrompt(Player player) {
         if (!permissions.has(player, "goldbag.pay", "goldpurse.use")) { tell(player, ChatColor.RED + "You do not have permission."); return; }
         beginPrompt(player, new StringPrompt() {
-            @Override public String getPromptText(ConversationContext context) { return themedMessage("Share the treasure! Enter recipient and amount (example: Alice 2.50), or cancel:"); }
+            @Override public String getPromptText(ConversationContext context) { return themedMessage("Enter recipient and amount (example: Alice 2.50), or cancel:"); }
             @Override public org.bukkit.conversations.Prompt acceptInput(ConversationContext context, String input) {
                 if (input == null || input.trim().equalsIgnoreCase("cancel")) { promptTell(player, "Payment cancelled."); return null; }
                 String[] parts = input.trim().split("\\s+", 3);
@@ -707,7 +707,7 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
     public void startNotePrompt(Player player) {
         if (!permissions.has(player, "goldbag.note", "goldpurse.use")) { tell(player, ChatColor.RED + "You do not have permission."); return; }
         beginPrompt(player, new StringPrompt() {
-            @Override public String getPromptText(ConversationContext context) { return themedMessage("Make some pocket treasure! Enter banknote amount, or cancel:"); }
+            @Override public String getPromptText(ConversationContext context) { return themedMessage("Enter banknote amount, or cancel:"); }
             @Override public org.bukkit.conversations.Prompt acceptInput(ConversationContext context, String input) {
                 if (input == null || input.trim().equalsIgnoreCase("cancel")) { promptTell(player, "Banknote cancelled."); return null; }
                 String[] commandArgs = new String[]{"note", input.trim()};
@@ -903,7 +903,7 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
             return;
         }
         operation.whenComplete((receipt, error) -> finishOperation(playerId, player, op, error,
-                () -> { tell(player, "Deposited " + quote.count() + " for " + money(quote.amount()) + ". A little more treasure in your bag!"); menus.refreshBalance(player); },
+                () -> { tell(player, "Deposited " + quote.count() + " for " + money(quote.amount()) + "."); menus.refreshBalance(player); },
                 "Deposit was cancelled or is unresolved; operation " + op + "."));
     }
 
@@ -940,7 +940,7 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
             return;
         }
         operation.whenComplete((receipt, error) -> finishOperation(playerId, player, op, error,
-                () -> { tell(player, "Withdrew " + quote.count() + " for " + money(quote.amount()) + ". Ready for your next adventure!"); menus.refreshBalance(player); },
+                () -> { tell(player, "Withdrew " + quote.count() + " for " + money(quote.amount()) + "."); menus.refreshBalance(player); },
                 "Withdrawal was cancelled or is unresolved; operation " + op + "."));
     }
 
@@ -974,7 +974,7 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
             return;
         }
         operation.whenComplete((receipt, error) -> finishOperation(playerId, player, op, error,
-                () -> tell(player, "Banknote issued for " + money(amount) + ". Pocket-sized treasure, ready to trade!"),
+                () -> tell(player, "Banknote issued for " + money(amount) + "."),
                 "Banknote issuance was cancelled or is unresolved; operation " + op + "."));
     }
 

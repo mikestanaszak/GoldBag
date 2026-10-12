@@ -1,7 +1,7 @@
 # GoldBag adds [GoldBag] and gold coloring to every chat line automatically.
 # Keep custom wording here; embedded color codes cannot override the shared theme.
-balance: "Balance: {amount} — your adventure fund!"
-busy: "Your bag is catching up. Please try again in a moment."
-storage-unavailable: "The vault is taking a breather. Please try again shortly."
-permission: "This part of the vault is locked. You do not have permission."
-cancelled: "Cancelled. Your treasure can wait!"
+balance: "Balance: {amount}"
+busy: "GoldBag is busy. Please try again."
+storage-unavailable: "GoldBag storage is temporarily unavailable."
+permission: "You do not have permission."
+cancelled: "Operation cancelled."
