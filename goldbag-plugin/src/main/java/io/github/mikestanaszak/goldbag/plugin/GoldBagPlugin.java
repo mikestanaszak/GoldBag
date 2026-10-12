@@ -327,7 +327,8 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
             event.setCancelled(true);
         } else {
             event.setCancelled(true);
-            if (holder.screen() == MenuHolder.Screen.WITHDRAW && slot >= topSize) {
+            if (holder.screen() == MenuHolder.Screen.WITHDRAW && slot >= topSize
+                    && allowsWithdrawalInventoryClick(event.getClick(), event.getAction())) {
                 event.setCancelled(false);
                 return;
             }
@@ -378,6 +379,12 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
             } else if (slot == 11) { confirm(player, holder.quoteId()); closeNextTick(player); }
             else if (slot == 15) { cancel(player, holder.quoteId()); closeNextTick(player); }
         }
+    }
+
+    static boolean allowsWithdrawalInventoryClick(ClickType click, InventoryAction action) {
+        return (click == ClickType.LEFT || click == ClickType.RIGHT)
+                && action != InventoryAction.MOVE_TO_OTHER_INVENTORY
+                && action != InventoryAction.COLLECT_TO_CURSOR;
     }
 
     static boolean collectsAcrossMenu(ClickType click, InventoryAction action) {

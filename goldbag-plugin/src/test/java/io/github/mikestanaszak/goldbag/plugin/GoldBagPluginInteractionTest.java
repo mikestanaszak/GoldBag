@@ -55,4 +55,15 @@ class GoldBagPluginInteractionTest {
         assertFalse(GoldBagPlugin.collectsAcrossMenu(ClickType.LEFT, InventoryAction.PICKUP_ALL));
     }
 
+    @Test
+    void withdrawalInventoryTransfersAreBlockedButLocalPickupIsAllowed() {
+        assertFalse(GoldBagPlugin.allowsWithdrawalInventoryClick(ClickType.SHIFT_LEFT, InventoryAction.MOVE_TO_OTHER_INVENTORY));
+        assertFalse(GoldBagPlugin.allowsWithdrawalInventoryClick(ClickType.SHIFT_RIGHT, InventoryAction.MOVE_TO_OTHER_INVENTORY));
+        assertFalse(GoldBagPlugin.allowsWithdrawalInventoryClick(ClickType.LEFT, InventoryAction.MOVE_TO_OTHER_INVENTORY));
+        assertFalse(GoldBagPlugin.allowsWithdrawalInventoryClick(ClickType.DOUBLE_CLICK, InventoryAction.COLLECT_TO_CURSOR));
+        assertFalse(GoldBagPlugin.allowsWithdrawalInventoryClick(ClickType.NUMBER_KEY, InventoryAction.HOTBAR_SWAP));
+        assertTrue(GoldBagPlugin.allowsWithdrawalInventoryClick(ClickType.LEFT, InventoryAction.PICKUP_ALL));
+        assertTrue(GoldBagPlugin.allowsWithdrawalInventoryClick(ClickType.RIGHT, InventoryAction.PLACE_ONE));
+    }
+
 }

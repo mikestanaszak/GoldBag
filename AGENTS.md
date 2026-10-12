@@ -8,7 +8,7 @@ The executable task plan is `docs/superpowers/plans/2026-09-05-goldbag-rebuild.m
 
 The owner found immediate per-stack deposits laggy and requested a true editable deposit chest followed by one Deposit button. This supersedes the earlier instant-conversion gesture UX. Work on `codex/batch-deposit-chest` from fresh main. Staging has no per-stack economy transaction or invalid-item chat. Sell eligible staged items in one journaled batch, return unsold items on close/switch, and preserve durable evidence for interrupted storage. Keep the approved resource values. Queue rapid withdrawals safely and clear queued requests when their screen closes.
 
-v2.1.0 from PR #4 is published and installed; PR #5 recorded its release evidence. PR #6 merged and v2.2.0 is published/installed with the batch chest, queued withdrawals and approved values. See batch-release-deployment.md for exact evidence and remaining manual flows. Standing workflow authorization covers review, passing-check integration, release and appropriate local deployment/restart. Keep the Spigot 1.17/Java 16 baseline and exact integer cents.
+v2.1.0 from PR #4 is published and installed; PR #5 recorded its release evidence. PRs #6/#7 merged and v2.2.1 is published/installed with the batch chest, queued withdrawals and approved values. See batch-release-deployment.md for exact evidence and remaining manual flows. Standing workflow authorization covers review, passing-check integration, release and appropriate local deployment/restart. Keep the Spigot 1.17/Java 16 baseline and exact integer cents.
 
 ## Working agreement
 

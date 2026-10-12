@@ -86,3 +86,9 @@ releases do not provide protocol 777 data.
 Supplementary isolated lifecycle check PASS: staged two coal, quit without submitting, rejoined with exactly two coal. Log `/tmp/goldbag-batch-lifecycle.log`. No fixture touched production.
 
 Clean stop/start with the same artifact and no fixture reset PASS: balances A85/B15 and issued note persisted; note redeemed once to A90/B15 and copied replay rejected. Log `/tmp/goldbag-batch-player-restart.log`.
+
+## Grouped withdrawal correction
+
+PR #7 patch source `2d8f8c1010a54700b2b4dd4a51aa5b6de49a944f`; tested snapshot SHA-256 `dbd66634ceb760858ba98e191cc3d6ee21547cc84ecef0af0b92e2c2cb19ecbf`. Full84 Java tests,13 harness units and shaded verifier PASS. The isolated Paper1.21.11/Java25 full harness passed **24 actual-player checks**, including three rapid diamond clicks with100 G delivering exactly two diamonds and0 G. Command exact-count semantics remain unchanged. Log `/tmp/goldbag-batch-patch-player.log`.
+
+Same patch artifact clean no-reset restart PASS: A85/B15 and issued note persisted; redeeming once produced A90/B15, copied replay rejected. Log `/tmp/goldbag-batch-patch-restart.log`. Isolated server stopped cleanly after checks.

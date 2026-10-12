@@ -539,13 +539,31 @@ async function run() {
     await openMenu(a);
     const withdrawMenu = await clickMenu(a, 14, '[GoldBag] Withdraw');
     assertWithdrawLayout(withdrawMenu);
+    await clear(a);
+    await give(a, 'cobblestone', 37);
+    const protectedSource = findWindowItem(withdrawMenu, 'cobblestone');
+    assert(protectedSource >= withdrawMenu.inventoryStart, 'withdraw protection fixture missing player stack');
+    await a.clickWindow(protectedSource, 0, 1);
+    await sleep(400);
+    assert(count(a, 'cobblestone') === 37, 'withdraw screen accepted a shift transfer from player inventory');
+    assert(stagedCount(withdrawMenu, 'cobblestone') === 0, 'withdraw screen stored a player item');
+    await a.clickWindow(protectedSource, 0, 0);
+    await a.clickWindow(30, 0, 0);
+    await sleep(300);
+    assert(stagedCount(withdrawMenu, 'cobblestone') === 0, 'withdraw screen accepted cursor placement');
+    await returnCursor(a);
+    a.closeWindow(withdrawMenu);
+    await sleep(400);
+    assert(count(a, 'cobblestone') === 37, 'closing withdrawal lost protected player items');
+    passed.push('withdrawal screen blocks shift transfers and cursor placement without losing items on close');
+
 
     // Queue several same-resource clicks without waiting for each journal
     // response. The guarded listener coalesces these requests, but every
     // requested item must still be delivered.
     await command(a, `/goldbag admin set ${BOT_A} 200 rapid withdrawal fixture`, /Balance set.*200\.00/i, 'rapid withdrawal balance');
     await clear(a);
-    a.closeWindow(withdrawMenu);
+    if (a.currentWindow) a.closeWindow(a.currentWindow);
     await sleep(500);
     await openMenu(a);
     const rapidWithdrawMenu = await clickMenu(a, 14, '[GoldBag] Withdraw');
