@@ -175,7 +175,7 @@ function assertDepositLayout(window) {
   assertMenuControl(window, 45, /back|main|menu/i, 'deposit main');
   assertMenuControl(window, 48, /withdraw/i, 'deposit withdrawal');
   assertMenuControl(window, 49, /close|cancel/i, 'deposit close');
-  assertMenuControl(window, 50, /balance|deposit|shift|info|rate|help/i, 'deposit info');
+  assertMenuControl(window, 50, /balance|deposit|shift|info|rate|help|vault/i, 'deposit info');
   assertMenuControl(window, 52, /deposit|all/i, 'deposit all');
 }
 
@@ -203,7 +203,7 @@ function findTopItem(window, itemName) {
 async function assertSameWindow(bot, window, description) {
   await sleep(150);
   assert(bot.currentWindow === window, `${description} replaced the open menu`);
-  assert(/GoldBag (Deposit|Withdraw)/i.test(windowTitle(bot.currentWindow)), `${description} closed the exchange menu`);
+  assert(/GoldBag\]? (Deposit|Withdraw)/i.test(windowTitle(bot.currentWindow)), `${description} closed the exchange menu`);
 }
 
 async function waitForExchange(bot, window, start, matcher, description) {
@@ -316,7 +316,7 @@ async function waitForWindow(bot, title, timeout = TIMEOUT) {
 }
 
 async function confirmPreview(bot, matcher, description) {
-  const window = await waitForWindow(bot, 'GoldBag Confirm');
+  const window = await waitForWindow(bot, '[GoldBag] Confirm');
   const start = bot.lines.length;
   await bot.clickWindow(11, 0, 0);
   const result = matcher ? await waitForLine(bot, start, matcher, description) : null;
@@ -328,7 +328,7 @@ async function confirmPreview(bot, matcher, description) {
 
 async function preview(bot, text, expected) {
   bot.chat(text);
-  const window = await waitForWindow(bot, 'GoldBag Confirm');
+  const window = await waitForWindow(bot, '[GoldBag] Confirm');
   assert(expected.test(JSON.stringify(window.slots[13])), `Unexpected confirmation summary: ${JSON.stringify(window.slots[13])}`);
   return window;
 }
@@ -437,7 +437,7 @@ async function run() {
     await give(a, 'coal', 320);
     await give(a, 'raw_iron', 25);
     await openMenu(a);
-    let depositMenu = await clickMenu(a, 12, 'GoldBag Deposit');
+    let depositMenu = await clickMenu(a, 12, '[GoldBag] Deposit');
     assertDepositLayout(depositMenu);
     const stagingSources = [];
     for (let slot = depositMenu.inventoryStart; slot < depositMenu.inventoryEnd; slot += 1) {
@@ -492,7 +492,7 @@ async function run() {
     await give(a, 'iron_ingot', 1);
     await command(a, `/minecraft:give ${a.username} minecraft:raw_iron[custom_name='{"text":"Forged"}'] 1`, null);
     await openMenu(a);
-    depositMenu = await clickMenu(a, 12, 'GoldBag Deposit');
+    depositMenu = await clickMenu(a, 12, '[GoldBag] Deposit');
     const invalidShift = await clickDepositCursor(a, 'iron_ingot', 0, 0, 1);
     await assertSameWindow(a, depositMenu, 'ineligible staging');
     const custom = await clickDepositCursor(a, 'raw_iron', 1, 0, 0, item => /forged/i.test(itemText(item)));
@@ -516,17 +516,17 @@ async function run() {
     await clear(a);
     await give(a, 'cobblestone', 1);
     await openMenu(a);
-    depositMenu = await clickMenu(a, 12, 'GoldBag Deposit');
+    depositMenu = await clickMenu(a, 12, '[GoldBag] Deposit');
     await clickDepositCursor(a, 'cobblestone', 0, 0, 1);
     await a.clickWindow(48, 0, 0);
-    const switchedWithdraw = await waitForWindow(a, 'GoldBag Withdraw');
+    const switchedWithdraw = await waitForWindow(a, '[GoldBag] Withdraw');
     assert(count(a, 'cobblestone') === 1, 'switching menus did not return the unsold staged item');
     a.closeWindow(switchedWithdraw);
     await sleep(400);
     await clear(a);
     await give(a, 'raw_iron', 1);
     await openMenu(a);
-    depositMenu = await clickMenu(a, 12, 'GoldBag Deposit');
+    depositMenu = await clickMenu(a, 12, '[GoldBag] Deposit');
     await clickDepositCursor(a, 'raw_iron', 0, 0, 1);
     await a.clickWindow(49, 0, 0);
     await sleep(700);
@@ -537,7 +537,7 @@ async function run() {
     await command(a, `/goldbag admin set ${BOT_A} 200 withdrawal fixture`, /Balance set.*200\.00/i, 'withdrawal balance');
     const interactionBalance = 200;
     await openMenu(a);
-    const withdrawMenu = await clickMenu(a, 14, 'GoldBag Withdraw');
+    const withdrawMenu = await clickMenu(a, 14, '[GoldBag] Withdraw');
     assertWithdrawLayout(withdrawMenu);
     await clear(a);
     await give(a, 'cobblestone', 37);
@@ -566,7 +566,7 @@ async function run() {
     if (a.currentWindow) a.closeWindow(a.currentWindow);
     await sleep(500);
     await openMenu(a);
-    const rapidWithdrawMenu = await clickMenu(a, 14, 'GoldBag Withdraw');
+    const rapidWithdrawMenu = await clickMenu(a, 14, '[GoldBag] Withdraw');
     const rapid = queueWithdrawalClicks(a, 'diamond', 3, 0, 0);
     await Promise.allSettled(rapid.pending);
     await waitForLine(a, rapid.start, /Withdrew/i, 'rapid queued withdrawals');
@@ -592,7 +592,7 @@ async function run() {
     a.closeWindow(rapidWithdrawMenu);
     await sleep(500);
     await openMenu(a);
-    const closeQueueMenu = await clickMenu(a, 14, 'GoldBag Withdraw');
+    const closeQueueMenu = await clickMenu(a, 14, '[GoldBag] Withdraw');
     const closing = queueWithdrawalClicks(a, 'raw_gold', 4, 0, 0);
     a.closeWindow(closeQueueMenu);
     await Promise.allSettled(closing.pending);
@@ -606,7 +606,7 @@ async function run() {
     await command(a, `/goldbag admin set ${BOT_A} 200 withdrawal fixture`, /Balance set.*200\.00/i, 'withdrawal balance reset');
     await clear(a);
     await openMenu(a);
-    const persistentWithdrawMenu = await clickMenu(a, 14, 'GoldBag Withdraw');
+    const persistentWithdrawMenu = await clickMenu(a, 14, '[GoldBag] Withdraw');
     assertWithdrawLayout(persistentWithdrawMenu);
     await clickWithdrawal(a, 'diamond', 0, 0, /Withdrew.*1/i, 'left-click one withdrawal');
     await clickWithdrawal(a, 'raw_iron', 1, 0, /Withdrew.*16/i, 'right-click sixteen withdrawal');
@@ -622,7 +622,7 @@ async function run() {
     await command(a, `/goldbag admin set ${BOT_A} 50 capacity fixture`, /Balance set.*50\.00/i, 'capacity balance');
     await give(a, 'cobblestone', 2304);
     await openMenu(a);
-    const capacityMenu = await clickMenu(a, 14, 'GoldBag Withdraw');
+    const capacityMenu = await clickMenu(a, 14, '[GoldBag] Withdraw');
     assertWithdrawLayout(capacityMenu);
     const capacityStart = a.lines.length;
     await clickWithdrawal(a, 'diamond', 0, 1, null, 'shift-click capacity rejection');
@@ -661,7 +661,7 @@ async function run() {
     await waitForLine(a, noteStart, /banknote amount/i, 'banknote prompt');
     await command(a, 'invalid', /amount|number|decimal/i, 'invalid banknote amount');
     a.chat('10.00');
-    await waitForWindow(a, 'GoldBag Confirm');
+    await waitForWindow(a, '[GoldBag] Confirm');
 
     await confirmPreview(a, /Banknote issued.*10\.00/i, 'banknote confirmation');
     await sleep(800);

@@ -69,7 +69,7 @@ public final class GoldBagCommand implements CommandExecutor, TabCompleter {
                 require(sender, "goldbag.use", "goldpurse.use"); player(sender).ifPresent(plugin.menus()::openMain); return true;
             case HELP:
                 require(sender, "goldbag.use", "goldpurse.use");
-                plugin.tell(sender, "/goldbag — open the menu; shift-click to deposit or click resources to withdraw.");
+                plugin.tell(sender, "/goldbag — open your treasure bag; fill the deposit chest, then click Deposit.");
                 plugin.tell(sender, "/goldbag balance [player], rates [material], top [page]");
                 plugin.tell(sender, "/goldbag deposit <material> <count>|all, withdraw <material> <count|max>");
                 plugin.tell(sender, "/goldbag pay <player|uuid> <amount>, note <amount>, cancel");
@@ -110,7 +110,7 @@ public final class GoldBagCommand implements CommandExecutor, TabCompleter {
         UUID payer = player.getUniqueId();
         plugin.submit(() -> plugin.store().findAccount(parsed.target()).orElseThrow(() -> new IllegalArgumentException("Unknown GoldBag account")), account -> {
             if (account.id().equals(payer)) { plugin.tell(player, "You cannot pay yourself."); return; }
-            plugin.submit(() -> plugin.store().transfer(UUID.randomUUID(), payer, account.id(), parsed.amount()), receipt -> plugin.tell(player, "Paid " + account.name() + " " + plugin.money(parsed.amount()) + "."), player, "Payment failed.");
+            plugin.submit(() -> plugin.store().transfer(UUID.randomUUID(), payer, account.id(), parsed.amount()), receipt -> plugin.tell(player, "Paid " + account.name() + " " + plugin.money(parsed.amount()) + ". Sharing the treasure!"), player, "Payment failed.");
         }, player, "Recipient lookup failed.");
     }
 
