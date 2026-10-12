@@ -2,7 +2,7 @@
 
 Repository: https://github.com/mikestanaszak/GoldBag
 
-Current follow-up (2026-10-11): `codex/minecraft-26.3-semantic-release` adds Minecraft 26.3 validation, releases on `main` merges, and clickable confirmation with a command/UI experience review in PR #3. Read the new STATUS section and `26.3-*` reports. The current user requests a PR only, with no merge. Historical rebuild instructions below describe completed work.
+Current follow-up (2026-10-11): `codex/ui-confirmation-experience` adds clickable confirmation and a command/UI experience review. PR #3 already merged the Minecraft 26.3/release automation. Read the new STATUS section and `ui-*` reports. The current user requests a follow-up PR with no merge. Historical rebuild instructions below describe completed work.
 
 Development branch: `codex/goldbag-rebuild`. Original base: `45c3492`.
 

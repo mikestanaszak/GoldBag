@@ -22,13 +22,13 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and remo
 
 ## Clickable confirmation and experience review (2026-10-11)
 
-- User follow-up continues on `codex/minecraft-26.3-semantic-release` / [PR #3](https://github.com/mikestanaszak/GoldBag/pull/3), PR-only.
+- PR #3 merged during the usage pause. UI follow-up is now on `codex/ui-confirmation-experience`, based on `main` at `6c994c5`; open a separate PR, do not merge. The code was independently verified in [CI run 38191645292](https://github.com/mikestanaszak/GoldBag/actions/runs/38191645292) on the original branch, with all checks PASS.
 - All deposit/withdrawal/deposit-all/banknote previews now open green Confirm / red Cancel UI with resource breakdown, configured currency and before/after balance. Typed confirmation remains a compatibility fallback rather than the player flow.
 - Fixed deposit next-page navigation, stale quantity menus, identity-safe cancellation/duplicate confirmation, deferred inventory transitions, prompt validation/retry/threading, console player-only feedback, help and permission-aware completion.
-- Final release preparation on Java 25 PASS: 79 Java tests (12 core, 17 storage, 50 plugin) and shaded SQLite/restore/descriptor checks. Six harness unit tests and five release-analysis checks PASS.
+- UI test-artifact preparation on Java 25 PASS: 79 Java tests (12 core, 17 storage, 50 plugin) and shaded SQLite/restore/descriptor checks. Six harness unit tests and five release-analysis checks PASS.
 - Native Paper 1.21.11 build 132 / Java 25: 17 live player checks PASS, then no-reset restart balances/note/replay PASS. Final UI release also passes Paper 26.3 build 175 startup/storage/rates/reload/shutdown. 26.3 player protocol remains unverified after bridge-client disconnects; see `reports/ui-live-validation.md`.
 - Independent command/UI audit has no remaining source finding after gating other-player balance suggestions. Reports: `ui-confirmation.md`, `ui-command-audit.md`, `ui-live-validation.md`.
-- With the user's existing staging authorization, updated `/opt/stacks/maya-funtimes/data/plugins/GoldBag-2.0.0.jar`; SHA-256 `6dfdae69137b506b583fc1ccd0262530c3b4e3294c8ef616c579de7392a06c71`. Prior JAR preserved outside plugins at `/opt/stacks/maya-funtimes/data/plugin-backups/GoldBag-2.0.0-before-confirm-ui.jar`. The production service was not restarted and live account data was not changed.
+- With the user's existing staging authorization, updated `/opt/stacks/maya-funtimes/data/plugins/GoldBag-2.0.0.jar`; SHA-256 `6dfdae69137b506b583fc1ccd0262530c3b4e3294c8ef616c579de7392a06c71`. Prior JAR preserved outside plugins at `/opt/stacks/maya-funtimes/data/plugin-backups/GoldBag-2.0.0-before-confirm-ui.jar`. The production service was not restarted and live account data was not changed. This manually prepared UI test JAR is unreleased; semantic-release will select the next minor version after published `v2.0.0` when the UI feature merges.
 
 ## Minecraft 26.3 and semantic releases (2026-10-11)
 
