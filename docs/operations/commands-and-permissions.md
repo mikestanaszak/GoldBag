@@ -8,8 +8,8 @@
 | `/goldbag help` | List commands and permitted administrator operations | `goldbag.use` |
 | `/goldbag balance [player]` | View a balance; another player needs the second node | `goldbag.balance`, `goldbag.balance.others` |
 | `/goldbag rates [material]` | Show exchange prices | `goldbag.use` |
-| `/goldbag deposit <material> <count>` or `deposit all` | Preview a deposit | `goldbag.deposit` |
-| `/goldbag withdraw <material> <count\|max>` | Preview a resource withdrawal | `goldbag.withdraw` |
+| `/goldbag deposit <material> <count>` or `deposit all` | Deposit immediately | `goldbag.deposit` |
+| `/goldbag withdraw <material> <count\|max>` | Withdraw resources immediately | `goldbag.withdraw` |
 | Green Confirm / red Cancel button | Complete or discard the displayed quote | Permission for the quoted operation |
 | `/goldbag cancel` | Discard the active quote | Permission for the quoted operation |
 | `/goldbag pay <player\|uuid> <amount>` | Transfer Gold to an existing account | `goldbag.pay` |
@@ -32,7 +32,9 @@ Creative and spectator players are denied exchanges and banknote operations by d
 
 ## Menu flow
 
-Deposit and Withdraw Resources open catalog menus with previous/next arrows when needed. Choose an item, then 1, 16, 64, Max, or an exact count entered privately in chat. Deposit All previews all eligible main-inventory resources within the transaction limit. A successful preview opens a confirmation menu containing the exact resources, quantity, value, and balance before/after. Click green Confirm to execute, red Cancel to discard, or close the menu to cancel. Items and balance change only after confirmation. Expired, replaced, or reloaded previews cannot be confirmed from an old menu; repeated clicks do not execute twice.
+Deposit opens a chest with 45 empty deposit slots. Shift-click ordinary enabled resources from your inventory, or place a cursor stack into an empty slot; right-click places one item. Accepted items convert to Gold immediately. Custom and disabled items are rejected without consumption. Deposit All immediately exchanges eligible main-inventory resources within the transaction limit. The chest stays open, and its Withdraw button switches directly to withdrawals.
+
+Withdraw Resources lists enabled resources with unit prices. Left-click withdraws one, right-click withdraws up to 16, and shift-click withdraws up to 64, limited by balance, inventory space and the transaction limit. Items arrive directly in the main inventory and the menu stays open. Its Deposit button switches back to the chest. Commands also exchange immediately. There are no quantity or confirmation screens for resource exchanges. Transactions still revalidate permissions, game mode, catalog and exact inventory state, and uncertain outcomes remain journaled for recovery.
 
 Create Banknote asks for an amount and opens the same confirmation menu. Pay Player asks for the recipient and amount; a valid payment transfers immediately. Enter `cancel` to leave either chat prompt. Malformed inputs leave the prompt open so they can be corrected.
 

@@ -4,9 +4,11 @@ Read `RESUME.md`, `docs/development/STATUS.md`, and the current task brief befor
 The accepted specification is `docs/superpowers/specs/2026-09-05-goldbag-design.md`.
 The executable task plan is `docs/superpowers/plans/2026-09-05-goldbag-rebuild.md`.
 
-## Current follow-up (2026-10-11)
+## Current follow-up (2026-10-12)
 
-Minecraft 26.3 and semantic-release work was merged through PR #3. The user now requests clickable UI confirmation and a full menu/command experience review. Work on `codex/ui-confirmation-experience`, based on current `main`, and open a follow-up PR. Do not merge it. Keep the Spigot 1.17/Java 16 API baseline; use Java 25 for Paper 26.3 runtime validation. Prior branch/merge instructions below describe completed historical work.
+The user requests immediate chest-style deposits and direct withdrawals without confirmation or quantity screens. Update the open UI PR #4 on `codex/ui-confirmation-experience`; its prior confirmation UX is superseded for resources. Banknotes may retain their existing confirmation. Review resource prices separately and record whether the user approves applying the proposed table.
+
+The GoldBag workflow skill records later standing authorization for implementation, review, passing-check integration, semantic release and appropriate local `maya-funtimes` installation/restart. It supersedes historical PR-only instructions below. Keep the Spigot 1.17/Java 16 baseline; use Java 25 for Paper 26.3 runtime validation.
 
 ## Working agreement
 

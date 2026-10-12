@@ -20,7 +20,7 @@ Recorded validation includes 79 Java tests, six test-client lifecycle/confirmati
 ## Features
 
 - One balance per Minecraft UUID, shared across worlds, with exact cent amounts.
-- Resource deposits and withdrawals through commands and menus, with a preview and clickable confirmation before inventory changes.
+- Resource deposits and withdrawals through commands and menus, with immediate chest deposits and direct withdrawal buttons.
 - Player payments, one-time redeemable banknotes, and a balance leaderboard.
 - Configurable prices, messages, permissions, and transaction limits.
 - Local SQLite storage, JSON exports, and an offline restore tool.
@@ -83,22 +83,20 @@ With 25 ordinary raw iron in your main inventory:
 /goldbag deposit raw_iron 25
 ```
 
-Review the items, value and resulting balance, then click the green **Confirm** button. Next run:
+The deposit immediately credits 50.00 G. Run `/goldbag withdraw diamond 1` to receive a diamond for 50.00 G immediately.
 
-```text
-/goldbag withdraw diamond 1
-```
+For everyday use, open `/goldbag` and select **Deposit**. Shift-click ordinary resources from your inventory, or pick up a stack and place it in an empty deposit slot. Accepted items convert to Gold immediately; right-click placement deposits one item. **Deposit All** exchanges eligible inventory items within the transaction limit.
 
-Click **Confirm** to receive the diamond. The menu also offers a red **Cancel** button; closing it cancels the preview.
+Switch directly to **Withdraw Resources**: left-click a resource for one item, right-click for up to 16, or shift-click for up to 64. Larger purchases are limited by your balance, inventory space and transaction limit. The menu stays open so you can keep exchanging. No quantity screen, confirmation button or chat command is needed for deposits and resource withdrawals.
 
-The deposit credits 50.00 G and the diamond costs 50.00 G. Items stay in your inventory until confirmation. You can do the same exchange entirely from `/goldbag`: click Deposit or Withdraw Resources, choose a resource and quantity, then click Confirm. Deposit All also uses the confirmation screen. Pay Player, Create Banknote and Exact Count collect their input privately in chat. `/goldbag help` lists the commands.
+Pay Player and Create Banknote collect their input privately in chat. Banknotes retain their amount preview and confirmation. `/goldbag help` lists the commands.
 
 | Command | Purpose |
 | --- | --- |
 | `/goldbag` | Open the menu |
 | `/goldbag balance` | Check your balance |
 | `/goldbag rates` | List resource prices |
-| `/goldbag deposit all` | Preview depositing eligible inventory resources |
+| `/goldbag deposit all` | Deposit eligible inventory resources immediately |
 | `/goldbag pay <player> <amount>` | Send Gold to an existing account |
 | `/goldbag note <amount>` | Preview creating a banknote; confirm to issue it |
 | `/goldbag top` | View the leaderboard |
