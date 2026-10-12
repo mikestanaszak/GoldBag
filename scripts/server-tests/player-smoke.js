@@ -556,6 +556,15 @@ async function run() {
     assert(count(a, 'diamond') === 3, 'rapid queued withdrawal clicks did not all deliver');
     await expectBalance(a, '50.00');
     passed.push('rapid queued withdrawal clicks all count and deliver three diamonds');
+    await command(a, `/goldbag admin set ${BOT_A} 100 rapid partial withdrawal fixture`, /Balance set.*100\.00/i, 'rapid partial balance');
+    await clear(a);
+    const partial = queueWithdrawalClicks(a, 'diamond', 3, 0, 0);
+    await Promise.allSettled(partial.pending);
+    await sleep(1300);
+    assert(count(a, 'diamond') === 2, 'grouped rapid clicks rejected an affordable partial purchase');
+    await expectBalance(a, '0.00');
+    passed.push('grouped rapid withdrawal clicks deliver the affordable partial quantity');
+
 
     // Closing while a guarded request is active removes waiting requests. A
     // request already handed to the journal may finish, but queued requests
