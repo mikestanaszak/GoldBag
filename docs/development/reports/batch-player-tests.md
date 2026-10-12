@@ -84,3 +84,5 @@ releases do not provide protocol 777 data.
 - Log: `/tmp/goldbag-batch-player-live.log`. Native client drag, Paper26.3/Geyser player behavior and extended abrupt-crash faults remain unverified. Coalesced draft evidence has a documented native-gesture-to-snapshot crash window; recovery remains manual.
 
 Supplementary isolated lifecycle check PASS: staged two coal, quit without submitting, rejoined with exactly two coal. Log `/tmp/goldbag-batch-lifecycle.log`. No fixture touched production.
+
+Clean stop/start with the same artifact and no fixture reset PASS: balances A85/B15 and issued note persisted; note redeemed once to A90/B15 and copied replay rejected. Log `/tmp/goldbag-batch-player-restart.log`.
