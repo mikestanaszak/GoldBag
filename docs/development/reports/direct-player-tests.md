@@ -81,3 +81,11 @@ handling the null clear packet. Cursor placement is therefore automated while
 drag behavior remains a manual native-client check. Paper 26.3 player protocol
 also remains unverified because the available Mineflayer releases have no
 native 26.3 data. Never use the reset-mode command against production.
+
+## Controller native player result
+
+Final direct-exchange run PASS: 20 actual-player checks on isolated Paper 1.21.11 build 132, Java 25.0.4.1, loopback 127.0.0.1:25577, Mineflayer 4.39.0. The harness uses authoritative open-window player slots and the documented `set_cursor_item` adapter. Early failed assertions were stale client inventory/cursor observations and selection of the plain instead of named fixture; no economy workaround was applied.
+
+Coverage: direct exact commands, repeated direct withdrawals, shift-click and cursor stack deposits, right-click single placement, named/ineligible rejection, persistent menus, 1/16/shift withdrawals with affordability and full-inventory clamping, Deposit All at revised prices (25 iron + 5 redstone = G51.25), payments, note identity/main/offhand redemption/replay, creative rejection, leaderboard and final restart fixture. Final A=G85.00, B=G15.00 with one unredeemed G5.00 note. Source runtime checkpoint efc9261; final harness checkpoint 9fac29f. Tested snapshot SHA-256 0b6a7e0e9770810c025cb941dd11476648be1ae63f3b1e0ab26ad559adbfda8a.
+
+Log: /tmp/goldbag-direct-player-live.log. Drag packets, death/disconnect during APPLYING and native 26.3/Geyser player behavior remain manual/future fault-validation limits. Startup alone is not a player-flow pass.
