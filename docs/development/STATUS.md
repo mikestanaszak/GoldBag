@@ -88,3 +88,5 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and remo
 
 - Branch `codex/gold-theme`: every chat line uses a gold `[GoldBag]` prefix, including legacy errors, configured text, multiline help and conversation prompts. Gold menu titles/items, yellow lore and warmer banknote/success wording preserve existing controls, rates and transactions.
 - Focused theme checks2, full Java tests86, packaged verifier, harness13 and release-analysis5 PASS. Independent Luna review found the prompt bypass; fixed and review clear. Native theme probe and publication/deployment evidence are recorded in `reports/gold-theme.md`.
+
+- Gold theme complete: PR #9 merged at `a7b33372`; release workflow38296887510 PASS; v2.3.0 published and installed/running healthy in maya-funtimes. All4 balances/revisions and settings/rates preserved, pending0, SQLite ok; full rollback backup and exact checksum in `reports/gold-theme.md`. Native Paper1.21.11 theme probe12 messages PASS;26.3/Geyser visuals remain manual.
