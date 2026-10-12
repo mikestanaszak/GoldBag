@@ -7,6 +7,7 @@ import org.bukkit.Server;
 import org.bukkit.inventory.ItemFactory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
@@ -255,6 +256,30 @@ class InventoryAdapterTest {
         assertEquals("kept", fixture.get(3).getItemMeta().getDisplayName());
     }
 
+    @Test
+    void stagedPlanConsumesOnlyEligibleTopSlotsAndIgnoresControls() {
+        InventoryAdapter adapter = new InventoryAdapter();
+        InventoryFixture player = new InventoryFixture();
+        StagedChestFixture chest = new StagedChestFixture();
+        chest.set(0, new ItemStack(Material.COAL, 3));
+        ItemStack custom = new ItemStack(Material.COAL, 2);
+        ItemMeta meta = custom.getItemMeta();
+        meta.setDisplayName("kept");
+        custom.setItemMeta(meta);
+        chest.set(1, custom);
+        chest.set(52, new ItemStack(Material.COAL, 9));
+
+        InventoryAdapter.StagedPlan plan = adapter.planStagedRemoval(chest.inventory(), player.inventory(), Map.of(Material.COAL, 3));
+        assertTrue(plan.evidence().contains("playerBefore="), plan.evidence());
+        assertTrue(plan.evidence().contains("playerAfter="), plan.evidence());
+        chest.set(52, new ItemStack(Material.DIAMOND, 1));
+        assertTrue(plan.ready(chest.inventory(), player.inventory()));
+        plan.apply(chest.inventory(), player.inventory());
+        assertNull(chest.get(0));
+        assertEquals("kept", chest.get(1).getItemMeta().getDisplayName());
+        assertEquals(Material.DIAMOND, chest.get(52).getType());
+    }
+
     private static ItemStack note(UUID id) {
         ItemStack note = new ItemStack(Material.PAPER);
         ItemMeta meta = note.getItemMeta();
@@ -262,6 +287,25 @@ class InventoryAdapterTest {
                 PersistentDataType.STRING, id.toString());
         note.setItemMeta(meta);
         return note;
+    }
+
+    private static final class StagedChestFixture {
+        private final ItemStack[] slots = new ItemStack[54];
+        private final Inventory inventory = (Inventory) Proxy.newProxyInstance(
+                Inventory.class.getClassLoader(), new Class<?>[]{Inventory.class}, (proxy, method, args) -> {
+                    switch (method.getName()) {
+                        case "getSize": return slots.length;
+                        case "getItem": return slots[(Integer) args[0]] == null ? null : slots[(Integer) args[0]].clone();
+                        case "setItem": slots[(Integer) args[0]] = args[1] == null ? null : ((ItemStack) args[1]).clone(); return null;
+                        case "hashCode": return System.identityHashCode(proxy);
+                        case "equals": return proxy == args[0];
+                        default: return defaultValue(method.getReturnType());
+                    }
+                });
+
+        Inventory inventory() { return inventory; }
+        ItemStack get(int slot) { return slots[slot]; }
+        void set(int slot, ItemStack item) { slots[slot] = item == null ? null : item.clone(); }
     }
 
     private static final class InventoryFixture {

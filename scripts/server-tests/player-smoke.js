@@ -219,13 +219,29 @@ async function clickDepositCursor(bot, itemName, targetSlot, mouseButton = 0, mo
   if (mode === 1) {
     await bot.clickWindow(source, 0, mode);
   } else {
-    await bot.clickWindow(source, mouseButton === 1 ? 1 : 0, 0);
+    // Always pick up the full stack first. A right-click on the source would
+    // split the stack before the intended one-item placement and leaves the
+    // cursor/source observations dependent on client prediction.
+    await bot.clickWindow(source, 0, 0);
     await sleep(100);
     if (!window.selectedItem || window.selectedItem.name !== itemName) {
       if (mouseButton === 1) return { window, start, supported: false };
       assert(false, `${itemName} was not picked up to the cursor`);
     }
-    await bot.clickWindow(targetSlot, mouseButton, 0);
+    let destination = targetSlot;
+    if (destination < 0 || destination >= 45 || window.slots[destination]) {
+      destination = window.slots.findIndex((item, slot) => slot >= 0 && slot < 45 && !item);
+    }
+    assert(destination >= 0, 'deposit chest has no empty staging slot for cursor placement');
+    await bot.clickWindow(destination, mouseButton, 0);
+    await sleep(100);
+    // Native right-click placement leaves the rest of the picked-up stack on
+    // the cursor. Put it back into the original player slot so the helper
+    // leaves the same inventory state as a real client.
+    if (mouseButton === 1 && window.selectedItem) {
+      await bot.clickWindow(source, 0, 0);
+      await sleep(100);
+    }
   }
   return { window, start, supported: true };
 }
@@ -741,6 +757,7 @@ module.exports = {
   assertDepositLayout,
   assertSameWindow,
   assertWithdrawLayout,
+  clickDepositCursor,
   closeBots,
   connect,
   count,
