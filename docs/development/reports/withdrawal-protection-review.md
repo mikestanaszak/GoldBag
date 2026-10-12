@@ -10,7 +10,9 @@ Reviewed only the isolated `/tmp/goldbag-batch-final-evidence` diff. The fix cor
 
 - Focused Maven test: `mvn -B -pl goldbag-plugin -am -Dtest=GoldBagPluginInteractionTest -Dsurefire.failIfNoSpecifiedTests=false test` — **5 tests passed**.
 - `git diff --check` — **passed**.
-- Added actual-player fixture (controller live run pending): 37 cobblestone remains in the player inventory after a withdrawal-menu shift-click; cursor placement into an empty top slot is blocked; closing the menu still leaves exactly 37 cobblestone. The new smoke assertions also confirm no staged cobblestone is present.
+- Actual-player fixture PASS on the protection snapshot (controller full25-check run): 37 cobblestone remains in the player inventory after a withdrawal-menu shift-click; cursor placement into an empty top slot is blocked; closing the menu still leaves exactly 37 cobblestone. The new smoke assertions also confirm no staged cobblestone is present.
 - Existing collect/double-click protection remains covered by the interaction helper test. Native drag behavior remains protected by the withdrawal-menu drag cancellation path.
 
 No further scoped finding remains in this isolated protection diff. The corrected behavior should be carried into the next published patch artifact and rechecked against the same actual-player fixture after installation.
+
+The gold-theme PR #9 merged during validation; controller merged it into this branch cleanly and retains the bottom transfer guard. Combined build/live verification follows before integration.
