@@ -73,3 +73,14 @@ for Paper 1.21.11's `set_cursor_item` packet, including its null clear packet,
 to keep cursor staging and rejected-cursor recovery observable. Native Paper
 26.3 player behavior remains unverified because the available Mineflayer
 releases do not provide protocol 777 data.
+
+## Controller live validation (2026-10-12)
+
+- Source runtime commit `8a4acd4`; snapshot SHA-256 `ec61033a51002fbe11000dc26423511a3e6d9d31e5cbfcc90e53cbbfe99d92fe`.
+- Paper 1.21.11 build 132 (`c5eb079`), Temurin Java 25.0.4.1+1, isolated loopback port 25577.
+- Full reset-mode harness: **23 actual-player checks PASS**. One button deposited 351 staged items for G216.25; repeated submission did not double-credit. Rapid multi-stack staging, cursor/single placement, mixed custom/unsupported returns, menu switching, queued withdrawals and clearing on close all passed.
+- Full reactor: **84 tests PASS**; harness unit suite: **13 PASS**; release analysis: **5 PASS**; packaged verifier PASS (Java16 bytecode, SQLite natives, restart/offline restore).
+- Initial harness attempt placed into occupied chest slots; native chest swapping exposed the fixture mistake. Corrected placement chooses an empty slot and returns right-click remainder. The full rerun above passed.
+- Log: `/tmp/goldbag-batch-player-live.log`. Native client drag, Paper26.3/Geyser player behavior and extended abrupt-crash faults remain unverified. Coalesced draft evidence has a documented native-gesture-to-snapshot crash window; recovery remains manual.
+
+Supplementary isolated lifecycle check PASS: staged two coal, quit without submitting, rejoined with exactly two coal. Log `/tmp/goldbag-batch-lifecycle.log`. No fixture touched production.
