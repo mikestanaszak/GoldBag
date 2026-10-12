@@ -93,4 +93,6 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and remo
 
 ## Plain wording correction (2026-10-12)
 
-- Owner removed authorization for playful copy. `codex/plain-wording` replaces treasure/adventure/vault wording with direct instructions/results; gold styling and `[GoldBag]` remain. Full86 Java tests and packaged verification PASS. See `reports/plain-wording.md` for release/activation evidence.
+- Owner requested removing playful copy. `codex/plain-wording` replaces treasure/adventure/vault wording with direct instructions/results; gold styling and `[GoldBag]` remain. Full86 Java tests and packaged verification PASS. See `reports/plain-wording.md` for release/activation evidence.
+
+- Plain wording is complete and active: PR #11 / source843ec250, v2.3.1 published by workflow38297690831 and running healthy. All4 balances/revisions and settings preserved. Backup/checksum in `reports/plain-wording.md`.
