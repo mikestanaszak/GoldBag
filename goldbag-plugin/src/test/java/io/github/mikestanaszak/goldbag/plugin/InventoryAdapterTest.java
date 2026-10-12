@@ -7,6 +7,7 @@ import org.bukkit.Server;
 import org.bukkit.inventory.ItemFactory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
@@ -218,6 +219,42 @@ class InventoryAdapterTest {
         assertEquals(2, fixture.get(2).getAmount());
     }
 
+    @Test
+    void cursorPlanCapturesCursorEvidenceAndPreservesRemainder() {
+        InventoryAdapter adapter = new InventoryAdapter();
+        PlayerFixture fixture = new PlayerFixture();
+        fixture.cursor(new ItemStack(Material.RAW_IRON, 5));
+
+        InventoryAdapter.Plan plan = adapter.planCursorRemoval(fixture.player(), 2);
+        assertTrue(plan.evidence().contains("cursorBefore=RAW_IRON"), plan.evidence());
+        assertTrue(plan.evidence().contains("cursorAfter=RAW_IRON"), plan.evidence());
+        assertTrue(plan.ready(fixture.player()));
+        plan.apply(fixture.player());
+        assertEquals(3, fixture.cursor().getAmount());
+
+        fixture.cursor(new ItemStack(Material.RAW_IRON, 3));
+        assertFalse(plan.ready(fixture.player()));
+    }
+
+    @Test
+    void exactSlotPlanRejectsInsufficientStackAndLeavesMetadataIntact() {
+        InventoryAdapter adapter = new InventoryAdapter();
+        InventoryFixture fixture = new InventoryFixture();
+        ItemStack custom = new ItemStack(Material.RAW_IRON, 4);
+        ItemMeta meta = custom.getItemMeta();
+        meta.setDisplayName("kept");
+        custom.setItemMeta(meta);
+        fixture.set(3, custom);
+        fixture.held(3);
+
+        assertThrows(IllegalStateException.class,
+                () -> adapter.planSlotRemoval(fixture.inventory(), 3, 5));
+        InventoryAdapter.Plan plan = adapter.planSlotRemoval(fixture.inventory(), 3, 2);
+        plan.apply(fixture.inventory());
+        assertEquals(2, fixture.get(3).getAmount());
+        assertEquals("kept", fixture.get(3).getItemMeta().getDisplayName());
+    }
+
     private static ItemStack note(UUID id) {
         ItemStack note = new ItemStack(Material.PAPER);
         ItemMeta meta = note.getItemMeta();
@@ -260,6 +297,26 @@ class InventoryAdapterTest {
             if (type == char.class) return '\0';
             return null;
         }
+    }
+
+    private static final class PlayerFixture {
+        private final InventoryFixture inventory = new InventoryFixture();
+        private ItemStack cursor;
+        private final Player player = (Player) Proxy.newProxyInstance(
+                Player.class.getClassLoader(), new Class<?>[]{Player.class}, (proxy, method, args) -> {
+                    switch (method.getName()) {
+                        case "getInventory": return inventory.inventory();
+                        case "getItemOnCursor": return cursor == null ? null : cursor.clone();
+                        case "setItemOnCursor": cursor = args[0] == null ? null : ((ItemStack) args[0]).clone(); return null;
+                        case "hashCode": return System.identityHashCode(proxy);
+                        case "equals": return proxy == args[0];
+                        default: return defaultValue(method.getReturnType());
+                    }
+                });
+
+        Player player() { return player; }
+        void cursor(ItemStack item) { cursor = item == null ? null : item.clone(); }
+        ItemStack cursor() { return cursor; }
     }
 
     private static final class TestMeta {

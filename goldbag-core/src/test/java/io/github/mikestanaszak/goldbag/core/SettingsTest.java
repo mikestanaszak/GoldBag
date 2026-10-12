@@ -43,7 +43,7 @@ class SettingsTest {
         }
         try (var resources = getClass().getResourceAsStream("/defaults/resources.yml")) {
             assertNotNull(resources);
-            assertEquals(18, Catalog.load(new java.io.InputStreamReader(resources)).resources().size());
+            assertEquals(Catalog.defaults().resources(), Catalog.load(new java.io.InputStreamReader(resources)).resources());
         }
     }
 

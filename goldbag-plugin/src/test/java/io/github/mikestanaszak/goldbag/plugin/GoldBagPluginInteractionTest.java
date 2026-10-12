@@ -3,6 +3,8 @@ package io.github.mikestanaszak.goldbag.plugin;
 import org.bukkit.Material;
 import org.bukkit.block.BlockFace;
 import org.bukkit.event.Event;
+import org.bukkit.event.inventory.ClickType;
+import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
@@ -44,4 +46,13 @@ class GoldBagPluginInteractionTest {
         assertTrue(event.isCancelled());
         assertFalse(GoldBagPlugin.shouldHandleInteraction(event));
     }
+
+    @Test
+    void collectingMatchingStacksMustNotSweepMenuControls() {
+        assertTrue(GoldBagPlugin.collectsAcrossMenu(ClickType.DOUBLE_CLICK, InventoryAction.COLLECT_TO_CURSOR));
+        assertTrue(GoldBagPlugin.collectsAcrossMenu(ClickType.LEFT, InventoryAction.COLLECT_TO_CURSOR));
+        assertTrue(GoldBagPlugin.collectsAcrossMenu(ClickType.DOUBLE_CLICK, InventoryAction.NOTHING));
+        assertFalse(GoldBagPlugin.collectsAcrossMenu(ClickType.LEFT, InventoryAction.PICKUP_ALL));
+    }
+
 }

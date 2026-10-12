@@ -15,12 +15,12 @@ The SQLite rebuild is merged into `main`. The current version is **2.0.0-SNAPSHO
 | Other Bukkit/Spigot-compatible builds from Minecraft 1.17 onward | Targeted by the API; exact builds still need testing |
 | Fabric, Forge, vanilla servers, and Realms | Not supported |
 
-Recorded validation includes 69 Java tests, five test-client lifecycle tests, and 16 actual-player checks on the earlier Paper 1.21.11 build, plus restart persistence, banknotes, operator recovery, and export/restore. Paper 26.3 requires Java 25; its player flows remain unverified because the available Mineflayer clients lack 26.3 protocol data. See the [compatibility matrix](docs/operations/compatibility.md) for exact evidence and limits.
+Recorded validation includes 79 Java tests, six test-client lifecycle/confirmation tests, and 17 actual-player checks on Paper 1.21.11, plus restart persistence, banknotes, operator recovery, and export/restore. Paper 26.3 requires Java 25; its player flows remain unverified because the available Mineflayer clients lack 26.3 protocol data. See the [compatibility matrix](docs/operations/compatibility.md) for exact evidence and limits.
 
 ## Features
 
 - One balance per Minecraft UUID, shared across worlds, with exact cent amounts.
-- Resource deposits and withdrawals through commands and menus, with a preview and confirmation before inventory changes.
+- Resource deposits and withdrawals through commands and menus, with immediate chest deposits and direct withdrawal buttons.
 - Player payments, one-time redeemable banknotes, and a balance leaderboard.
 - Configurable prices, messages, permissions, and transaction limits.
 - Local SQLite storage, JSON exports, and an offline restore tool.
@@ -30,20 +30,20 @@ Smelted ingots, nuggets, refined metal blocks, and custom items are excluded fro
 
 ## Default prices
 
-Each price applies to both depositing and withdrawing one item. The original rates are preserved for coal, redstone, lapis, and raw metals.
+Each price applies to both depositing and withdrawing one item. These values balance mining effort, drops per ore, and renewable supply such as villager trading.
 
 | Resource | Gold per item |
 | --- | ---: |
-| Coal | 0.20 G |
-| Redstone | 1.00 G |
-| Lapis lazuli | 1.00 G |
-| Raw copper | 1.00 G |
+| Coal | 0.50 G |
+| Redstone | 0.25 G |
+| Lapis lazuli | 0.50 G |
+| Raw copper | 0.50 G |
 | Raw iron | 2.00 G |
 | Raw gold | 5.00 G |
 | Diamond | 50.00 G |
-| Emerald | 25.00 G |
+| Emerald | 2.00 G |
 | Nether quartz | 1.00 G |
-| Amethyst shard | 0.50 G |
+| Amethyst shard | 0.25 G |
 
 Reversible storage blocks for coal, redstone, lapis, raw metals, diamonds, and emeralds exchange at nine times the item price. Quartz and amethyst blocks are excluded. This gives 18 enabled resource entries. Edit `resources.yml` to customize the catalog and prices.
 
@@ -81,19 +81,22 @@ With 25 ordinary raw iron in your main inventory:
 
 ```text
 /goldbag deposit raw_iron 25
-/goldbag confirm
-/goldbag withdraw diamond 1
-/goldbag confirm
 ```
 
-The deposit credits 50.00 G and the diamond costs 50.00 G. Items stay in your inventory until confirmation. Use `/goldbag cancel` to discard a preview.
+The deposit immediately credits 50.00 G. Run `/goldbag withdraw diamond 1` to receive a diamond for 50.00 G immediately.
+
+For everyday use, open `/goldbag` and select **Deposit**. Shift-click ordinary resources from your inventory, or pick up a stack and place it in an empty deposit slot. Accepted items convert to Gold immediately; right-click placement deposits one item. **Deposit All** exchanges eligible inventory items within the transaction limit.
+
+Switch directly to **Withdraw Resources**: left-click a resource for one item, right-click for up to 16, or shift-click for up to 64. Larger purchases are limited by your balance, inventory space and transaction limit. The menu stays open so you can keep exchanging. No quantity screen, confirmation button or chat command is needed for deposits and resource withdrawals.
+
+Pay Player and Create Banknote collect their input privately in chat. Banknotes retain their amount preview and confirmation. `/goldbag help` lists the commands.
 
 | Command | Purpose |
 | --- | --- |
 | `/goldbag` | Open the menu |
 | `/goldbag balance` | Check your balance |
 | `/goldbag rates` | List resource prices |
-| `/goldbag deposit all` | Preview depositing eligible inventory resources |
+| `/goldbag deposit all` | Deposit eligible inventory resources immediately |
 | `/goldbag pay <player> <amount>` | Send Gold to an existing account |
 | `/goldbag note <amount>` | Preview creating a banknote; confirm to issue it |
 | `/goldbag top` | View the leaderboard |

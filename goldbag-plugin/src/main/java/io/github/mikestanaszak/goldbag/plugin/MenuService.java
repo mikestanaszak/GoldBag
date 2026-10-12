@@ -1,6 +1,5 @@
 package io.github.mikestanaszak.goldbag.plugin;
 
-import io.github.mikestanaszak.goldbag.core.Catalog;
 import io.github.mikestanaszak.goldbag.core.Money;
 import io.github.mikestanaszak.goldbag.core.Resource;
 import io.github.mikestanaszak.goldbag.storage.SqliteStore;
@@ -30,12 +29,12 @@ public final class MenuService {
         Inventory menu = Bukkit.createInventory(holder, 27, ChatColor.GOLD + "GoldBag");
         holder.inventory(menu);
         set(menu, 10, Material.GOLD_INGOT, "Balance", "View your purse balance");
-        set(menu, 12, Material.CHEST, "Deposit", "Deposit eligible inventory items");
-        set(menu, 14, Material.DIAMOND, "Withdraw Resources", "Withdraw catalog resources");
-        set(menu, 15, Material.PAPER, "Pay Player", "Use /goldbag pay");
-        set(menu, 16, Material.PAPER, "Create Banknote", "Use /goldbag note");
+        set(menu, 12, Material.CHEST, "Deposit", "Shift-click or place resources to deposit");
+        set(menu, 14, Material.DIAMOND, "Withdraw Resources", "Click resources to withdraw immediately");
+        set(menu, 15, Material.PAPER, "Pay Player", "Click to enter a payment");
+        set(menu, 16, Material.PAPER, "Create Banknote", "Click to enter a banknote amount");
         set(menu, 22, Material.EMERALD, "Top Balances", "View the leaderboard");
-        player.openInventory(menu);
+        display(player, menu);
     }
 
     public void openDeposit(Player player) {
@@ -43,22 +42,21 @@ public final class MenuService {
     }
 
     public void openDeposit(Player player, int page) {
-        List<Resource> eligible = inventory.eligible(player.getInventory(), plugin.config().catalog().resources());
-        MenuHolder holder = new MenuHolder(player.getUniqueId(), MenuHolder.Screen.DEPOSIT, page, plugin.quotes().catalogRevision(), eligible.stream().map(Resource::id).collect(java.util.stream.Collectors.toList()), hasNextResourcePage(page, eligible.size()));
-        Inventory menu = Bukkit.createInventory(holder, 54, ChatColor.GREEN + "GoldBag Deposit " + page);
+        MenuHolder holder = new MenuHolder(player.getUniqueId(), MenuHolder.Screen.DEPOSIT, 1,
+                plugin.quotes().catalogRevision(), List.of(), false);
+        Inventory menu = Bukkit.createInventory(holder, 54, ChatColor.GREEN + "GoldBag Deposit");
         holder.inventory(menu);
-        int from = (page - 1) * 45;
-        for (int slot = 0; slot < 45 && from + slot < eligible.size(); slot++) {
-            Resource resource = eligible.get(from + slot);
-            Material material = Material.matchMaterial(resource.material());
-            set(menu, slot, material, resource.id(), "Available: " + inventory.count(player.getInventory(), material),
-                    "Value: " + plugin.money(resource.depositPrice()));
-        }
-        if (page > 1) set(menu, 45, Material.ARROW, "Previous page");
-        if (hasNextResourcePage(page, eligible.size())) set(menu, 53, Material.ARROW, "Next page");
-        set(menu, 49, Material.BARRIER, "Close", "Cancel");
-        set(menu, 52, Material.GOLD_INGOT, "Deposit all eligible", "Preview every eligible main-inventory stack");
-        player.openInventory(menu);
+        for (int slot = 45; slot < 54; slot++) set(menu, slot, Material.GRAY_STAINED_GLASS_PANE, " ");
+        set(menu, 45, Material.ARROW, "Back", "Return to GoldBag");
+        set(menu, 48, Material.DIAMOND, "Withdraw Resources", "Switch to withdrawals");
+        set(menu, 49, Material.BARRIER, "Close");
+        set(menu, 50, Material.PAPER, "Deposit resources here",
+                "Shift-click a stack from your inventory",
+                "Or place items in any empty chest slot",
+                "Items convert to Gold immediately",
+                "Only enabled, ordinary resources are accepted");
+        set(menu, 52, Material.GOLD_INGOT, "Deposit all eligible", "Deposit eligible inventory items immediately");
+        display(player, menu);
     }
 
     public void openWithdraw(Player player, int page) {
@@ -70,12 +68,17 @@ public final class MenuService {
         for (int i = 0; i < 45 && from + i < resources.size(); i++) {
             Resource resource = resources.get(from + i);
             Material material = Material.matchMaterial(resource.material());
-            set(menu, i, material, resource.id(), "Price: " + plugin.money(resource.withdrawPrice()), "Use /goldbag withdraw " + resource.id() + " <count|max>");
+            set(menu, i, material, resource.id(), "Price: " + plugin.money(resource.withdrawPrice()), "Left-click: 1", "Right-click: up to 16", "Shift-click: up to 64", "Items go straight to your inventory");
         }
         if (page > 1) set(menu, 45, Material.ARROW, "Previous page");
         if (hasNextResourcePage(page, resources.size())) set(menu, 53, Material.ARROW, "Next page");
-        set(menu, 49, Material.BARRIER, "Close", "Cancel");
-        player.openInventory(menu);
+        set(menu, 48, Material.CHEST, "Deposit", "Switch to deposits");
+        set(menu, 49, Material.BARRIER, "Close");
+        set(menu, 50, Material.PAPER, "Withdraw immediately",
+                "Left-click: 1 / Right-click: up to 16",
+                "Shift-click: up to 64", "Limited by balance and inventory space");
+        set(menu, 51, Material.ARROW, "Back", "Return to GoldBag");
+        display(player, menu);
     }
 
     public void openTop(Player player, List<SqliteStore.Account> accounts, int page) {
@@ -96,27 +99,89 @@ public final class MenuService {
         if (page > 1) set(menu, 18, Material.ARROW, "Previous page");
         if (hasNext) set(menu, 26, Material.ARROW, "Next page");
         set(menu, 22, Material.BARRIER, "Close", "Cancel");
-        player.openInventory(menu);
-    }
-
-    public void openQuantity(Player player, Resource resource, QuoteBook.Kind kind) {
-        MenuHolder holder = new MenuHolder(player.getUniqueId(), MenuHolder.Screen.PREVIEW, resource.material(), kind);
-        Inventory menu = Bukkit.createInventory(holder, 27, ChatColor.YELLOW + "Choose " + resource.id() + " quantity");
-        holder.inventory(menu);
-        set(menu, 10, Material.IRON_NUGGET, "1", "Preview one item");
-        set(menu, 12, Material.IRON_INGOT, "16", "Preview a stack");
-        set(menu, 14, Material.IRON_BLOCK, "64", "Preview a full stack");
-        set(menu, 16, Material.GOLD_BLOCK, "Max", "Preview the maximum allowed");
-        set(menu, 22, Material.NAME_TAG, "Exact count", "Enter a whole item count privately");
-        set(menu, 26, Material.BARRIER, "Close", "Cancel");
-        player.openInventory(menu);
+        display(player, menu);
     }
 
     public boolean belongs(Inventory inventory) { return inventory != null && inventory.getHolder() instanceof MenuHolder; }
 
+    /** Opens the transaction confirmation after the quote has been stored. */
+    public void openConfirmation(Player player, QuoteBook.Quote quote, long balanceBefore) {
+        MenuHolder holder = MenuHolder.confirmation(player.getUniqueId(), quote, balanceBefore);
+        Inventory menu = Bukkit.createInventory(holder, 27, ChatColor.GOLD + "GoldBag Confirm");
+        holder.inventory(menu);
+        set(menu, 11, Material.LIME_WOOL, "Confirm", "Complete this transaction");
+        long balanceAfter = quote.kind() == QuoteBook.Kind.DEPOSIT
+                ? Math.addExact(balanceBefore, quote.amount()) : Math.subtractExact(balanceBefore, quote.amount());
+        set(menu, 13, Material.PAPER, "Transaction summary",
+                confirmationSummary(quote, balanceBefore, plugin.money(quote.amount()),
+                        plugin.money(balanceBefore), plugin.money(balanceAfter)).split("\\n"));
+        set(menu, 15, Material.RED_WOOL, "Cancel", "Cancel this transaction");
+        display(player, menu);
+    }
+
     static boolean hasNextResourcePage(int page, int total) { return page > 0 && page * 45 < total; }
 
+    static int depositMaxCount(int available, int transactionLimit) {
+        return Math.max(0, Math.min(available, transactionLimit));
+    }
+
     static boolean hasNextTopPage(List<SqliteStore.Account> nextPage) { return nextPage != null && !nextPage.isEmpty(); }
+
+    static String confirmationSummary(QuoteBook.Quote quote, long balanceBefore) {
+        long balanceAfter = quote.kind() == QuoteBook.Kind.DEPOSIT
+                ? Math.addExact(balanceBefore, quote.amount()) : Math.subtractExact(balanceBefore, quote.amount());
+        return confirmationSummary(quote, balanceBefore, Money.format(quote.amount()),
+                Money.format(balanceBefore), Money.format(balanceAfter));
+    }
+
+    static String confirmationSummary(QuoteBook.Quote quote, long balanceBefore,
+                                      String amountText, String balanceBeforeText, String balanceAfterText) {
+        String operation = quote.kind() == QuoteBook.Kind.DEPOSIT ? "Deposit"
+                : quote.kind() == QuoteBook.Kind.WITHDRAW ? "Withdrawal" : "Banknote";
+        String count = quote.kind() == QuoteBook.Kind.NOTE ? "1 banknote"
+                : quote.payload() == null ? quote.count() + " x " + quote.material() : payloadSummary(quote.payload());
+        return "Operation: " + operation + "\n"
+                + "Count: " + count + "\n"
+                + "Amount: " + amountText + "\n"
+                + "Balance before: " + balanceBeforeText + "\n"
+                + "Balance after: " + balanceAfterText;
+    }
+
+    private static String payloadSummary(String payload) {
+        List<String> entries = new ArrayList<>();
+        for (String entry : payload.split(";")) {
+            String[] parts = entry.split("=", 2);
+            if (parts.length == 2) entries.add(parts[1] + " x " + parts[0]);
+        }
+        return entries.isEmpty() ? "items" : String.join(", ", entries);
+    }
+
+    private void display(Player player, Inventory menu) {
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (player.isOnline()) {
+                player.openInventory(menu);
+                refreshBalance(player);
+            }
+        });
+    }
+
+    public void refreshBalance(Player player) {
+        Inventory menu = player.getOpenInventory().getTopInventory();
+        if (!(menu.getHolder() instanceof MenuHolder)) return;
+        MenuHolder holder = (MenuHolder) menu.getHolder();
+        if (holder.screen() != MenuHolder.Screen.DEPOSIT && holder.screen() != MenuHolder.Screen.WITHDRAW) return;
+        java.util.UUID playerId = player.getUniqueId();
+        plugin.submit(() -> plugin.store().account(playerId).orElseThrow(() -> new IllegalStateException("Account is not initialized")),
+                account -> {
+                    if (!player.isOnline() || player.getOpenInventory().getTopInventory() != menu) return;
+                    ItemStack info = menu.getItem(50);
+                    if (info == null) return;
+                    ItemMeta meta = info.getItemMeta();
+                    meta.setDisplayName(ChatColor.GOLD + "Balance: " + plugin.money(account.balance()));
+                    info.setItemMeta(meta);
+                    menu.setItem(50, info);
+                }, player, "Could not read your balance.");
+    }
 
     private static void set(Inventory inventory, int slot, Material material, String name, String... lore) {
         if (material == null) return;

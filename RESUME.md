@@ -2,7 +2,7 @@
 
 Repository: https://github.com/mikestanaszak/GoldBag
 
-Current follow-up (2026-10-11): `codex/minecraft-26.3-semantic-release` adds Minecraft 26.3 validation and releases on `main` merges. Read the new STATUS section and `26.3-*` reports. The current user requests a PR only, with no merge. Historical rebuild instructions below describe completed work.
+Current follow-up (2026-10-12): update open PR #4 on `codex/ui-confirmation-experience` with immediate chest deposits and direct withdrawals. The user's new request supersedes quantity/confirmation screens for resource exchanges. Resource-value review is in `docs/development/reports/resource-value-review.md`; the user approved applying the proposed values. Use GoldBag workflow/development/integration/deployment skills for the later standing authorization. Historical rebuild instructions below describe completed work.
 
 Development branch: `codex/goldbag-rebuild`. Original base: `45c3492`.
 

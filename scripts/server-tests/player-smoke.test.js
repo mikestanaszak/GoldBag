@@ -3,7 +3,20 @@
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
 const test = require('node:test');
-const { closeBots, connect, findNote, noteIdentity } = require('./player-smoke');
+const {
+  assertDepositLayout,
+  assertSameWindow,
+  assertWithdrawLayout,
+  closeBots,
+  connect,
+  count,
+  findNote,
+  findWindowItem,
+  inventoryItems,
+  installCursorPacketAdapter,
+  mainInventoryEmptySlots,
+  noteIdentity,
+} = require('./player-smoke');
 
 function fakeBot() {
   const bot = new EventEmitter();
@@ -45,6 +58,46 @@ test('findNote selects the exact copied identity over stale paper', () => {
   assert.equal(findNote(bot, identity), copied);
 });
 
+test('open chest inventory state is preferred over stale player inventory state', () => {
+  const slots = Array(90).fill(null);
+  const windowItem = { name: 'raw_gold', count: 1 };
+  slots[54] = windowItem;
+  const bot = {
+    currentWindow: { slots, inventoryStart: 54, inventoryEnd: 90 },
+    inventory: {
+      items: () => [{ name: 'raw_gold', count: 2 }],
+      slots: Array(45).fill(null),
+    },
+  };
+  assert.deepEqual(inventoryItems(bot), [windowItem]);
+  assert.equal(count(bot, 'raw_gold'), 1);
+  assert.equal(mainInventoryEmptySlots(bot), 35);
+  bot.currentWindow = null;
+  assert.equal(count(bot, 'raw_gold'), 2);
+});
+
+test('window item lookup can select custom metadata over a plain stack', () => {
+  const plain = { name: 'raw_iron', count: 1 };
+  const custom = { name: 'raw_iron', count: 1, components: [{ type: 'custom_name', data: { text: 'Forged' } }] };
+  const slots = Array(90).fill(null);
+  slots[54] = plain;
+  slots[55] = custom;
+  const window = { slots, inventoryStart: 54, inventoryEnd: 90 };
+  assert.equal(findWindowItem(window, 'raw_iron'), 54);
+  assert.equal(findWindowItem(window, 'raw_iron', item => /forged/i.test(JSON.stringify(item.components))), 55);
+});
+
+test('cursor packet adapter restores and clears the selected item', () => {
+  const client = new EventEmitter();
+  const window = { selectedItem: { name: 'stale' } };
+  const bot = { _client: client, currentWindow: window, inventory: { selectedItem: null } };
+  assert.equal(installCursorPacketAdapter(bot, contents => contents && { name: contents.name }), true);
+  client.emit('set_cursor_item', { contents: { name: 'raw_iron' } });
+  assert.deepEqual(window.selectedItem, { name: 'raw_iron' });
+  client.emit('set_cursor_item', { contents: null });
+  assert.equal(window.selectedItem, null);
+});
+
 test('connect resolves spawned clients for normal cleanup', async () => {
   const bot = fakeBot();
   setTimeout(() => bot.emit('spawn'), 2);
@@ -52,4 +105,28 @@ test('connect resolves spawned clients for normal cleanup', async () => {
   assert.equal(connected, bot);
   closeBots([connected]);
   assert.equal(bot.quitCalls, 1);
+});
+
+test('deposit layout keeps the virtual chest empty and reserves direct controls', () => {
+  const slots = Array(90).fill(null);
+  for (const [slot, name] of [[45, 'Back to Main menu'], [48, 'Withdraw'], [49, 'Close'], [50, 'Balance and deposit instructions'], [52, 'Deposit all']]) {
+    slots[slot] = { name: 'paper', components: [{ type: 'custom_name', data: { text: name } }] };
+  }
+  assert.doesNotThrow(() => assertDepositLayout({ slots, title: 'GoldBag Deposit 1' }));
+});
+
+test('withdraw layout reserves deposit, close, info and back controls', () => {
+  const slots = Array(90).fill(null);
+  for (const [slot, name] of [[48, 'Deposit'], [49, 'Close'], [50, 'Balance and withdraw instructions'], [51, 'Back to Main menu']]) {
+    slots[slot] = { name: 'paper', components: [{ type: 'custom_name', data: { text: name } }] };
+  }
+  assert.doesNotThrow(() => assertWithdrawLayout({ slots, title: 'GoldBag Withdraw 1' }));
+});
+
+test('direct exchange guards require the same open exchange window', async () => {
+  const window = { title: 'GoldBag Deposit 1', slots: Array(90).fill(null) };
+  const bot = { currentWindow: window };
+  await assertSameWindow(bot, window, 'direct deposit');
+  bot.currentWindow = { ...window };
+  await assert.rejects(assertSameWindow(bot, window, 'replacement'));
 });

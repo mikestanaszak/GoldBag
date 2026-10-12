@@ -6,7 +6,7 @@ description: Exact SQLite backed GoldBag economy.
 commands:
   goldbag:
     description: Open and manage GoldBag
-    usage: /goldbag [balance|rates|deposit|withdraw|pay|note|top|confirm|cancel]
+    usage: /goldbag [help|balance|rates|deposit|withdraw|pay|note|top|cancel|admin|reload|storage|recovery]
     aliases: [gb, purse]
   balance:
     description: Show a GoldBag balance

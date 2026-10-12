@@ -3,32 +3,32 @@ resources:
     material: COAL
     deposit-enabled: true
     withdraw-enabled: true
-    deposit-price: "0.20"
-    withdraw-price: "0.20"
+    deposit-price: "0.50"
+    withdraw-price: "0.50"
     storage-block: COAL_BLOCK
     items-per-block: 9
   redstone:
     material: REDSTONE
     deposit-enabled: true
     withdraw-enabled: true
-    deposit-price: "1.00"
-    withdraw-price: "1.00"
+    deposit-price: "0.25"
+    withdraw-price: "0.25"
     storage-block: REDSTONE_BLOCK
     items-per-block: 9
   lapis_lazuli:
     material: LAPIS_LAZULI
     deposit-enabled: true
     withdraw-enabled: true
-    deposit-price: "1.00"
-    withdraw-price: "1.00"
+    deposit-price: "0.50"
+    withdraw-price: "0.50"
     storage-block: LAPIS_BLOCK
     items-per-block: 9
   raw_copper:
     material: RAW_COPPER
     deposit-enabled: true
     withdraw-enabled: true
-    deposit-price: "1.00"
-    withdraw-price: "1.00"
+    deposit-price: "0.50"
+    withdraw-price: "0.50"
     storage-block: RAW_COPPER_BLOCK
     items-per-block: 9
   raw_iron:
@@ -59,8 +59,8 @@ resources:
     material: EMERALD
     deposit-enabled: true
     withdraw-enabled: true
-    deposit-price: "25.00"
-    withdraw-price: "25.00"
+    deposit-price: "2.00"
+    withdraw-price: "2.00"
     storage-block: EMERALD_BLOCK
     items-per-block: 9
   quartz:
@@ -73,5 +73,5 @@ resources:
     material: AMETHYST_SHARD
     deposit-enabled: true
     withdraw-enabled: true
-    deposit-price: "0.50"
-    withdraw-price: "0.50"
+    deposit-price: "0.25"
+    withdraw-price: "0.25"

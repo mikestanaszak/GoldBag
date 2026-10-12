@@ -20,6 +20,24 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and remo
 | T7 README follow-up | Complete; Luna review clear; PR publication tracked on GitHub | Controller: README/STATUS; Luna: review report | PR #1 merged | `reports/T7-readme-review.md` |
 | T8 Remove superseded files and stale build outputs | Complete; clean build, packaged verification, and Luna review clear; included in PR #2 | Controller: legacy directories, README/STATUS, build outputs; Luna: review report | T7 | `reports/T8-cleanup.md`, `reports/T8-cleanup-review.md` |
 
+## Direct chest exchange and approved prices (2026-10-12)
+
+- Active work updates open PR #4 on `codex/ui-confirmation-experience`. The user superseded the older resource quantity/confirmation flow: chest shift-click/cursor/drag deposits and direct withdrawal clicks now execute journaled transactions immediately and keep the chest open.
+- Withdrawal clicks request 1 / up to 16 / up to 64 with balance/capacity/transaction clamping; chest menus show refreshed balances and direct deposit/withdraw switching.
+- User approved revised prices: coal 0.50, redstone 0.25, lapis 0.50, raw copper 0.50, raw iron 2.00, raw gold 5.00, diamond 50.00, emerald 2.00, quartz 1.00, amethyst shard 0.25 G. Equal deposit/withdraw values, reversible blocks 9×, existing balances preserved. Existing server resources.yml must be explicitly backed up/updated on deployment.
+- Full Java 17 reactor and shaded package verification PASS (83 tests); eleven harness and five release-analysis tests PASS. Independent transaction review source-clear. Native Paper 1.21.11 build 132/Java 25 passed 20 actual-player checks with approved rates; no-reset restart, final CI/integration/release/deployment remain in progress. No production activation claimed.
+- Reports: `reports/direct-exchange.md`, `reports/direct-exchange-review.md`, `reports/direct-player-tests.md`, `reports/resource-value-review.md`.
+
+## Clickable confirmation and experience review (2026-10-11)
+
+- PR #3 merged during the usage pause. UI follow-up is now on `codex/ui-confirmation-experience`, based on `main` at `6c994c5`; open a separate PR, do not merge. The code was independently verified in [CI run 38191645292](https://github.com/mikestanaszak/GoldBag/actions/runs/38191645292) on the original branch, with all checks PASS.
+- All deposit/withdrawal/deposit-all/banknote previews now open green Confirm / red Cancel UI with resource breakdown, configured currency and before/after balance. Typed confirmation remains a compatibility fallback rather than the player flow.
+- Fixed deposit next-page navigation, stale quantity menus, identity-safe cancellation/duplicate confirmation, deferred inventory transitions, prompt validation/retry/threading, console player-only feedback, help and permission-aware completion.
+- UI test-artifact preparation on Java 25 PASS: 79 Java tests (12 core, 17 storage, 50 plugin) and shaded SQLite/restore/descriptor checks. Six harness unit tests and five release-analysis checks PASS.
+- Native Paper 1.21.11 build 132 / Java 25: 17 live player checks PASS, then no-reset restart balances/note/replay PASS. Final UI release also passes Paper 26.3 build 175 startup/storage/rates/reload/shutdown. 26.3 player protocol remains unverified after bridge-client disconnects; see `reports/ui-live-validation.md`.
+- Independent command/UI audit has no remaining source finding after gating other-player balance suggestions. Reports: `ui-confirmation.md`, `ui-command-audit.md`, `ui-live-validation.md`.
+- With the user's existing staging authorization, updated `/opt/stacks/maya-funtimes/data/plugins/GoldBag-2.0.0.jar`; SHA-256 `6dfdae69137b506b583fc1ccd0262530c3b4e3294c8ef616c579de7392a06c71`. Prior JAR preserved outside plugins at `/opt/stacks/maya-funtimes/data/plugin-backups/GoldBag-2.0.0-before-confirm-ui.jar`. The production service was not restarted and live account data was not changed. This manually prepared UI test JAR is unreleased; semantic-release will select the next minor version after published `v2.0.0` when the UI feature merges.
+
 ## Minecraft 26.3 and semantic releases (2026-10-11)
 
 - Active branch: `codex/minecraft-26.3-semantic-release`, based on `main` at `ea464d7`. Current request is to open a PR only; historical rebuild merge authorization does not apply to this PR.

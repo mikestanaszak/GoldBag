@@ -2,6 +2,16 @@
 
 Version: 1.1 draft • Date: September 5, 2026
 
+## Accepted amendment — October 12, 2026
+
+The owner requested easier chest-style deposits and immediate withdrawals, and approved the proposed revised resource prices. This amendment supersedes the original preservation-of-rates and resource confirmation/quantity-screen requirements below.
+
+- Deposit: shift-click ordinary eligible inventory stacks, or place/drag cursor items into empty chest slots, to convert immediately. Right-click placement deposits one. Deposit All exchanges main inventory items within the configured limit. No staged chest contents, quantity screen, confirmation screen or confirmation command is required.
+- Withdraw: resource left-click buys one; right-click requests up to 16; shift-click requests up to 64. Larger menu gestures clamp to affordability, inventory capacity and transaction limits. Exact commands reject invalid quantities; `max` uses the existing limit calculation. Keep the menu open with live balance information and direct deposit/withdraw switching.
+- Values per item (equal deposit/withdraw): coal 0.50, redstone 0.25, lapis 0.50, raw copper 0.50, raw iron 2.00, raw gold 5.00, diamond 50.00, emerald 2.00, quartz 1.00, amethyst shard 0.25 G. Reversible storage blocks remain exactly 9×. Existing balances are preserved. See [value review](../../development/reports/resource-value-review.md) for rationale.
+- Revalidate permissions, vanilla metadata, inventory/cursor state, catalog and funds at the journal boundary. Preserve uncertain-operation quarantine, exact integer cents and secure note identity. Banknote amount entry/confirmation remains distinct from resource exchanges.
+
+
 ## 1. Purpose and agreed direction
 
 GoldBag is a Minecraft Java Edition server plugin that lets players deposit mining resources into a virtual purse and spend that balance to withdraw other resources. For example, a player can deposit raw iron and later withdraw diamonds or redstone.
