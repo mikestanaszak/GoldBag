@@ -175,7 +175,7 @@ function assertDepositLayout(window) {
   assertMenuControl(window, 45, /back|main|menu/i, 'deposit main');
   assertMenuControl(window, 48, /withdraw/i, 'deposit withdrawal');
   assertMenuControl(window, 49, /close|cancel/i, 'deposit close');
-  assertMenuControl(window, 50, /balance|deposit|shift|info|rate|help/i, 'deposit info');
+  assertMenuControl(window, 50, /balance|deposit|shift|info|rate|help|vault/i, 'deposit info');
   assertMenuControl(window, 52, /deposit|all/i, 'deposit all');
 }
 
