@@ -13,6 +13,7 @@ const {
   findNote,
   findWindowItem,
   inventoryItems,
+  installCursorPacketAdapter,
   mainInventoryEmptySlots,
   noteIdentity,
 } = require('./player-smoke');
@@ -84,6 +85,17 @@ test('window item lookup can select custom metadata over a plain stack', () => {
   const window = { slots, inventoryStart: 54, inventoryEnd: 90 };
   assert.equal(findWindowItem(window, 'raw_iron'), 54);
   assert.equal(findWindowItem(window, 'raw_iron', item => /forged/i.test(JSON.stringify(item.components))), 55);
+});
+
+test('cursor packet adapter restores and clears the selected item', () => {
+  const client = new EventEmitter();
+  const window = { selectedItem: { name: 'stale' } };
+  const bot = { _client: client, currentWindow: window, inventory: { selectedItem: null } };
+  assert.equal(installCursorPacketAdapter(bot, contents => contents && { name: contents.name }), true);
+  client.emit('set_cursor_item', { contents: { name: 'raw_iron' } });
+  assert.deepEqual(window.selectedItem, { name: 'raw_iron' });
+  client.emit('set_cursor_item', { contents: null });
+  assert.equal(window.selectedItem, null);
 });
 
 test('connect resolves spawned clients for normal cleanup', async () => {

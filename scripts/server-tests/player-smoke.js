@@ -27,6 +27,23 @@ function disconnect(bot, reason) {
   }
 }
 
+function installCursorPacketAdapter(bot, decode = (contents) => {
+  const Item = require('prismarine-item')(bot.registry);
+  return Item.fromNotch(contents);
+}) {
+  if (!bot || !bot._client || typeof bot._client.on !== 'function') return false;
+  bot._client.on('set_cursor_item', (packet) => {
+    const window = bot.currentWindow || bot.inventory;
+    if (!window) return;
+    try {
+      window.selectedItem = !packet || packet.contents == null ? null : decode(packet.contents);
+    } catch (_) {
+      // Keep the last known cursor when an unsupported packet shape arrives.
+    }
+  });
+  return true;
+}
+
 function closeBots(bots, reason = 'GoldBag smoke complete') {
   for (const bot of bots) {
     try { disconnect(bot, reason); } catch (_) { /* one broken client cannot block another cleanup */ }
@@ -42,6 +59,7 @@ function connect(name, createBot = mineflayer.createBot, timeout = TIMEOUT) {
       auth: 'offline',
       version: VERSION,
     });
+    installCursorPacketAdapter(bot);
     let settled = false;
     const fail = (error) => {
       if (settled) return;
@@ -613,6 +631,7 @@ module.exports = {
   count,
   findNote,
   findWindowItem,
+  installCursorPacketAdapter,
   inventoryItems,
   mainInventoryEmptySlots,
   noteIdentity,

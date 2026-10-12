@@ -13,11 +13,12 @@ The harness-only checks are safe to run without a server:
 node --test scripts/server-tests/player-smoke.test.js
 ```
 
-Local result for this harness update: 10 tests passed, including connection
+Local result for this harness update: 11 tests passed, including connection
 cleanup, exact copied-note selection, open-window inventory-state accounting,
-plain-versus-custom item selection, deposit layout controls, withdrawal layout
-controls, and the same-window direct-exchange guard. A live run was not
-performed here; it is controller-owned and must use the isolated fixture below.
+plain-versus-custom item selection, cursor packet restoration/clearing, deposit
+layout controls, withdrawal layout controls, and the same-window direct-exchange
+guard. A live run was not performed here; it is controller-owned and must use
+the isolated fixture below.
 
 Prepare the ignored runtime once with Node 22 or newer:
 
@@ -72,8 +73,11 @@ one-credit replay, full-inventory rejection, creative-mode rejection,
 leaderboard, and no-reset persistence remain in the existing matrix.
 
 Mineflayer 4.39.0 exposes ordinary click and shift-click packets but its public
-`clickWindow` implementation does not implement mode-5 drag packets. Cursor
-placement is therefore the automated equivalent; drag behavior remains a
-manual native-client check. Paper 26.3 player protocol also remains unverified
-because the available Mineflayer releases have no native 26.3 data. Never use
-the reset-mode command against production.
+`clickWindow` implementation does not implement mode-5 drag packets, and its
+inventory plugin does not listen for Paper 1.21.11's `set_cursor_item` packet.
+The harness installs a bounded raw-packet adapter for the latter, decoding the
+packet's `contents` slot into the open window's selected cursor item and
+handling the null clear packet. Cursor placement is therefore automated while
+drag behavior remains a manual native-client check. Paper 26.3 player protocol
+also remains unverified because the available Mineflayer releases have no
+native 26.3 data. Never use the reset-mode command against production.
