@@ -30,20 +30,20 @@ Smelted ingots, nuggets, refined metal blocks, and custom items are excluded fro
 
 ## Default prices
 
-Each price applies to both depositing and withdrawing one item. The original rates are preserved for coal, redstone, lapis, and raw metals.
+Each price applies to both depositing and withdrawing one item. These values balance mining effort, drops per ore, and renewable supply such as villager trading.
 
 | Resource | Gold per item |
 | --- | ---: |
-| Coal | 0.20 G |
-| Redstone | 1.00 G |
-| Lapis lazuli | 1.00 G |
-| Raw copper | 1.00 G |
+| Coal | 0.50 G |
+| Redstone | 0.25 G |
+| Lapis lazuli | 0.50 G |
+| Raw copper | 0.50 G |
 | Raw iron | 2.00 G |
 | Raw gold | 5.00 G |
 | Diamond | 50.00 G |
-| Emerald | 25.00 G |
+| Emerald | 2.00 G |
 | Nether quartz | 1.00 G |
-| Amethyst shard | 0.50 G |
+| Amethyst shard | 0.25 G |
 
 Reversible storage blocks for coal, redstone, lapis, raw metals, diamonds, and emeralds exchange at nine times the item price. Quartz and amethyst blocks are excluded. This gives 18 enabled resource entries. Edit `resources.yml` to customize the catalog and prices.
 

@@ -102,20 +102,6 @@ public final class MenuService {
         display(player, menu);
     }
 
-    public void openQuantity(Player player, Resource resource, QuoteBook.Kind kind) {
-        MenuHolder holder = new MenuHolder(player.getUniqueId(), MenuHolder.Screen.PREVIEW, resource.material(), kind,
-                plugin.quotes().catalogRevision());
-        Inventory menu = Bukkit.createInventory(holder, 27, ChatColor.YELLOW + "Choose " + resource.id() + " quantity");
-        holder.inventory(menu);
-        set(menu, 10, Material.IRON_NUGGET, "1", "Preview one item");
-        set(menu, 12, Material.IRON_INGOT, "16", "Preview 16 items");
-        set(menu, 14, Material.IRON_BLOCK, "64", "Preview a full stack");
-        set(menu, 16, Material.GOLD_BLOCK, "Max", "Preview the maximum allowed");
-        set(menu, 22, Material.NAME_TAG, "Exact count", "Enter a whole item count privately");
-        set(menu, 26, Material.BARRIER, "Close", "Cancel");
-        display(player, menu);
-    }
-
     public boolean belongs(Inventory inventory) { return inventory != null && inventory.getHolder() instanceof MenuHolder; }
 
     /** Opens the transaction confirmation after the quote has been stored. */

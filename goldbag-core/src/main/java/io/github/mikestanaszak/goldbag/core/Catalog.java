@@ -35,16 +35,16 @@ public final class Catalog {
 
     public static Catalog defaults() {
         List<Definition> definitions = new ArrayList<>();
-        definitions.add(new Definition("coal", "COAL", 20, 20, true, true, "COAL_BLOCK", List.of()));
-        definitions.add(new Definition("redstone", "REDSTONE", 100, 100, true, true, "REDSTONE_BLOCK", List.of()));
-        definitions.add(new Definition("lapis_lazuli", "LAPIS_LAZULI", 100, 100, true, true, "LAPIS_BLOCK", List.of()));
-        definitions.add(new Definition("raw_copper", "RAW_COPPER", 100, 100, true, true, "RAW_COPPER_BLOCK", List.of()));
+        definitions.add(new Definition("coal", "COAL", 50, 50, true, true, "COAL_BLOCK", List.of()));
+        definitions.add(new Definition("redstone", "REDSTONE", 25, 25, true, true, "REDSTONE_BLOCK", List.of()));
+        definitions.add(new Definition("lapis_lazuli", "LAPIS_LAZULI", 50, 50, true, true, "LAPIS_BLOCK", List.of()));
+        definitions.add(new Definition("raw_copper", "RAW_COPPER", 50, 50, true, true, "RAW_COPPER_BLOCK", List.of()));
         definitions.add(new Definition("raw_iron", "RAW_IRON", 200, 200, true, true, "RAW_IRON_BLOCK", List.of()));
         definitions.add(new Definition("raw_gold", "RAW_GOLD", 500, 500, true, true, "RAW_GOLD_BLOCK", List.of()));
         definitions.add(new Definition("diamond", "DIAMOND", 5000, 5000, true, true, "DIAMOND_BLOCK", List.of()));
-        definitions.add(new Definition("emerald", "EMERALD", 2500, 2500, true, true, "EMERALD_BLOCK", List.of()));
+        definitions.add(new Definition("emerald", "EMERALD", 200, 200, true, true, "EMERALD_BLOCK", List.of()));
         definitions.add(new Definition("quartz", "QUARTZ", 100, 100, true, true, null, List.of()));
-        definitions.add(new Definition("amethyst_shard", "AMETHYST_SHARD", 50, 50, true, true, null, List.of()));
+        definitions.add(new Definition("amethyst_shard", "AMETHYST_SHARD", 25, 25, true, true, null, List.of()));
         return fromDefinitions(definitions);
     }
 

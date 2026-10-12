@@ -6,6 +6,7 @@ import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.entity.Player;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
@@ -29,20 +30,30 @@ public final class InventoryAdapter {
         private final int selectedSlot;
         private final ItemStack selectedBefore;
         private final ItemStack selectedAfter;
+        private final ItemStack cursorBefore;
+        private final ItemStack cursorAfter;
         private final List<Integer> affectedSlots;
         private final String evidence;
 
         private Plan(ItemStack[] before, ItemStack[] after) {
-            this(before, after, -1, null, null);
+            this(before, after, -1, null, null, null, null);
         }
 
         private Plan(ItemStack[] before, ItemStack[] after, int selectedSlot,
                      ItemStack selectedBefore, ItemStack selectedAfter) {
+            this(before, after, selectedSlot, selectedBefore, selectedAfter, null, null);
+        }
+
+        private Plan(ItemStack[] before, ItemStack[] after, int selectedSlot,
+                     ItemStack selectedBefore, ItemStack selectedAfter,
+                     ItemStack cursorBefore, ItemStack cursorAfter) {
             this.before = cloneSlots(before);
             this.after = cloneSlots(after);
             this.selectedSlot = selectedSlot;
             this.selectedBefore = copy(selectedBefore);
             this.selectedAfter = copy(selectedAfter);
+            this.cursorBefore = copy(cursorBefore);
+            this.cursorAfter = copy(cursorAfter);
             List<Integer> changed = new ArrayList<>();
             for (int slot = 0; slot < MAIN_INVENTORY_SLOTS; slot++) {
                 if (!same(this.before[slot], this.after[slot])) changed.add(slot);
@@ -51,19 +62,26 @@ public final class InventoryAdapter {
                     && !same(this.selectedBefore, this.selectedAfter)) changed.add(selectedSlot);
             this.affectedSlots = List.copyOf(changed);
             this.evidence = "before=" + snapshot(this.before, selectedSlot, this.selectedBefore)
-                    + ";after=" + snapshot(this.after, selectedSlot, this.selectedAfter);
+                    + cursorEvidence("cursorBefore", this.cursorBefore)
+                    + ";after=" + snapshot(this.after, selectedSlot, this.selectedAfter)
+                    + cursorEvidence("cursorAfter", this.cursorAfter);
         }
 
         public List<ItemStack> before() { return immutableClones(before); }
         public List<ItemStack> after() { return immutableClones(after); }
         public List<Integer> affectedSlots() { return affectedSlots; }
         public String evidence() { return evidence; }
-        public String beforeEvidence() { return "before=" + snapshot(before, selectedSlot, selectedBefore); }
-        public String afterEvidence() { return "after=" + snapshot(after, selectedSlot, selectedAfter); }
+        public String beforeEvidence() { return "before=" + snapshot(before, selectedSlot, selectedBefore) + cursorEvidence("cursorBefore", cursorBefore); }
+        public String afterEvidence() { return "after=" + snapshot(after, selectedSlot, selectedAfter) + cursorEvidence("cursorAfter", cursorAfter); }
 
         /** Checks all 36 slots so a changed unrelated slot also aborts safely. */
         public boolean ready(PlayerInventory inventory) {
             if (inventory == null) return false;
+            if (cursorBefore != null || cursorAfter != null) return false;
+            return readySlots(inventory);
+        }
+
+        private boolean readySlots(PlayerInventory inventory) {
             try {
                 if (selectedSlot >= 0 && selectedSlot < 9
                         && inventory.getHeldItemSlot() != selectedSlot) return false;
@@ -78,9 +96,29 @@ public final class InventoryAdapter {
             }
         }
 
+        /** Revalidates inventory and the player's cursor for a cursor plan. */
+        public boolean ready(Player player) {
+            if (player == null || !readySlots(player.getInventory())) return false;
+            return cursorBefore == null && cursorAfter == null || same(cursorBefore, normalize(player.getItemOnCursor()));
+        }
+
         /** Revalidates before state, then writes only affected slots. */
         public void apply(PlayerInventory inventory) {
+            if (cursorBefore != null || cursorAfter != null) {
+                throw new IllegalStateException("This physical plan requires a Player cursor");
+            }
             if (!ready(inventory)) throw new IllegalStateException("Inventory changed; physical plan is no longer ready");
+            applySlots(inventory);
+        }
+
+        /** Revalidates before state, then writes inventory and cursor changes. */
+        public void apply(Player player) {
+            if (player == null || !ready(player)) throw new IllegalStateException("Inventory or cursor changed; physical plan is no longer ready");
+            applySlots(player.getInventory());
+            if (cursorBefore != null || cursorAfter != null) player.setItemOnCursor(copy(cursorAfter));
+        }
+
+        private void applySlots(PlayerInventory inventory) {
             for (int slot : affectedSlots) {
                 if (slot == selectedSlot && slot >= MAIN_INVENTORY_SLOTS) {
                     inventory.setItem(slot, copy(selectedAfter));
@@ -172,16 +210,59 @@ public final class InventoryAdapter {
 
     /** Captures removal of exactly one item from a selected hotbar or off-hand slot. */
     public Plan planSlotRemoval(PlayerInventory inventory, int slot) {
+        return planSlotRemoval(inventory, slot, 1);
+    }
+
+    /** Captures exact removal from one hotbar or off-hand slot, preserving any remainder. */
+    public Plan planSlotRemoval(PlayerInventory inventory, int slot, int count) {
         if (slot < 0 || slot > 8 && slot != 40) {
             throw new IllegalArgumentException("Selected slot must be a hotbar slot (0-8) or off-hand slot 40");
         }
+        if (count <= 0) throw new IllegalArgumentException("Count must be positive");
         ItemStack[] before = readSlots(inventory);
         ItemStack selected = slot == 40 ? normalize(inventory.getItem(40)) : before[slot];
         if (selected == null) throw new IllegalStateException("Selected slot is empty");
-        ItemStack selectedAfter = selected.getAmount() == 1 ? null : withAmount(selected, selected.getAmount() - 1);
+        if (selected.getAmount() < count) throw new IllegalStateException("Selected slot does not contain the required items");
+        ItemStack selectedAfter = selected.getAmount() == count ? null : withAmount(selected, selected.getAmount() - count);
         ItemStack[] after = cloneSlots(before);
         if (slot < MAIN_INVENTORY_SLOTS) after[slot] = selectedAfter;
         return new Plan(before, after, slot, selected, selectedAfter);
+    }
+
+    /** Captures exact removal from any of the player's 36 ordinary inventory slots. */
+    public Plan planMainSlotRemoval(PlayerInventory inventory, int slot, int count) {
+        if (slot < 0 || slot >= MAIN_INVENTORY_SLOTS) {
+            throw new IllegalArgumentException("Main inventory slot must be between 0 and 35");
+        }
+        if (count <= 0) throw new IllegalArgumentException("Count must be positive");
+        ItemStack[] before = readSlots(inventory);
+        ItemStack selected = before[slot];
+        if (selected == null) throw new IllegalStateException("Selected slot is empty");
+        if (selected.getAmount() < count) throw new IllegalStateException("Selected slot does not contain the required items");
+        ItemStack selectedAfter = selected.getAmount() == count ? null : withAmount(selected, selected.getAmount() - count);
+        ItemStack[] after = cloneSlots(before);
+        after[slot] = selectedAfter;
+        return new Plan(before, after);
+    }
+
+    /** Captures exact removal from the player's cursor, including cursor evidence. */
+    public Plan planCursorRemoval(Player player) {
+        if (player == null) throw new IllegalArgumentException("Player is required");
+        ItemStack cursor = normalize(player.getItemOnCursor());
+        if (cursor == null) throw new IllegalStateException("Cursor is empty");
+        return planCursorRemoval(player, cursor.getAmount());
+    }
+
+    /** Captures exact removal from the player's cursor, preserving any remainder. */
+    public Plan planCursorRemoval(Player player, int count) {
+        if (player == null) throw new IllegalArgumentException("Player is required");
+        if (count <= 0) throw new IllegalArgumentException("Count must be positive");
+        ItemStack cursor = normalize(player.getItemOnCursor());
+        if (cursor == null) throw new IllegalStateException("Cursor is empty");
+        if (cursor.getAmount() < count) throw new IllegalStateException("Cursor does not contain the required items");
+        ItemStack afterCursor = cursor.getAmount() == count ? null : withAmount(cursor, cursor.getAmount() - count);
+        ItemStack[] before = readSlots(player.getInventory());
+        return new Plan(before, before, -1, null, null, cursor, afterCursor);
     }
 
     public boolean canFit(PlayerInventory inventory, ItemStack stack) {
@@ -245,6 +326,10 @@ public final class InventoryAdapter {
 
     public String evidenceAfterHeldRemoval(PlayerInventory inventory) {
         return planHeldRemoval(inventory).evidence();
+    }
+
+    public String evidenceAfterCursorRemoval(Player player) {
+        return planCursorRemoval(player).evidence();
     }
 
     /** A plain item is exactly the same metadata as a fresh vanilla stack. */
@@ -320,6 +405,14 @@ public final class InventoryAdapter {
                     .append(";count=").append(item.getAmount())
                     .append(";metadata=").append(metadata(item));
         }
+    }
+
+    private static String cursorEvidence(String label, ItemStack cursor) {
+        StringBuilder result = new StringBuilder(";").append(label).append("=");
+        ItemStack item = normalize(cursor);
+        if (item == null) return result.append("EMPTY;count=0;metadata=-").toString();
+        return result.append(item.getType().name()).append(";count=").append(item.getAmount())
+                .append(";metadata=").append(metadata(item)).toString();
     }
 
     private static String metadata(ItemStack item) {

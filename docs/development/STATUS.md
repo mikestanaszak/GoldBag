@@ -20,6 +20,14 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and remo
 | T7 README follow-up | Complete; Luna review clear; PR publication tracked on GitHub | Controller: README/STATUS; Luna: review report | PR #1 merged | `reports/T7-readme-review.md` |
 | T8 Remove superseded files and stale build outputs | Complete; clean build, packaged verification, and Luna review clear; included in PR #2 | Controller: legacy directories, README/STATUS, build outputs; Luna: review report | T7 | `reports/T8-cleanup.md`, `reports/T8-cleanup-review.md` |
 
+## Direct chest exchange and approved prices (2026-10-12)
+
+- Active work updates open PR #4 on `codex/ui-confirmation-experience`. The user superseded the older resource quantity/confirmation flow: chest shift-click/cursor/drag deposits and direct withdrawal clicks now execute journaled transactions immediately and keep the chest open.
+- Withdrawal clicks request 1 / up to 16 / up to 64 with balance/capacity/transaction clamping; chest menus show refreshed balances and direct deposit/withdraw switching.
+- User approved revised prices: coal 0.50, redstone 0.25, lapis 0.50, raw copper 0.50, raw iron 2.00, raw gold 5.00, diamond 50.00, emerald 2.00, quartz 1.00, amethyst shard 0.25 G. Equal deposit/withdraw values, reversible blocks 9×, existing balances preserved. Existing server resources.yml must be explicitly backed up/updated on deployment.
+- Full Java 17 reactor and shaded package verification PASS (82 tests); eight harness and five release-analysis tests PASS. Independent transaction review source-clear. Real player validation, CI/integration/release/deployment remain in progress; no production activation claimed.
+- Reports: `reports/direct-exchange.md`, `reports/direct-exchange-review.md`, `reports/direct-player-tests.md`, `reports/resource-value-review.md`.
+
 ## Clickable confirmation and experience review (2026-10-11)
 
 - PR #3 merged during the usage pause. UI follow-up is now on `codex/ui-confirmation-experience`, based on `main` at `6c994c5`; open a separate PR, do not merge. The code was independently verified in [CI run 38191645292](https://github.com/mikestanaszak/GoldBag/actions/runs/38191645292) on the original branch, with all checks PASS.

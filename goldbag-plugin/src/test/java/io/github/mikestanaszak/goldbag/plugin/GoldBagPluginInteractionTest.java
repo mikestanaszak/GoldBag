@@ -44,4 +44,5 @@ class GoldBagPluginInteractionTest {
         assertTrue(event.isCancelled());
         assertFalse(GoldBagPlugin.shouldHandleInteraction(event));
     }
+
 }

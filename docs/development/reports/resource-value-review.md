@@ -1,6 +1,6 @@
 # Resource value review — 2026-10-12
 
-User requested a rarity/ease-of-obtaining review during the direct UI refactor. Proposed values are a starting policy for a small survival economy, not empirically measured market prices. Application is pending the user's response; do not infer authorization to change live rates from this report.
+User requested a rarity/ease-of-obtaining review during the direct UI refactor. Proposed values are a starting policy for a small survival economy, not empirically measured market prices. The user approved applying the proposed table on 2026-10-12. Defaults and the existing local configuration are in scope; preserve current balances.
 
 | Item | Existing G | Proposed G |
 |---|---:|---:|

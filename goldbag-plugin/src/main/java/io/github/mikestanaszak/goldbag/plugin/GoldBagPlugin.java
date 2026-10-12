@@ -16,6 +16,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
+import org.bukkit.event.inventory.ClickType;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -234,10 +235,16 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
             closeNextTick(player);
             return;
         }
+        if ((holder.screen() == MenuHolder.Screen.DEPOSIT || holder.screen() == MenuHolder.Screen.WITHDRAW)
+                && slot >= event.getView().getTopInventory().getSize() && !event.isShiftClick()) {
+            event.setCancelled(false);
+            return;
+        }
+        if (holder.screen() == MenuHolder.Screen.DEPOSIT && handleDirectDeposit(event, player)) return;
+        if (holder.screen() == MenuHolder.Screen.WITHDRAW && handleDirectWithdrawal(event, player, holder)) return;
         if ((holder.screen() == MenuHolder.Screen.DEPOSIT && slot == 49)
                 || (holder.screen() == MenuHolder.Screen.WITHDRAW && slot == 49)
-                || (holder.screen() == MenuHolder.Screen.TOP && slot == 22)
-                || (holder.screen() == MenuHolder.Screen.PREVIEW && slot == 26)) {
+                || (holder.screen() == MenuHolder.Screen.TOP && slot == 22)) {
             closeNextTick(player);
         } else if (holder.screen() == MenuHolder.Screen.MAIN) {
             if (slot == 12) {
@@ -251,19 +258,20 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
             else if (slot == 22) { if (!permissions.has(player, "goldbag.top", "goldpurse.use")) tell(player, message("permission", "You do not have permission.")); else showTop(player, 1); }
             else if (slot == 10) { if (!permissions.has(player, "goldbag.balance", "goldpurse.use")) tell(player, message("permission", "You do not have permission.")); else showBalance(player, player.getUniqueId()); }
         } else if (holder.screen() == MenuHolder.Screen.DEPOSIT && slot < 45) {
-            if (holder.catalogRevision() != quotes.catalogRevision()) { tell(player, "This menu expired after a catalog reload."); return; }
-            int index = (holder.page() - 1) * 45 + slot;
-            if (index < holder.options().size()) menus.openQuantity(player, config().catalog().require(holder.options().get(index)), QuoteBook.Kind.DEPOSIT);
-        } else if (holder.screen() == MenuHolder.Screen.DEPOSIT && slot == 45 && holder.page() > 1) {
-            menus.openDeposit(player, holder.page() - 1);
-        } else if (holder.screen() == MenuHolder.Screen.DEPOSIT && slot == 53 && holder.hasNext()) {
-            menus.openDeposit(player, holder.page() + 1);
+            // Empty chest slots are gesture targets; eligible cursor and shift-click
+            // gestures are consumed by handleDirectDeposit above.
+        } else if (holder.screen() == MenuHolder.Screen.DEPOSIT && slot == 45) {
+            menus.openMain(player);
+        } else if (holder.screen() == MenuHolder.Screen.DEPOSIT && slot == 48) {
+            menus.openWithdraw(player, 1);
         } else if (holder.screen() == MenuHolder.Screen.DEPOSIT && slot == 52) {
             quoteDepositAll(player);
         } else if (holder.screen() == MenuHolder.Screen.WITHDRAW && slot < 45) {
-            if (holder.catalogRevision() != quotes.catalogRevision()) { tell(player, "This menu expired after a catalog reload."); return; }
-            int index = (holder.page() - 1) * 45 + slot;
-            if (index < holder.options().size()) menus.openQuantity(player, config().catalog().require(holder.options().get(index)), QuoteBook.Kind.WITHDRAW);
+            // Resource icons are handled directly by handleDirectWithdrawal above.
+        } else if (holder.screen() == MenuHolder.Screen.WITHDRAW && slot == 48) {
+            menus.openDeposit(player);
+        } else if (holder.screen() == MenuHolder.Screen.WITHDRAW && slot == 51) {
+            menus.openMain(player);
         } else if (holder.screen() == MenuHolder.Screen.WITHDRAW && slot == 45 && holder.page() > 1) {
             menus.openWithdraw(player, holder.page() - 1);
         } else if (holder.screen() == MenuHolder.Screen.WITHDRAW && slot == 53 && holder.hasNext()) {
@@ -272,16 +280,6 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
             showTop(player, holder.page() - 1);
         } else if (holder.screen() == MenuHolder.Screen.TOP && slot == 26 && holder.hasNext()) {
             showTop(player, holder.page() + 1);
-        } else if (holder.screen() == MenuHolder.Screen.PREVIEW) {
-            if (holder.catalogRevision() != quotes.catalogRevision()) { tell(player, "This quantity menu expired after a catalog reload."); closeNextTick(player); return; }
-            Resource resource;
-            try { resource = config().catalog().require(holder.selection()); }
-            catch (RuntimeException error) { tell(player, "This quantity menu expired after a catalog reload."); closeNextTick(player); return; }
-            if (slot == 10) selectQuantity(player, resource, 1, false, holder.selectionKind());
-            else if (slot == 12) selectQuantity(player, resource, 16, false, holder.selectionKind());
-            else if (slot == 14) selectQuantity(player, resource, 64, false, holder.selectionKind());
-            else if (slot == 16) selectQuantity(player, resource, 0, true, holder.selectionKind());
-            else if (slot == 22) startExactWithdrawalPrompt(player, resource, holder.selectionKind());
         } else if (holder.screen() == MenuHolder.Screen.CONFIRM) {
             QuoteBook.Quote current = quotes.current(player.getUniqueId()).orElse(null);
             if (!confirmationMatches(holder, current, quotes.catalogRevision())) {
@@ -292,8 +290,93 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
         }
     }
 
+    /** Handles the virtual deposit chest without allowing Bukkit to store items in it. */
+    private boolean handleDirectDeposit(InventoryClickEvent event, Player player) {
+        int topSize = event.getView().getTopInventory().getSize();
+        ItemStack candidate;
+        boolean cursor = (event.getClick() == ClickType.LEFT || event.getClick() == ClickType.RIGHT)
+                && event.getRawSlot() >= 0 && event.getRawSlot() < 45
+                && event.getCursor() != null && event.getCursor().getType() != Material.AIR;
+        boolean shift = event.isShiftClick() && event.getRawSlot() >= topSize;
+        if (!cursor && !shift) return false;
+        candidate = cursor ? event.getCursor() : event.getCurrentItem();
+        Resource resource = directDepositResource(candidate);
+        if (resource == null) {
+            tell(player, "Only enabled ordinary resources can be deposited.");
+            return true;
+        }
+        int requested = cursor && event.getClick() == ClickType.RIGHT ? 1 : candidate.getAmount();
+        requested = Math.min(requested, config().settings().maxItemsPerTransaction());
+        if (requested < 1) return true;
+        InventoryAdapter.Plan plan;
+        try {
+            plan = cursor ? inventory.planCursorRemoval(player, requested)
+                    : inventory.planMainSlotRemoval(player.getInventory(), event.getView().convertSlot(event.getRawSlot()), requested);
+        } catch (RuntimeException error) {
+            tell(player, "Inventory changed; nothing was deposited.");
+            return true;
+        }
+        event.setCancelled(true);
+        directDeposit(player, resource, requested, plan, cursor ? "cursor" : "shift-click");
+        return true;
+    }
+
+    /** Handles resource-icon clicks as immediate withdrawals. */
+    private boolean handleDirectWithdrawal(InventoryClickEvent event, Player player, MenuHolder holder) {
+        if (event.getRawSlot() < 0 || event.getRawSlot() >= 45) return false;
+        int index = (holder.page() - 1) * 45 + event.getRawSlot();
+        if (index < 0 || index >= holder.options().size()) return true;
+        Resource resource;
+        try { resource = config().catalog().require(holder.options().get(index)); }
+        catch (RuntimeException error) { tell(player, "This menu expired after a catalog reload."); return true; }
+        int count;
+        if (event.getClick() == ClickType.LEFT) count = 1;
+        else if (event.getClick() == ClickType.RIGHT) count = 16;
+        else if (event.getClick() == ClickType.SHIFT_LEFT || event.getClick() == ClickType.SHIFT_RIGHT) count = 64;
+        else return true;
+        quoteWithdrawal(player, resource, count, false, count > 1);
+        return true;
+    }
+
+    private Resource directDepositResource(ItemStack item) {
+        if (item == null || item.getType() == Material.AIR) return null;
+        for (Resource resource : config().catalog().resources()) {
+            Material material = Material.matchMaterial(resource.material());
+            if (resource.depositEnabled() && material != null && inventory.isPlain(item, material)) return resource;
+        }
+        return null;
+    }
+
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
-    public void onDrag(InventoryDragEvent event) { if (event.getWhoClicked() instanceof Player && (guarded(((Player) event.getWhoClicked()).getUniqueId()) || menus.belongs(event.getInventory()))) event.setCancelled(true); }
+    public void onDrag(InventoryDragEvent event) {
+        if (!(event.getWhoClicked() instanceof Player)) return;
+        Player player = (Player) event.getWhoClicked();
+        if (guarded(player.getUniqueId())) { event.setCancelled(true); return; }
+        if (!(event.getInventory().getHolder() instanceof MenuHolder holder)) return;
+        if (holder.screen() != MenuHolder.Screen.DEPOSIT) { event.setCancelled(true); return; }
+        event.setCancelled(true);
+        ItemStack oldCursor = event.getOldCursor();
+        if (holder.catalogRevision() != quotes.catalogRevision()
+                || oldCursor == null || oldCursor.getType() == Material.AIR
+                || event.getRawSlots().stream().noneMatch(slot -> slot >= 0 && slot < 45)) return;
+        Resource resource = directDepositResource(oldCursor);
+        if (resource == null) {
+            tell(player, "Only enabled ordinary resources can be deposited.");
+            return;
+        }
+        int count = event.getNewItems().entrySet().stream()
+                .filter(entry -> entry.getKey() >= 0 && entry.getKey() < 45)
+                .mapToInt(entry -> entry.getValue() == null ? 0 : entry.getValue().getAmount())
+                .sum();
+        count = Math.min(count, config().settings().maxItemsPerTransaction());
+        if (count < 1) return;
+        try {
+            InventoryAdapter.Plan plan = inventory.planCursorRemoval(player, count);
+            directDeposit(player, resource, count, plan, "drag");
+        } catch (RuntimeException error) {
+            tell(player, "Inventory changed; nothing was deposited.");
+        }
+    }
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
     public void onDrop(PlayerDropItemEvent event) { if (guarded(event.getPlayer().getUniqueId())) event.setCancelled(true); }
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -359,6 +442,7 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
     public void quoteDeposit(Player player, Resource resource, int count) {
         if (!gameModeAllowed(player)) { tell(player, ChatColor.RED + "GoldBag exchanges are unavailable in your current game mode."); return; }
         if (!permissions.has(player, "goldbag.deposit", "goldpurse.use")) { tell(player, ChatColor.RED + "You do not have permission."); return; }
+        if (guarded(player.getUniqueId())) { tell(player, message("busy", "GoldBag is temporarily unavailable.")); return; }
         if (count < 1) { tell(player, "No eligible items found."); return; }
         if (count > config().settings().maxItemsPerTransaction()) { tell(player, "That exceeds the transaction item limit."); return; }
         Material depositMaterial = Material.matchMaterial(resource.material());
@@ -372,13 +456,14 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
             if (amount > config().settings().maxBalance() - account.balance()) { tell(player, "That deposit would exceed the maximum balance."); return; }
             QuoteBook.Quote quote = quotes.put(playerId, QuoteBook.Kind.DEPOSIT, resource.material(), count, amount,
                     revision, config().settings().quoteTimeoutSeconds());
-            menus.openConfirmation(player, quote, account.balance());
+            executeImmediate(player, quote);
         }, player, "Could not read your balance.");
     }
 
     public void quoteDepositAll(Player player) {
         if (!gameModeAllowed(player)) { tell(player, ChatColor.RED + "GoldBag exchanges are unavailable in your current game mode."); return; }
         if (!permissions.has(player, "goldbag.deposit", "goldpurse.use")) { tell(player, ChatColor.RED + "You do not have permission."); return; }
+        if (guarded(player.getUniqueId())) { tell(player, message("busy", "GoldBag is temporarily unavailable.")); return; }
         final long revision = quotes.catalogRevision();
         final UUID request = beginQuoteRequest(player.getUniqueId(), revision);
         final UUID playerId = player.getUniqueId();
@@ -401,7 +486,7 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
             if (totalAmount > config().settings().maxBalance() - account.balance()) { tell(player, "That deposit would exceed the maximum balance."); return; }
             QuoteBook.Quote quote = quotes.put(playerId, QuoteBook.Kind.DEPOSIT, "*", totalItems, totalAmount,
                     revision, config().settings().quoteTimeoutSeconds(), payload);
-            menus.openConfirmation(player, quote, account.balance());
+            executeImmediate(player, quote);
         }, player, "Could not read your balance.");
     }
 
@@ -442,8 +527,13 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
     }
 
     public void quoteWithdrawal(Player player, Resource resource, int count, boolean max) {
+        quoteWithdrawal(player, resource, count, max, false);
+    }
+
+    public void quoteWithdrawal(Player player, Resource resource, int count, boolean max, boolean clamp) {
         if (!gameModeAllowed(player)) { tell(player, ChatColor.RED + "GoldBag exchanges are unavailable in your current game mode."); return; }
         if (!permissions.has(player, "goldbag.withdraw", "goldpurse.use")) { tell(player, ChatColor.RED + "You do not have permission."); return; }
+        if (guarded(player.getUniqueId())) { tell(player, message("busy", "GoldBag is temporarily unavailable.")); return; }
         final boolean chooseMax = max;
         final long revision = quotes.catalogRevision();
         final UUID request = beginQuoteRequest(player.getUniqueId(), revision);
@@ -451,14 +541,66 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
         submit(() -> store().account(playerId).orElseThrow(() -> new IllegalStateException("Account is not initialized")), account -> {
             if (!quoteRequestActive(playerId, request, revision)) return;
             int maximum = config().catalog().maximumWithdrawal(resource.material(), account.balance(), capacity(player, Material.matchMaterial(resource.material())), config().settings().maxItemsPerTransaction());
-            if (!chooseMax && count > maximum) { tell(player, "That quantity exceeds your balance, capacity, or transaction limit."); return; }
-            int selected = chooseMax ? maximum : count;
+            if (!chooseMax && count > maximum && !clamp) { tell(player, "That quantity exceeds your balance, capacity, or transaction limit."); return; }
+            int selected = chooseMax ? maximum : clamp ? Math.min(count, maximum) : count;
             if (selected < 1) { tell(player, "Insufficient balance or inventory capacity."); return; }
             long amount = config().catalog().withdrawalCost(resource.material(), selected);
             QuoteBook.Quote quote = quotes.put(playerId, QuoteBook.Kind.WITHDRAW, resource.material(), selected, amount,
                     revision, config().settings().quoteTimeoutSeconds());
-            menus.openConfirmation(player, quote, account.balance());
+            executeImmediate(player, quote);
         }, player, "Could not read your balance.");
+    }
+
+    private void executeImmediate(Player player, QuoteBook.Quote quote) {
+        if (!quotes.remove(player.getUniqueId(), quote.id())) {
+            tell(player, "This GoldBag operation is no longer available.");
+            return;
+        }
+        invalidateQuoteRequest(player.getUniqueId());
+        if (quote.kind() == QuoteBook.Kind.DEPOSIT) executeDeposit(player, quote);
+        else if (quote.kind() == QuoteBook.Kind.WITHDRAW) executeWithdrawal(player, quote);
+    }
+
+    private void directDeposit(Player player, Resource resource, int count,
+                               InventoryAdapter.Plan physicalPlan, String source) {
+        if (!gameModeAllowed(player) || !permissions.has(player, "goldbag.deposit", "goldpurse.use")) {
+            tell(player, ChatColor.RED + "GoldBag deposits are unavailable.");
+            return;
+        }
+        if (count < 1 || count > config().settings().maxItemsPerTransaction()) return;
+        final long revision = quotes.catalogRevision();
+        final UUID playerId = player.getUniqueId();
+        final UUID operation = UUID.randomUUID();
+        if (!guard(playerId, operation)) {
+            tell(player, "A GoldBag operation is already in progress.");
+            return;
+        }
+        final UUID request = beginQuoteRequest(playerId, revision);
+        long amount = config().catalog().depositValue(resource.material(), count);
+        try {
+            storageExecutor.submit(() -> store().account(playerId).orElseThrow(() -> new IllegalStateException("Account is not initialized")))
+                    .whenComplete((account, error) -> runMain(() -> {
+                        if (error != null) {
+                            unguard(playerId, operation);
+                            tell(player, ChatColor.RED + "Could not read your balance. " + rootMessage(error));
+                            return;
+                        }
+                        if (!quoteRequestActive(playerId, request, revision)) { unguard(playerId, operation); return; }
+                        if (amount > config().settings().maxBalance() - account.balance()) {
+                            unguard(playerId, operation);
+                            tell(player, "That deposit would exceed the maximum balance.");
+                            return;
+                        }
+                        QuoteBook.Quote quote = quotes.put(playerId, QuoteBook.Kind.DEPOSIT, resource.material(), count, amount,
+                                revision, config().settings().quoteTimeoutSeconds());
+                        if (!quotes.remove(playerId, quote.id())) { unguard(playerId, operation); return; }
+                        invalidateQuoteRequest(playerId);
+                        executeDeposit(player, quote, physicalPlan, source + "|" + physicalPlan.evidence(), operation);
+                    }));
+        } catch (RuntimeException error) {
+            unguard(playerId, operation);
+            tell(player, ChatColor.RED + "Could not read your balance.");
+        }
     }
 
     public void quoteNote(Player player, long amount) {
@@ -473,38 +615,6 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
                     revision, config().settings().quoteTimeoutSeconds());
             menus.openConfirmation(player, quote, account.balance());
         }, player, "Could not read your balance.");
-    }
-
-    private void selectQuantity(Player player, Resource resource, int count, boolean max, QuoteBook.Kind kind) {
-        closeNextTick(player);
-        if (kind == QuoteBook.Kind.DEPOSIT) {
-            if (max) count = MenuService.depositMaxCount(inventory.count(player.getInventory(), Material.matchMaterial(resource.material())),
-                    config().settings().maxItemsPerTransaction());
-            quoteDeposit(player, resource, count);
-        } else quoteWithdrawal(player, resource, count, max);
-    }
-
-    private void startExactWithdrawalPrompt(Player player, Resource resource, QuoteBook.Kind kind) {
-        closeNextTick(player);
-        if (kind == QuoteBook.Kind.DEPOSIT) {
-            beginExactPrompt(player, resource, true);
-        } else beginExactPrompt(player, resource, false);
-    }
-
-    private void beginExactPrompt(Player player, Resource resource, boolean deposit) {
-        beginPrompt(player, new StringPrompt() {
-            @Override public String getPromptText(ConversationContext context) { return "Enter an exact whole item count for " + resource.id() + ", or cancel:"; }
-            @Override public org.bukkit.conversations.Prompt acceptInput(ConversationContext context, String input) {
-                if (input == null || input.trim().equalsIgnoreCase("cancel")) { promptTell(player, "Quantity selection cancelled."); return null; }
-                try {
-                    int count = Integer.parseInt(input.trim());
-                    if (count <= 0) throw new NumberFormatException();
-                    if (deposit) runMain(() -> quoteDeposit(player, resource, count));
-                    else runMain(() -> quoteWithdrawal(player, resource, count, false));
-                    return null;
-                } catch (NumberFormatException error) { promptTell(player, "Enter a positive whole number."); return this; }
-            }
-        });
     }
 
     public void confirm(Player player) {
@@ -567,17 +677,35 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
     }
 
     private void executeDeposit(Player player, QuoteBook.Quote quote) {
-        List<MaterialCount> materialPlan = depositPlan(quote);
+        executeDeposit(player, quote, null, null, null);
+    }
+
+    private void executeDeposit(Player player, QuoteBook.Quote quote,
+                                InventoryAdapter.Plan suppliedPlan, String suppliedEvidence) {
+        executeDeposit(player, quote, suppliedPlan, suppliedEvidence, null);
+    }
+
+    private void executeDeposit(Player player, QuoteBook.Quote quote,
+                                InventoryAdapter.Plan suppliedPlan, String suppliedEvidence,
+                                UUID reservedOperation) {
+        List<MaterialCount> materialPlan;
+        try { materialPlan = depositPlan(quote); }
+        catch (RuntimeException error) {
+            if (reservedOperation != null) unguard(player.getUniqueId(), reservedOperation);
+            tell(player, "Inventory changed; nothing was deposited.");
+            return;
+        }
         java.util.Map<Material, Integer> removals = new java.util.LinkedHashMap<>();
         for (MaterialCount entry : materialPlan) removals.merge(entry.material(), entry.count(), Integer::sum);
         InventoryAdapter.Plan physicalPlan;
-        try { physicalPlan = inventory.planRemoval(player.getInventory(), removals); }
-        catch (RuntimeException error) { tell(player, "Inventory changed; nothing was deposited."); return; }
-        if (!player.isOnline() || player.isDead()) { tell(player, "Inventory changed; nothing was deposited."); return; }
+        try { physicalPlan = suppliedPlan == null ? inventory.planRemoval(player.getInventory(), removals) : suppliedPlan; }
+        catch (RuntimeException error) { if (reservedOperation != null) unguard(player.getUniqueId(), reservedOperation); tell(player, "Inventory changed; nothing was deposited."); return; }
+        if (!player.isOnline() || player.isDead()) { if (reservedOperation != null) unguard(player.getUniqueId(), reservedOperation); tell(player, "Inventory changed; nothing was deposited."); return; }
         UUID playerId = player.getUniqueId();
-        UUID op = UUID.randomUUID();
-        if (!guard(playerId, op)) { tell(player, "A GoldBag operation is already in progress."); return; }
-        String payload = (quote.payload() == null ? quote.material() + ":" + quote.count() : quote.payload()) + "|" + physicalPlan.evidence();
+        UUID op = reservedOperation == null ? UUID.randomUUID() : reservedOperation;
+        if (reservedOperation == null && !guard(playerId, op)) { tell(player, "A GoldBag operation is already in progress."); return; }
+        String payload = (quote.payload() == null ? quote.material() + ":" + quote.count() : quote.payload()) + "|"
+                + (suppliedEvidence == null ? physicalPlan.evidence() : suppliedEvidence);
         CompletableFuture<SqliteStore.Receipt> operation;
         try {
             operation = coordinator().execute(op, playerId, SqliteStore.Kind.DEPOSIT, quote.amount(), payload, null, this::runMain,
@@ -587,9 +715,9 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
                                     && gameModeAllowed(player)
                                     && permissions.has(player, "goldbag.deposit", "goldpurse.use")
                                     && quote.catalogRevision() == quotes.catalogRevision()
-                                    && physicalPlan.ready(player.getInventory());
+                                    && physicalPlan.ready(player);
                         }
-                        @Override public void apply() { physicalPlan.apply(player.getInventory()); }
+                        @Override public void apply() { physicalPlan.apply(player); }
                     });
         } catch (RuntimeException error) {
             unguard(playerId, op);
@@ -597,7 +725,7 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
             return;
         }
         operation.whenComplete((receipt, error) -> finishOperation(playerId, player, op, error,
-                () -> tell(player, "Deposited " + quote.count() + " for " + money(quote.amount()) + "."),
+                () -> { tell(player, "Deposited " + quote.count() + " for " + money(quote.amount()) + "."); menus.refreshBalance(player); },
                 "Deposit was cancelled or is unresolved; operation " + op + "."));
     }
 
@@ -621,9 +749,9 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
                                     && gameModeAllowed(player)
                                     && permissions.has(player, "goldbag.withdraw", "goldpurse.use")
                                     && quote.catalogRevision() == quotes.catalogRevision()
-                                    && physicalPlan.ready(player.getInventory());
+                                    && physicalPlan.ready(player);
                         }
-                        @Override public void apply() { physicalPlan.apply(player.getInventory()); }
+                        @Override public void apply() { physicalPlan.apply(player); }
                     });
         } catch (RuntimeException error) {
             unguard(playerId, op);
@@ -631,7 +759,7 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
             return;
         }
         operation.whenComplete((receipt, error) -> finishOperation(playerId, player, op, error,
-                () -> tell(player, "Withdrew " + quote.count() + " for " + money(quote.amount()) + "."),
+                () -> { tell(player, "Withdrew " + quote.count() + " for " + money(quote.amount()) + "."); menus.refreshBalance(player); },
                 "Withdrawal was cancelled or is unresolved; operation " + op + "."));
     }
 
@@ -655,9 +783,9 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
                                     && gameModeAllowed(player)
                                     && permissions.has(player, "goldbag.note", "goldpurse.use")
                                     && config().settings().banknotesEnabled()
-                                    && physicalPlan.ready(player.getInventory());
+                                    && physicalPlan.ready(player);
                         }
-                        @Override public void apply() { physicalPlan.apply(player.getInventory()); }
+                        @Override public void apply() { physicalPlan.apply(player); }
                     });
         } catch (RuntimeException error) {
             unguard(playerId, op);

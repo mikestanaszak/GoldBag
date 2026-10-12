@@ -20,6 +20,21 @@ class CatalogTest {
     }
 
     @Test
+    void reversibleBlocksCannotCreateGoldThroughCrafting() {
+        Catalog catalog = Catalog.defaults();
+        for (Resource item : catalog.resources()) {
+            assertEquals(item.depositPrice(), item.withdrawPrice());
+        }
+        for (String[] pair : new String[][]{{"coal", "coal_block"}, {"redstone", "redstone_block"},
+                {"lapis_lazuli", "lapis_block"}, {"raw_copper", "raw_copper_block"},
+                {"raw_iron", "raw_iron_block"}, {"raw_gold", "raw_gold_block"},
+                {"diamond", "diamond_block"}, {"emerald", "emerald_block"}}) {
+            assertEquals(catalog.depositValue(pair[0], 9), catalog.withdrawalCost(pair[1], 1));
+            assertEquals(catalog.depositValue(pair[1], 1), catalog.withdrawalCost(pair[0], 9));
+        }
+    }
+
+    @Test
     void rejectsUnknownDisabledAndInvalidCounts() {
         Catalog catalog = Catalog.defaults();
         assertThrows(IllegalArgumentException.class, () -> catalog.require("missing"));

@@ -8,7 +8,7 @@ import java.util.List;
 
 /** Plugin-owned holder prevents spoofing menus by title or lore. */
 public final class MenuHolder implements InventoryHolder {
-    public enum Screen { MAIN, DEPOSIT, WITHDRAW, TOP, PREVIEW, CONFIRM }
+    public enum Screen { MAIN, DEPOSIT, WITHDRAW, TOP, CONFIRM }
     private final UUID sessionId = UUID.randomUUID();
     private final UUID playerId;
     private final Screen screen;

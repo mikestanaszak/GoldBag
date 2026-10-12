@@ -23,7 +23,7 @@ $env:NODE_PATH=(Resolve-Path .runtime/goldbag-server-tests/node_modules).Path
 node scripts/server-tests/player-smoke.js
 ```
 
-The reset-mode run sets both fixture accounts to zero, then checks the menu, rates, storage status, deposits, withdrawal, deposit-all, payment, main/off-hand notes, copied-note replay, custom item and full-inventory rejection, ingot and creative gates, leaderboard GUI, and duplicate confirmation. It ends with A at G85.00 and one unredeemed G5.00 note in A's inventory; B is G15.00.
+The reset-mode run sets both fixture accounts to zero, then checks the menu, rates, storage status, direct deposit/withdraw commands, repeated withdrawals, real deposit-chest shift-click and cursor placement (including a right-click single item), direct withdrawal left/right/shift gestures, deposit-all (25 raw iron plus 5 redstone = G51.25), payment (A=G46.25 after G5.00), the banknote fixture reset to G100.00, main/off-hand notes, copied-note replay, custom and ineligible item rejection, full-inventory rejection, ingot and creative gates, leaderboard GUI, and the note-only confirmation fallback. It ends with A at G85.00 and one unredeemed G5.00 note in A's inventory; B is G15.00.
 
 ## No-reset restart check
 
@@ -50,8 +50,10 @@ java -cp goldbag-plugin/target/GoldBag-2.0.0-SNAPSHOT.jar scripts/server-tests/S
 
 The helper refuses existing fixture accounts and acquires GoldBag's database lock. It creates two labeled pending deposits without changing any physical inventory. After startup, use the printed operation IDs with the recovery commands: apply should credit `GBRecoveryApply` G2.00; cancel should leave `GBRecoveryCancel` G0.00. The exact executed commands and outcomes are in [the server report](../../docs/development/reports/T6-server-validation.md).
 
-## Confirmation UI smoke
+## Direct exchange UI smoke
 
-The current full smoke clicks the actual green Confirm button. It also exercises deposit navigation, Cancel, exact quantity input, withdrawal navigation, Deposit All, payment input, invalid banknote input/retry, banknote issuance/redemption, and the existing rejection/restart checks. It does not type `/goldbag confirm` for successful exchanges; one compatibility-command replay check remains.
+The current full smoke treats the deposit screen as a virtual 54-slot chest: slots 0-44 remain empty, eligible player stacks are consumed by shift-click or cursor placement, and slots 45/48/49/50/52 provide Back to Main, Withdraw, Close, balance/instructions, and Deposit all. Deposits journal immediately and the same menu object remains open. The withdrawal screen keeps slots 48/49/50/51 for Deposit, Close, balance/instructions, and Back to Main; slot 45 is reserved for a previous-page control when a later page exists. Resource left-click, right-click, and shift-click request 1, 16, and 64 items, clamped to balance and capacity while the screen remains open. Commands `/goldbag deposit`, `/goldbag deposit all`, and `/goldbag withdraw` execute directly. Banknote issue remains the only smoke path that opens Confirm; `/goldbag confirm` is retained as a compatibility replay check.
+
+Mineflayer's public click API does not implement mode-5 drag packets, so the live harness covers the equivalent cursor placement and records drag coverage for a native-client follow-up. The right-click single-item case runs when the connected protocol supports normal split-stack clicks.
 
 For the isolated Paper 26.3 bridge experiment, ViaVersion/ViaBackwards 5.12.1 translate an older test client. Use client 1.21.8 or 1.21.4, Mineflayer 4.39.0, and `GOLDBAG_DISABLE_PHYSICS=1` (disables physics at spawn). The short bridge probes connected but the full run still disconnected; this configuration does not certify 26.3 player behavior. Final full UI validation instead passed on native Paper 1.21.11 build 132. See [UI live validation](../../docs/development/reports/ui-live-validation.md).

@@ -117,6 +117,100 @@ function mainInventoryEmptySlots(bot) {
   return bot.inventory.slots.slice(9, 45).filter((item) => item == null).length;
 }
 
+function itemText(item) {
+  return item ? JSON.stringify(item.nbt || item.components || item.metadata || item) : '';
+}
+
+function windowTitle(window) {
+  return window ? JSON.stringify(window.title) : '';
+}
+
+function assertMenuControl(window, slot, matcher, description) {
+  assert(window && window.slots && window.slots[slot], `${description} control is missing at slot ${slot}`);
+  assert(matcher.test(itemText(window.slots[slot])), `${description} control at slot ${slot} is ${itemText(window.slots[slot])}`);
+}
+
+function assertDepositLayout(window) {
+  assert(window && window.slots && window.slots.length >= 90, 'deposit menu is not a 54-slot chest window');
+  assert(window.slots.slice(0, 45).every(item => item == null), 'deposit chest top 0-44 must remain blank');
+  assertMenuControl(window, 45, /back|main|menu/i, 'deposit main');
+  assertMenuControl(window, 48, /withdraw/i, 'deposit withdrawal');
+  assertMenuControl(window, 49, /close|cancel/i, 'deposit close');
+  assertMenuControl(window, 50, /balance|deposit|shift|info|rate|help/i, 'deposit info');
+  assertMenuControl(window, 52, /deposit|all/i, 'deposit all');
+}
+
+function assertWithdrawLayout(window) {
+  assert(window && window.slots && window.slots.length >= 90, 'withdraw menu is not a 54-slot chest window');
+  assertMenuControl(window, 48, /deposit/i, 'withdraw deposit');
+  assertMenuControl(window, 49, /close|cancel/i, 'withdraw close');
+  assertMenuControl(window, 50, /balance|withdraw|shift|info|rate|help/i, 'withdraw info');
+  assertMenuControl(window, 51, /back|main|menu/i, 'withdraw back');
+}
+
+function findWindowItem(window, itemName) {
+  const start = Number.isInteger(window.inventoryStart) ? window.inventoryStart : 54;
+  const end = Number.isInteger(window.inventoryEnd) ? window.inventoryEnd : window.slots.length;
+  for (let slot = start; slot < end; slot += 1) {
+    if (window.slots[slot] && window.slots[slot].name === itemName) return slot;
+  }
+  return -1;
+}
+
+function findTopItem(window, itemName) {
+  return window.slots.slice(0, 45).findIndex(item => item && item.name === itemName);
+}
+
+async function assertSameWindow(bot, window, description) {
+  await sleep(150);
+  assert(bot.currentWindow === window, `${description} replaced the open menu`);
+  assert(/GoldBag (Deposit|Withdraw)/i.test(windowTitle(bot.currentWindow)), `${description} closed the exchange menu`);
+}
+
+async function waitForExchange(bot, window, start, matcher, description) {
+  await waitForLine(bot, start, matcher, description);
+  await assertSameWindow(bot, window, description);
+}
+
+async function clickDepositCursor(bot, itemName, targetSlot, mouseButton = 0, mode = 0) {
+  const window = bot.currentWindow;
+  const source = findWindowItem(window, itemName);
+  assert(source >= 0, `deposit player inventory has no ${itemName}`);
+  const start = bot.lines.length;
+  if (mode === 1) {
+    await bot.clickWindow(source, 0, mode);
+  } else {
+    await bot.clickWindow(source, mouseButton === 1 ? 1 : 0, 0);
+    await sleep(100);
+    if (!window.selectedItem || window.selectedItem.name !== itemName) {
+      if (mouseButton === 1) return { window, start, supported: false };
+      assert(false, `${itemName} was not picked up to the cursor`);
+    }
+    await bot.clickWindow(targetSlot, mouseButton, 0);
+  }
+  return { window, start, supported: true };
+}
+
+async function returnCursor(bot) {
+  const window = bot.currentWindow;
+  if (!window || !window.selectedItem) return;
+  const start = Number.isInteger(window.inventoryStart) ? window.inventoryStart : 54;
+  const slot = window.slots.findIndex((item, index) => index >= start && !item);
+  assert(slot >= start, 'could not find a player inventory slot for the rejected cursor item');
+  await bot.clickWindow(slot, 0, 0);
+}
+
+async function clickWithdrawal(bot, itemName, mouseButton, mode, matcher, description) {
+  const window = bot.currentWindow;
+  const slot = findTopItem(window, itemName);
+  assert(slot >= 0, `withdraw menu omitted ${itemName}`);
+  const start = bot.lines.length;
+  await bot.clickWindow(slot, mouseButton, mode);
+  if (matcher) await waitForExchange(bot, window, start, matcher, description);
+  else await assertSameWindow(bot, window, description);
+  return window;
+}
+
 function currentLines(bot, start) {
   return bot.lines.slice(start);
 }
@@ -235,72 +329,130 @@ async function run() {
 
     const menu = await openMenu(a);
     assert(menu && menu.slots && menu.slots.length >= 27, 'GoldBag did not open a chest menu');
-    passed.push('canonical menu opens on the actual server');
+    passed.push('canonical main menu opens on the actual server');
     a.closeWindow(menu);
     await sleep(500);
 
-    await command(a, '/goldbag help', /select items and click Confirm/i, 'command help');
+    await command(a, '/goldbag help', /open the menu|deposit|withdraw/i, 'command help');
     await command(a, '/gb balance', /Balance.*0\.00/i, 'canonical alias');
     await command(a, '/goldbag rates', /raw_iron|diamond/i, 'catalog rates');
     passed.push('rates list the live catalog');
     await command(a, '/goldbag storage status', /schema|healthy|pending/i, 'storage status');
     passed.push('storage status exposes live schema/health/pending state');
 
+    // Commands for deposits and withdrawals execute directly. Keep this first
+    // pair at zero so the exact configured 25 raw iron = G50.00 economics are
+    // still checked without opening a quantity or confirmation menu.
     await clear(a);
     await give(a, 'raw_iron', 25);
-    await openMenu(a);
-    const depositMenu = await clickMenu(a, 12, 'GoldBag Deposit');
-    const ironSlot = depositMenu.slots.slice(0, 45).findIndex(item => item && item.name === 'raw_iron');
-    assert(ironSlot >= 0, 'deposit menu omitted raw iron');
-    await clickMenu(a, ironSlot, 'quantity');
-    await clickMenu(a, 10, 'GoldBag Confirm');
-    const cancelStart = a.lines.length;
-    await a.clickWindow(15, 0, 0);
-    await waitForLine(a, cancelStart, /cancelled/i, 'cancel button');
-    await sleep(300);
-    assert(count(a, 'raw_iron') === 25, 'cancel button consumed resources');
-    await expectBalance(a, '0.00');
-    passed.push('menu deposit quantity and Cancel preserve items and balance');
-
-    await openMenu(a);
-    const exactDeposit = await clickMenu(a, 12, 'GoldBag Deposit');
-    const exactIron = exactDeposit.slots.slice(0, 45).findIndex(item => item && item.name === 'raw_iron');
-    await clickMenu(a, exactIron, 'quantity');
-    const exactStart = a.lines.length;
-    await a.clickWindow(22, 0, 0);
-    await waitForLine(a, exactStart, /exact whole item count/i, 'exact quantity prompt');
-    a.chat('25');
-    await waitForWindow(a, 'GoldBag Confirm');
-
-    await confirmPreview(a, /Deposited.*50\.00/i, 'deposit confirmation');
+    await command(a, '/goldbag deposit raw_iron 25', /Deposited.*50\.00/i, 'direct deposit command');
     await expectBalance(a, '50.00');
-    passed.push('25 raw iron deposits as exactly 50.00 G through preview/confirm');
+    await command(a, '/goldbag withdraw diamond 1', /Withdrew.*1/i, 'direct withdrawal command');
+    assert(count(a, 'diamond') === 1, 'direct withdrawal did not add one diamond');
+    await expectBalance(a, '0.00');
+    passed.push('deposit and withdrawal commands execute directly with exact configured prices');
+
+    // Exercise repeated direct withdrawals before opening the persistent
+    // withdrawal screen.
+    await command(a, `/goldbag admin set ${BOT_A} 200 repeat withdrawal fixture`, /Balance set.*200\.00/i, 'repeat withdrawal balance');
+    await clear(a);
+    await command(a, '/goldbag withdraw diamond 1', /Withdrew.*1/i, 'first repeated withdrawal');
+    await command(a, '/goldbag withdraw diamond 1', /Withdrew.*1/i, 'second repeated withdrawal');
+    assert(count(a, 'diamond') === 2, 'repeated direct withdrawals did not add two diamonds');
+    await expectBalance(a, '100.00');
+    passed.push('repeated direct withdrawals remain independent and journal one item each');
+
+    // Deposit is a virtual chest. Its upper 45 slots stay empty while the
+    // listener consumes player-inventory shift clicks and cursor placements.
+    await clear(a);
+    await give(a, 'raw_iron', 25);
+    await give(a, 'raw_gold', 2);
+    await openMenu(a);
+    let depositMenu = await clickMenu(a, 12, 'GoldBag Deposit');
+    assertDepositLayout(depositMenu);
+    const shift = await clickDepositCursor(a, 'raw_iron', 0, 0, 1);
+    await waitForExchange(a, shift.window, shift.start, /Deposited.*50\.00/i, 'shift-click deposit');
+    assert(count(a, 'raw_iron') === 0, 'shift-click deposit left raw iron in the inventory');
+
+    const cursor = await clickDepositCursor(a, 'raw_gold', 1, 0, 0);
+    await waitForExchange(a, cursor.window, cursor.start, /Deposited.*10\.00/i, 'cursor placement deposit');
+    assert(count(a, 'raw_gold') === 0, 'cursor placement deposit left raw gold in the inventory');
+    await expectBalance(a, '160.00');
+    let interactionBalance = 160;
+    passed.push('deposit chest shift-click and cursor placement journal immediately without Confirm or menu replacement');
+
+    // A right-click picks one item from a two-item stack. Mineflayer exposes
+    // this normal click path on supported protocol versions.
+    await give(a, 'raw_iron', 2);
+    const right = await clickDepositCursor(a, 'raw_iron', 2, 1, 0);
+    if (right.supported) {
+      await waitForExchange(a, right.window, right.start, /Deposited.*2\.00/i, 'right-click single deposit');
+      assert(count(a, 'raw_iron') === 1, 'right-click deposit did not leave one item from the two-item stack');
+      await expectBalance(a, '162.00');
+      interactionBalance = 162;
+      passed.push('right-click cursor placement deposits one item when the client supports split-stack clicks');
+    } else {
+      passed.push('right-click single placement skipped because the connected client did not expose split-stack clicks');
+      await expectBalance(a, '160.00');
+    }
+
+    // Custom and uncatalogued items are rejected at the virtual chest and are
+    // returned to the player inventory.
+    await give(a, 'iron_ingot', 1);
+    const ineligible = await clickDepositCursor(a, 'iron_ingot', 3, 0, 1);
+    await sleep(500);
+    await assertSameWindow(a, ineligible.window, 'ineligible shift-click rejection');
+    assert(count(a, 'iron_ingot') === 1, 'uncatalogued shift-click item was consumed');
+    await expectBalance(a, `${interactionBalance}.00`);
+    await command(a, `/minecraft:give ${a.username} minecraft:raw_iron[custom_name='{"text":"Forged"}'] 1`, null);
+    const custom = await clickDepositCursor(a, 'raw_iron', 4, 0, 0);
+    await sleep(500);
+    await returnCursor(a);
+    await assertSameWindow(a, custom.window, 'custom cursor rejection');
+    assert(count(a, 'raw_iron') >= 2, 'custom cursor item was consumed');
+    await expectBalance(a, `${interactionBalance}.00`);
+    a.closeWindow(depositMenu);
 
     await openMenu(a);
     const withdrawMenu = await clickMenu(a, 14, 'GoldBag Withdraw');
-    const diamondSlot = withdrawMenu.slots.slice(0, 45).findIndex(item => item && item.name === 'diamond');
-    assert(diamondSlot >= 0, 'withdrawal menu omitted diamonds');
-    await clickMenu(a, diamondSlot, 'quantity');
-    await clickMenu(a, 10, 'GoldBag Confirm');
+    assertWithdrawLayout(withdrawMenu);
+    await clickWithdrawal(a, 'diamond', 0, 0, /Withdrew.*1/i, 'left-click one withdrawal');
+    await clickWithdrawal(a, 'raw_iron', 1, 0, /Withdrew.*16/i, 'right-click sixteen withdrawal');
+    const clampedGold = Math.floor((interactionBalance - 82) / 5);
+    await clickWithdrawal(a, 'raw_gold', 0, 1, new RegExp(`Withdrew.*${clampedGold}`), 'shift-click clamped withdrawal');
+    await expectBalance(a, `${interactionBalance - 82 - clampedGold * 5}.00`);
+    passed.push('withdrawal left/right/shift gestures execute in place and clamp to affordability');
 
-    await confirmPreview(a, /Withdrew.*1/i, 'diamond withdrawal confirmation');
-    await sleep(800);
-    assert(count(a, 'diamond') === 1, 'diamond withdrawal did not add exactly one diamond');
-    await expectBalance(a, '0.00');
-    passed.push('one diamond withdrawal consumes 50.00 G and adds one ordinary diamond');
+    // Repeat the shift gesture against a full ordinary inventory. The menu
+    // remains open and the request is rejected without scattering an item.
+    a.closeWindow(withdrawMenu);
+    await clear(a);
+    await command(a, `/goldbag admin set ${BOT_A} 50 capacity fixture`, /Balance set.*50\.00/i, 'capacity balance');
+    await give(a, 'cobblestone', 2304);
+    await openMenu(a);
+    const capacityMenu = await clickMenu(a, 14, 'GoldBag Withdraw');
+    assertWithdrawLayout(capacityMenu);
+    const capacityStart = a.lines.length;
+    await clickWithdrawal(a, 'diamond', 0, 1, null, 'shift-click capacity rejection');
+    await waitForLine(a, capacityStart, /capacity|Insufficient|quantity/i, 'shift-click capacity rejection');
+    assert(count(a, 'diamond') === 0, 'capacity-clamped withdrawal added an item');
+    await expectBalance(a, '50.00');
+    a.closeWindow(capacityMenu);
+    passed.push('withdrawal shift-click clamps to zero when inventory capacity is full');
 
     await clear(a);
+    await command(a, `/goldbag admin set ${BOT_A} 0 reset deposit-all fixture`, /Balance set.*0\.00/i, 'deposit-all balance');
     await give(a, 'raw_iron', 25);
-    await give(a, 'raw_gold', 1);
+    await give(a, 'redstone', 5);
     await openMenu(a);
-    await clickMenu(a, 12, 'GoldBag Deposit');
-    const allMenu = await clickMenu(a, 52, 'GoldBag Confirm');
-    const allSummary = JSON.stringify(allMenu.slots[13]);
-    assert(/RAW_IRON|raw_iron/.test(allSummary) && /RAW_GOLD|raw_gold/.test(allSummary), 'deposit-all omitted resource breakdown');
-
-    await confirmPreview(a, /Deposited.*26/i, 'deposit-all confirmation');
-    await expectBalance(a, '55.00');
-    passed.push('deposit-all previews and consumes multiple resources with the configured prices');
+    depositMenu = await clickMenu(a, 12, 'GoldBag Deposit');
+    assertDepositLayout(depositMenu);
+    const allStart = a.lines.length;
+    await a.clickWindow(52, 0, 0);
+    await waitForExchange(a, depositMenu, allStart, /Deposited.*51\.25/i, 'deposit-all control');
+    assert(count(a, 'raw_iron') === 0 && count(a, 'redstone') === 0, 'deposit-all left eligible items in inventory');
+    await expectBalance(a, '51.25');
+    passed.push('deposit-all control journals multiple resources while leaving the chest open');
 
     await openMenu(a);
     const payStart = a.lines.length;
@@ -308,14 +460,12 @@ async function run() {
     await waitForLine(a, payStart, /recipient and amount/i, 'payment prompt');
     await command(a, `${BOT_B} 5.00`, /Paid.*5\.00/i, 'player payment');
 
-    await expectBalance(a, '50.00');
+    await expectBalance(a, '46.25');
     await expectBalance(b, '5.00');
     passed.push('online two-player payment debits and credits atomically');
 
     await clear(a);
-    await give(a, 'raw_iron', 25);
-    await preview(a, '/goldbag deposit raw_iron 25', /50\.00/i);
-    await confirmPreview(a, /Deposited.*50\.00/i, 'second deposit confirmation');
+    await command(a, `/goldbag admin set ${BOT_A} 100 reset banknote fixture`, /Balance set.*100\.00/i, 'banknote balance reset');
     await expectBalance(a, '100.00');
 
     await openMenu(a);
@@ -443,4 +593,14 @@ if (require.main === module) {
   });
 }
 
-module.exports = { closeBots, connect, findNote, noteIdentity, confirmPreview, waitForWindow };
+module.exports = {
+  assertDepositLayout,
+  assertSameWindow,
+  assertWithdrawLayout,
+  closeBots,
+  connect,
+  findNote,
+  noteIdentity,
+  confirmPreview,
+  waitForWindow,
+};

@@ -3,7 +3,15 @@
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
 const test = require('node:test');
-const { closeBots, connect, findNote, noteIdentity } = require('./player-smoke');
+const {
+  assertDepositLayout,
+  assertSameWindow,
+  assertWithdrawLayout,
+  closeBots,
+  connect,
+  findNote,
+  noteIdentity,
+} = require('./player-smoke');
 
 function fakeBot() {
   const bot = new EventEmitter();
@@ -54,15 +62,26 @@ test('connect resolves spawned clients for normal cleanup', async () => {
   assert.equal(bot.quitCalls, 1);
 });
 
-test('confirmation uses the menu button without sending a command', async () => {
-  const { confirmPreview } = require('./player-smoke');
-  const bot = { currentWindow: { title: 'GoldBag Confirm', slots: [] }, lines: [],
-    clickWindow: async (slot, mouse, mode) => {
-      assert.deepEqual([slot, mouse, mode], [11, 0, 0]);
-      bot.lines.push('Deposited 25 for G50.00.');
-      bot.currentWindow = null;
-    },
-    chat: () => assert.fail('confirmation must not require chat'),
-  };
-  await confirmPreview(bot, /Deposited/, 'button deposit');
+test('deposit layout keeps the virtual chest empty and reserves direct controls', () => {
+  const slots = Array(90).fill(null);
+  for (const [slot, name] of [[45, 'Back to Main menu'], [48, 'Withdraw'], [49, 'Close'], [50, 'Balance and deposit instructions'], [52, 'Deposit all']]) {
+    slots[slot] = { name: 'paper', components: [{ type: 'custom_name', data: { text: name } }] };
+  }
+  assert.doesNotThrow(() => assertDepositLayout({ slots, title: 'GoldBag Deposit 1' }));
+});
+
+test('withdraw layout reserves deposit, close, info and back controls', () => {
+  const slots = Array(90).fill(null);
+  for (const [slot, name] of [[48, 'Deposit'], [49, 'Close'], [50, 'Balance and withdraw instructions'], [51, 'Back to Main menu']]) {
+    slots[slot] = { name: 'paper', components: [{ type: 'custom_name', data: { text: name } }] };
+  }
+  assert.doesNotThrow(() => assertWithdrawLayout({ slots, title: 'GoldBag Withdraw 1' }));
+});
+
+test('direct exchange guards require the same open exchange window', async () => {
+  const window = { title: 'GoldBag Deposit 1', slots: Array(90).fill(null) };
+  const bot = { currentWindow: window };
+  await assertSameWindow(bot, window, 'direct deposit');
+  bot.currentWindow = { ...window };
+  await assert.rejects(assertSameWindow(bot, window, 'replacement'));
 });
