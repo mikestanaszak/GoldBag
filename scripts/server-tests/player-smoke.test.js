@@ -9,7 +9,11 @@ const {
   assertWithdrawLayout,
   closeBots,
   connect,
+  count,
   findNote,
+  findWindowItem,
+  inventoryItems,
+  mainInventoryEmptySlots,
   noteIdentity,
 } = require('./player-smoke');
 
@@ -51,6 +55,35 @@ test('findNote selects the exact copied identity over stale paper', () => {
   const bot = { inventory: { items: () => [stale, copied] } };
   assert.equal(noteIdentity(copied), identity);
   assert.equal(findNote(bot, identity), copied);
+});
+
+test('open chest inventory state is preferred over stale player inventory state', () => {
+  const slots = Array(90).fill(null);
+  const windowItem = { name: 'raw_gold', count: 1 };
+  slots[54] = windowItem;
+  const bot = {
+    currentWindow: { slots, inventoryStart: 54, inventoryEnd: 90 },
+    inventory: {
+      items: () => [{ name: 'raw_gold', count: 2 }],
+      slots: Array(45).fill(null),
+    },
+  };
+  assert.deepEqual(inventoryItems(bot), [windowItem]);
+  assert.equal(count(bot, 'raw_gold'), 1);
+  assert.equal(mainInventoryEmptySlots(bot), 35);
+  bot.currentWindow = null;
+  assert.equal(count(bot, 'raw_gold'), 2);
+});
+
+test('window item lookup can select custom metadata over a plain stack', () => {
+  const plain = { name: 'raw_iron', count: 1 };
+  const custom = { name: 'raw_iron', count: 1, components: [{ type: 'custom_name', data: { text: 'Forged' } }] };
+  const slots = Array(90).fill(null);
+  slots[54] = plain;
+  slots[55] = custom;
+  const window = { slots, inventoryStart: 54, inventoryEnd: 90 };
+  assert.equal(findWindowItem(window, 'raw_iron'), 54);
+  assert.equal(findWindowItem(window, 'raw_iron', item => /forged/i.test(JSON.stringify(item.components))), 55);
 });
 
 test('connect resolves spawned clients for normal cleanup', async () => {

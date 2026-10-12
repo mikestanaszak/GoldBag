@@ -17,6 +17,7 @@ import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
 import org.bukkit.event.inventory.ClickType;
+import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -229,6 +230,7 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
         if (!holder.playerId().equals(event.getWhoClicked().getUniqueId()) || event.getRawSlot() < 0) return;
         Player player = (Player) event.getWhoClicked();
         int slot = event.getRawSlot();
+        if (collectsAcrossMenu(event.getClick(), event.getAction())) return;
         if ((holder.screen() == MenuHolder.Screen.DEPOSIT || holder.screen() == MenuHolder.Screen.WITHDRAW)
                 && holder.catalogRevision() != quotes.catalogRevision()) {
             tell(player, "This menu expired after a catalog reload.");
@@ -288,6 +290,10 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
             } else if (slot == 11) { confirm(player, holder.quoteId()); closeNextTick(player); }
             else if (slot == 15) { cancel(player, holder.quoteId()); closeNextTick(player); }
         }
+    }
+
+    static boolean collectsAcrossMenu(ClickType click, InventoryAction action) {
+        return click == ClickType.DOUBLE_CLICK || action == InventoryAction.COLLECT_TO_CURSOR;
     }
 
     /** Handles the virtual deposit chest without allowing Bukkit to store items in it. */
@@ -353,6 +359,10 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
         Player player = (Player) event.getWhoClicked();
         if (guarded(player.getUniqueId())) { event.setCancelled(true); return; }
         if (!(event.getInventory().getHolder() instanceof MenuHolder holder)) return;
+        if (!holder.playerId().equals(player.getUniqueId())) { event.setCancelled(true); return; }
+        boolean exchangeMenu = holder.screen() == MenuHolder.Screen.DEPOSIT || holder.screen() == MenuHolder.Screen.WITHDRAW;
+        int topSize = event.getView().getTopInventory().getSize();
+        if (exchangeMenu && event.getRawSlots().stream().allMatch(slot -> slot >= topSize)) return;
         if (holder.screen() != MenuHolder.Screen.DEPOSIT) { event.setCancelled(true); return; }
         event.setCancelled(true);
         ItemStack oldCursor = event.getOldCursor();

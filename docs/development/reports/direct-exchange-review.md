@@ -85,3 +85,19 @@ verify balances, enabled flags, materials, and storage settings remain intact.
 Source review is clear after the worker’s fixes. Integration should treat the
 native player run as required evidence for gesture semantics and lifecycle
 behavior; the focused unit suite alone cannot certify the actual chest UI.
+
+## Follow-up: bottom-inventory gestures — resolved
+
+The controller now checks `ClickType.DOUBLE_CLICK` and
+`InventoryAction.COLLECT_TO_CURSOR` before the bottom-inventory allowance for
+every `MenuHolder`. The event remains cancelled, so a matching custom item
+cannot sweep protected menu controls. The focused interaction test covers both
+signals independently and the combined case.
+
+The controller also verifies the holder player identity in drag events and
+allows a drag only when every raw slot is in the player’s bottom inventory for
+deposit/withdraw views. Mixed or top-slot drags remain cancelled or route
+through the deposit handler, so controls cannot move and eligible deposits
+still use the journaled path. This resolves the conditional P2 and the
+bottom-only drag UX gap. Native player verification should still exercise both
+bottom-only rearrangement and mixed top/bottom drags.

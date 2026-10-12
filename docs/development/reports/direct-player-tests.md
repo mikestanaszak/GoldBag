@@ -13,9 +13,10 @@ The harness-only checks are safe to run without a server:
 node --test scripts/server-tests/player-smoke.test.js
 ```
 
-Local result for this harness update: 8 tests passed, including connection
-cleanup, exact copied-note selection, deposit layout controls, withdrawal
-layout controls, and the same-window direct-exchange guard. A live run was not
+Local result for this harness update: 10 tests passed, including connection
+cleanup, exact copied-note selection, open-window inventory-state accounting,
+plain-versus-custom item selection, deposit layout controls, withdrawal layout
+controls, and the same-window direct-exchange guard. A live run was not
 performed here; it is controller-owned and must use the isolated fixture below.
 
 Prepare the ignored runtime once with Node 22 or newer:

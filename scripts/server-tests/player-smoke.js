@@ -91,6 +91,11 @@ async function command(bot, text, matcher, description = text) {
 }
 
 function inventoryItems(bot) {
+  const window = bot.currentWindow;
+  if (window && Array.isArray(window.slots)
+      && Number.isInteger(window.inventoryStart) && Number.isInteger(window.inventoryEnd)) {
+    return window.slots.slice(window.inventoryStart, window.inventoryEnd).filter(Boolean);
+  }
   return bot.inventory.items();
 }
 
@@ -114,6 +119,11 @@ function findNote(bot, identity = null) {
 
 function mainInventoryEmptySlots(bot) {
   // Mineflayer uses slots 9..44 for the 36 ordinary player inventory slots.
+  const window = bot.currentWindow;
+  if (window && Array.isArray(window.slots)
+      && Number.isInteger(window.inventoryStart) && Number.isInteger(window.inventoryEnd)) {
+    return window.slots.slice(window.inventoryStart, window.inventoryEnd).filter((item) => item == null).length;
+  }
   return bot.inventory.slots.slice(9, 45).filter((item) => item == null).length;
 }
 
@@ -148,11 +158,11 @@ function assertWithdrawLayout(window) {
   assertMenuControl(window, 51, /back|main|menu/i, 'withdraw back');
 }
 
-function findWindowItem(window, itemName) {
+function findWindowItem(window, itemName, predicate = () => true) {
   const start = Number.isInteger(window.inventoryStart) ? window.inventoryStart : 54;
   const end = Number.isInteger(window.inventoryEnd) ? window.inventoryEnd : window.slots.length;
   for (let slot = start; slot < end; slot += 1) {
-    if (window.slots[slot] && window.slots[slot].name === itemName) return slot;
+    if (window.slots[slot] && window.slots[slot].name === itemName && predicate(window.slots[slot])) return slot;
   }
   return -1;
 }
@@ -172,9 +182,9 @@ async function waitForExchange(bot, window, start, matcher, description) {
   await assertSameWindow(bot, window, description);
 }
 
-async function clickDepositCursor(bot, itemName, targetSlot, mouseButton = 0, mode = 0) {
+async function clickDepositCursor(bot, itemName, targetSlot, mouseButton = 0, mode = 0, predicate) {
   const window = bot.currentWindow;
-  const source = findWindowItem(window, itemName);
+  const source = findWindowItem(window, itemName, predicate);
   assert(source >= 0, `deposit player inventory has no ${itemName}`);
   const start = bot.lines.length;
   if (mode === 1) {
@@ -405,7 +415,8 @@ async function run() {
     assert(count(a, 'iron_ingot') === 1, 'uncatalogued shift-click item was consumed');
     await expectBalance(a, `${interactionBalance}.00`);
     await command(a, `/minecraft:give ${a.username} minecraft:raw_iron[custom_name='{"text":"Forged"}'] 1`, null);
-    const custom = await clickDepositCursor(a, 'raw_iron', 4, 0, 0);
+    const custom = await clickDepositCursor(a, 'raw_iron', 4, 0, 0,
+      item => /forged/i.test(itemText(item)));
     await sleep(500);
     await returnCursor(a);
     await assertSameWindow(a, custom.window, 'custom cursor rejection');
@@ -599,7 +610,11 @@ module.exports = {
   assertWithdrawLayout,
   closeBots,
   connect,
+  count,
   findNote,
+  findWindowItem,
+  inventoryItems,
+  mainInventoryEmptySlots,
   noteIdentity,
   confirmPreview,
   waitForWindow,
