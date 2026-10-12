@@ -2,7 +2,7 @@
 
 Repository: https://github.com/mikestanaszak/GoldBag
 
-Current task complete (2026-10-12): PR #4 merged immediate chest deposits, direct withdrawals and approved revised resource prices. Published v2.1.0 is active and healthy in maya-funtimes. Read the latest STATUS section and direct-release-deployment report for verification, checksum, backup and manual drag/26.3/Geyser limits. No implementation/release/deployment remains pending. Historical rebuild instructions below describe completed work; new work should start from fresh main.
+Current follow-up (2026-10-12): the owner reports lag and invalid-item spam with immediate per-stack deposits in v2.1.0. Implement true editable chest staging plus a single Deposit button and safe responsive withdrawal input on `codex/batch-deposit-chest`. Preserve approved prices and existing account data; see new batch reports and latest STATUS. v2.1.0 is the currently installed release until this follow-up passes checks and deploys. Historical sections below are completed work.
 
 Development branch: `codex/goldbag-rebuild`. Original base: `45c3492`.
 

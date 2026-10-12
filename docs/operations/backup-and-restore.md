@@ -44,3 +44,7 @@ With the server running and storage healthy, an operator can run `/goldbag stora
 6. Restart the destination and check balances, notes, transaction IDs, and recovery records before allowing players back in. Unresolved `PREPARED` or `APPLYING` operations remain quarantined and require the normal recovery procedure; the tool does not guess whether physical inventory changes occurred.
 
 An import failure must leave the destination unchanged and the source usable. An older GoldBag build must refuse a newer schema rather than guessing. Keep the source server stopped or isolated until the restored destination has been verified.
+
+## Interrupted deposit chests
+
+Include `plugins/GoldBag/deposit-drafts/` in backups. Draft files record the player and chest snapshots for a staged deposit session. After an abrupt interruption, retain these files alongside the SQLite journal and player data for manual investigation. GoldBag does not automatically restore their items: a snapshot alone cannot establish which item movements Minecraft saved or whether a journaled deposit completed. Do not refund both the recorded items and a completed deposit balance. Compare the session, player inventory and any pending operation before resolving an individual case.
