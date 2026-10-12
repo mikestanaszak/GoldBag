@@ -15,3 +15,9 @@ Publication workflow `38295432460` completed successfully and published [v2.2.0]
 - Deployment state: `/tmp/goldbag-batch-deployment.json`. Production validation establishes startup/storage/rates; actual-player behavior was tested on the isolated Paper1.21.11 server as described above.
 
 Native Paper26.3/Geyser gesture flows and native-client drag remain unverified. The initial draft baseline is persisted before staging is allowed; later native changes are snapshotted together. Abrupt-crash investigation uses baseline/latest evidence and SQLite pending operations manually, with no automatic refunds. All fixtures remained isolated; no production inventories or account balances were reset.
+
+## Affordable grouped withdrawal patch
+
+PR #7 merged at `132b65263c2c8de531b5074344f0fd3ad3347627` after exact-head checks. Grouped queued left-clicks clamp to remaining affordability/capacity; single clicks and command exact-count behavior stay unchanged. Full24 actual-player checks and same-artifact no-reset restart passed; see batch-player-tests.md for the snapshot and logs. Release run38296302348 succeeded and published v2.2.1; published checksum and packaged verifier passed.
+
+Final activation PASS: GoldBag2.2.1 enabled on Paper26.3 build177/Java25 with SQLite and18 resources; RCON confirms2.2.1 and approved18 prices, Docker running/healthy. All4 account balance/revision rows preserved; pending0; quick_check ok. Final deployment state `/tmp/goldbag-batch-patch-deployment.json`. Backup `/opt/stacks/maya-funtimes/data/plugin-backups/2026-10-12-batch-chest-2.2.1` preserves v2.2.0 and its complete stopped plugin data. The published2.2.1 JAR was installed atomically with mode0644, UID/GID1000. SHA-256 `f8f03f5e50fb2437774f5b21a676755a4e098d03916813c963585fac796fc34e`. No live fixture was run.

@@ -1,4 +1,4 @@
-Latest state (2026-10-12): batch chest request complete. PR #6 merged; v2.2.0 is published and installed/running healthy. Fill native chest then click Deposit; unsold items return, rapid withdrawals queue by session. Prices/balances preserved. Reports: batch-deposit.md, batch-deposit-review.md, batch-player-tests.md, batch-release-deployment.md. Native26.3/Geyser gestures and drag remain manual; abrupt-crash draft reconciliation remains manual.
+Latest state (2026-10-12): batch chest request complete. PRs #6/#7 merged; v2.2.1 is published and installed/running healthy. Patch24 player checks and same-artifact restart PASS. Fill native chest then click Deposit; unsold items return, rapid withdrawals queue by session. Prices/balances preserved. Reports: batch-deposit.md, batch-deposit-review.md, batch-player-tests.md, batch-release-deployment.md. Native26.3/Geyser gestures and drag remain manual; abrupt-crash draft reconciliation remains manual.
 
 # Resume GoldBag
 
