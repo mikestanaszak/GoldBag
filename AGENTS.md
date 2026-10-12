@@ -6,7 +6,7 @@ The executable task plan is `docs/superpowers/plans/2026-09-05-goldbag-rebuild.m
 
 ## Current follow-up (2026-10-12)
 
-The user requests immediate chest-style deposits and direct withdrawals without confirmation or quantity screens. Update the open UI PR #4 on `codex/ui-confirmation-experience`; its prior confirmation UX is superseded for resources. Banknotes may retain their existing confirmation. The user approved applying the revised resource table; see the accepted specification amendment and resource-value-review report.
+Immediate chest-style deposits and direct withdrawals without confirmation or quantity screens are complete in merged PR #4 and published/installed v2.1.0. Preserve this accepted UX for future changes; start new work from fresh main. Banknotes may retain their existing confirmation. The user approved applying the revised resource table; see the accepted specification amendment and resource-value-review report.
 
 The GoldBag workflow skill records later standing authorization for implementation, review, passing-check integration, semantic release and appropriate local `maya-funtimes` installation/restart. It supersedes historical PR-only instructions below. Keep the Spigot 1.17/Java 16 baseline; use Java 25 for Paper 26.3 runtime validation.
 

@@ -2,7 +2,7 @@
 
 Repository: https://github.com/mikestanaszak/GoldBag
 
-Current follow-up (2026-10-12): update open PR #4 on `codex/ui-confirmation-experience` with immediate chest deposits and direct withdrawals. The user's new request supersedes quantity/confirmation screens for resource exchanges. Resource-value review is in `docs/development/reports/resource-value-review.md`; the user approved applying the proposed values. Use GoldBag workflow/development/integration/deployment skills for the later standing authorization. Historical rebuild instructions below describe completed work.
+Current task complete (2026-10-12): PR #4 merged immediate chest deposits, direct withdrawals and approved revised resource prices. Published v2.1.0 is active and healthy in maya-funtimes. Read the latest STATUS section and direct-release-deployment report for verification, checksum, backup and manual drag/26.3/Geyser limits. No implementation/release/deployment remains pending. Historical rebuild instructions below describe completed work; new work should start from fresh main.
 
 Development branch: `codex/goldbag-rebuild`. Original base: `45c3492`.
 
