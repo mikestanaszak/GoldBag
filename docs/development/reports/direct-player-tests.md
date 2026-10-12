@@ -90,4 +90,4 @@ Coverage: direct exact commands, repeated direct withdrawals, shift-click and cu
 
 Log: /tmp/goldbag-direct-player-live.log. Drag packets, death/disconnect during APPLYING and native 26.3/Geyser player behavior remain manual/future fault-validation limits. Startup alone is not a player-flow pass.
 
-No-reset restart PASS after clean native-server stop/start. A/B balances and issued note persisted; one redemption raised A to G90.00, copied replay left B at G15.00. Log: /tmp/goldbag-direct-player-restart.log. Server stopped cleanly afterward. Published2.1.0 artifact verification and live deployment evidence are in direct-release-deployment.md.
+No-reset restart PASS after clean native-server stop/start. A/B balances and issued note persisted; one redemption raised A to G90.00, copied replay left B at G15.00. Log: /tmp/goldbag-direct-player-restart.log. Server stopped cleanly afterward. Published 2.1.0 artifact verification and live deployment evidence are in direct-release-deployment.md.

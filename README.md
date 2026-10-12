@@ -10,8 +10,8 @@ The SQLite rebuild is merged into `main`. The latest published version is **2.1.
 
 | Platform | Status |
 | --- | --- |
-| Paper 26.3 build 177, Java 25, Linux | Published2.1.0 startup/storage/rates and existing-account preservation pass; native player/drag/Geyser checks remain manual |
-| Paper 1.21.11 build 132, Java 25, Linux | Passed20 direct-exchange player checks and clean restart/note replay |
+| Paper 26.3 build 177, Java 25, Linux | Published 2.1.0 startup/storage/rates and existing-account preservation pass; native player/drag/Geyser checks remain manual |
+| Paper 1.21.11 build 132, Java 25, Linux | Passed 20 direct-exchange player checks and clean restart/note replay |
 | Other Bukkit/Spigot-compatible builds from Minecraft 1.17 onward | Targeted by the API; exact builds still need testing |
 | Fabric, Forge, vanilla servers, and Realms | Not supported |
 
