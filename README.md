@@ -6,16 +6,16 @@ GoldBag is a server-side Minecraft plugin for Bukkit/Spigot-compatible servers, 
 
 ## Current status and compatibility
 
-The SQLite rebuild is merged into `main`. The current version is **2.0.0-SNAPSHOT**, a development build.
+The SQLite rebuild is merged into `main`. The latest published version is **2.1.0**; download its JAR and checksum from [GitHub Releases](https://github.com/mikestanaszak/GoldBag/releases/tag/v2.1.0). Source builds retain the snapshot version until release preparation.
 
 | Platform | Status |
 | --- | --- |
-| Paper 26.3 build 175, Java 25, Linux | Startup, storage, catalog and console checks pass; player smoke blocked by missing client protocol data |
-| Paper 1.21.11 build 132, Java 21, Windows | Passed local server and automated player smoke tests |
+| Paper 26.3 build 177, Java 25, Linux | Published 2.1.0 startup/storage/rates and existing-account preservation pass; native player/drag/Geyser checks remain manual |
+| Paper 1.21.11 build 132, Java 25, Linux | Passed 20 direct-exchange player checks and clean restart/note replay |
 | Other Bukkit/Spigot-compatible builds from Minecraft 1.17 onward | Targeted by the API; exact builds still need testing |
 | Fabric, Forge, vanilla servers, and Realms | Not supported |
 
-Recorded validation includes 79 Java tests, six test-client lifecycle/confirmation tests, and 17 actual-player checks on Paper 1.21.11, plus restart persistence, banknotes, operator recovery, and export/restore. Paper 26.3 requires Java 25; its player flows remain unverified because the available Mineflayer clients lack 26.3 protocol data. See the [compatibility matrix](docs/operations/compatibility.md) for exact evidence and limits.
+Recorded direct-exchange validation includes 83 Java tests, eleven test-client checks, and 20 actual-player checks on Paper 1.21.11, plus restart persistence, banknotes, operator recovery, and export/restore. Paper 26.3 requires Java 25; its player flows remain unverified because the available Mineflayer clients lack 26.3 protocol data. See the [compatibility matrix](docs/operations/compatibility.md) for exact evidence and limits.
 
 ## Features
 
