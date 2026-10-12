@@ -15,12 +15,12 @@ The SQLite rebuild is merged into `main`. The current version is **2.0.0-SNAPSHO
 | Other Bukkit/Spigot-compatible builds from Minecraft 1.17 onward | Targeted by the API; exact builds still need testing |
 | Fabric, Forge, vanilla servers, and Realms | Not supported |
 
-Recorded validation includes 69 Java tests, five test-client lifecycle tests, and 16 actual-player checks on the earlier Paper 1.21.11 build, plus restart persistence, banknotes, operator recovery, and export/restore. Paper 26.3 requires Java 25; its player flows remain unverified because the available Mineflayer clients lack 26.3 protocol data. See the [compatibility matrix](docs/operations/compatibility.md) for exact evidence and limits.
+Recorded validation includes 79 Java tests, six test-client lifecycle/confirmation tests, and 17 actual-player checks on Paper 1.21.11, plus restart persistence, banknotes, operator recovery, and export/restore. Paper 26.3 requires Java 25; its player flows remain unverified because the available Mineflayer clients lack 26.3 protocol data. See the [compatibility matrix](docs/operations/compatibility.md) for exact evidence and limits.
 
 ## Features
 
 - One balance per Minecraft UUID, shared across worlds, with exact cent amounts.
-- Resource deposits and withdrawals through commands and menus, with a preview and confirmation before inventory changes.
+- Resource deposits and withdrawals through commands and menus, with a preview and clickable confirmation before inventory changes.
 - Player payments, one-time redeemable banknotes, and a balance leaderboard.
 - Configurable prices, messages, permissions, and transaction limits.
 - Local SQLite storage, JSON exports, and an offline restore tool.
@@ -81,12 +81,17 @@ With 25 ordinary raw iron in your main inventory:
 
 ```text
 /goldbag deposit raw_iron 25
-/goldbag confirm
-/goldbag withdraw diamond 1
-/goldbag confirm
 ```
 
-The deposit credits 50.00 G and the diamond costs 50.00 G. Items stay in your inventory until confirmation. Use `/goldbag cancel` to discard a preview.
+Review the items, value and resulting balance, then click the green **Confirm** button. Next run:
+
+```text
+/goldbag withdraw diamond 1
+```
+
+Click **Confirm** to receive the diamond. The menu also offers a red **Cancel** button; closing it cancels the preview.
+
+The deposit credits 50.00 G and the diamond costs 50.00 G. Items stay in your inventory until confirmation. You can do the same exchange entirely from `/goldbag`: click Deposit or Withdraw Resources, choose a resource and quantity, then click Confirm. Deposit All also uses the confirmation screen. Pay Player, Create Banknote and Exact Count collect their input privately in chat. `/goldbag help` lists the commands.
 
 | Command | Purpose |
 | --- | --- |

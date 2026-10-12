@@ -24,6 +24,7 @@ import org.bukkit.event.player.PlayerSwapHandItemsEvent;
 import org.bukkit.event.entity.EntityPickupItemEvent;
 import org.bukkit.event.block.Action;
 import org.bukkit.inventory.EquipmentSlot;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
@@ -162,6 +163,14 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
             if (operation.equals(guards.get(player))) guards.remove(player);
         }
     }
+    static boolean confirmationMatches(MenuHolder holder, QuoteBook.Quote quote, long currentRevision) {
+        return holder != null && holder.screen() == MenuHolder.Screen.CONFIRM
+                && quote != null && holder.quoteId() != null
+                && holder.playerId().equals(quote.player())
+                && holder.quoteId().equals(quote.id())
+                && holder.catalogRevision() == currentRevision
+                && quote.catalogRevision() == currentRevision;
+    }
     /** Clears a player guard when the player leaves; the operation callback remains token-safe. */
     private void unguard(UUID player) { synchronized (guardedPlayers) { guardedPlayers.remove(player); } }
     private void clearGuards() { synchronized (guardedPlayers) { guardedPlayers.clear(); } }
@@ -203,7 +212,11 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
     @EventHandler public void onJoin(PlayerJoinEvent event) { if (healthy) ensureAccount(event.getPlayer()); }
     @EventHandler public void onQuit(PlayerQuitEvent event) { quotes.remove(event.getPlayer().getUniqueId(), quotes.current(event.getPlayer().getUniqueId()).map(QuoteBook.Quote::id).orElse(UUID.randomUUID())); invalidateQuoteRequest(event.getPlayer().getUniqueId()); unguard(event.getPlayer().getUniqueId()); }
     @EventHandler public void onClose(InventoryCloseEvent event) {
-        if (event.getInventory().getHolder() instanceof MenuHolder) { quotes.remove(event.getPlayer().getUniqueId(), quotes.current(event.getPlayer().getUniqueId()).map(QuoteBook.Quote::id).orElse(UUID.randomUUID())); invalidateQuoteRequest(event.getPlayer().getUniqueId()); }
+        if (event.getInventory().getHolder() instanceof MenuHolder holder
+                && holder.screen() == MenuHolder.Screen.CONFIRM
+                && holder.quoteId() != null) {
+            quotes.remove(event.getPlayer().getUniqueId(), holder.quoteId());
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGHEST, ignoreCancelled = true)
@@ -215,14 +228,26 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
         if (!holder.playerId().equals(event.getWhoClicked().getUniqueId()) || event.getRawSlot() < 0) return;
         Player player = (Player) event.getWhoClicked();
         int slot = event.getRawSlot();
+        if ((holder.screen() == MenuHolder.Screen.DEPOSIT || holder.screen() == MenuHolder.Screen.WITHDRAW)
+                && holder.catalogRevision() != quotes.catalogRevision()) {
+            tell(player, "This menu expired after a catalog reload.");
+            closeNextTick(player);
+            return;
+        }
         if ((holder.screen() == MenuHolder.Screen.DEPOSIT && slot == 49)
                 || (holder.screen() == MenuHolder.Screen.WITHDRAW && slot == 49)
                 || (holder.screen() == MenuHolder.Screen.TOP && slot == 22)
                 || (holder.screen() == MenuHolder.Screen.PREVIEW && slot == 26)) {
-            player.closeInventory();
+            closeNextTick(player);
         } else if (holder.screen() == MenuHolder.Screen.MAIN) {
-            if (slot == 12) menus.openDeposit(player); else if (slot == 14) menus.openWithdraw(player, 1);
-            else if (slot == 15) { player.closeInventory(); startPayPrompt(player); } else if (slot == 16) { player.closeInventory(); startNotePrompt(player); }
+            if (slot == 12) {
+                if (!permissions.has(player, "goldbag.deposit", "goldpurse.use")) tell(player, message("permission", "You do not have permission."));
+                else menus.openDeposit(player);
+            } else if (slot == 14) {
+                if (!permissions.has(player, "goldbag.withdraw", "goldpurse.use")) tell(player, message("permission", "You do not have permission."));
+                else menus.openWithdraw(player, 1);
+            }
+            else if (slot == 15) { closeNextTick(player); startPayPrompt(player); } else if (slot == 16) { closeNextTick(player); startNotePrompt(player); }
             else if (slot == 22) { if (!permissions.has(player, "goldbag.top", "goldpurse.use")) tell(player, message("permission", "You do not have permission.")); else showTop(player, 1); }
             else if (slot == 10) { if (!permissions.has(player, "goldbag.balance", "goldpurse.use")) tell(player, message("permission", "You do not have permission.")); else showBalance(player, player.getUniqueId()); }
         } else if (holder.screen() == MenuHolder.Screen.DEPOSIT && slot < 45) {
@@ -231,6 +256,8 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
             if (index < holder.options().size()) menus.openQuantity(player, config().catalog().require(holder.options().get(index)), QuoteBook.Kind.DEPOSIT);
         } else if (holder.screen() == MenuHolder.Screen.DEPOSIT && slot == 45 && holder.page() > 1) {
             menus.openDeposit(player, holder.page() - 1);
+        } else if (holder.screen() == MenuHolder.Screen.DEPOSIT && slot == 53 && holder.hasNext()) {
+            menus.openDeposit(player, holder.page() + 1);
         } else if (holder.screen() == MenuHolder.Screen.DEPOSIT && slot == 52) {
             quoteDepositAll(player);
         } else if (holder.screen() == MenuHolder.Screen.WITHDRAW && slot < 45) {
@@ -246,12 +273,22 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
         } else if (holder.screen() == MenuHolder.Screen.TOP && slot == 26 && holder.hasNext()) {
             showTop(player, holder.page() + 1);
         } else if (holder.screen() == MenuHolder.Screen.PREVIEW) {
-            Resource resource = config().catalog().require(holder.selection());
+            if (holder.catalogRevision() != quotes.catalogRevision()) { tell(player, "This quantity menu expired after a catalog reload."); closeNextTick(player); return; }
+            Resource resource;
+            try { resource = config().catalog().require(holder.selection()); }
+            catch (RuntimeException error) { tell(player, "This quantity menu expired after a catalog reload."); closeNextTick(player); return; }
             if (slot == 10) selectQuantity(player, resource, 1, false, holder.selectionKind());
             else if (slot == 12) selectQuantity(player, resource, 16, false, holder.selectionKind());
             else if (slot == 14) selectQuantity(player, resource, 64, false, holder.selectionKind());
             else if (slot == 16) selectQuantity(player, resource, 0, true, holder.selectionKind());
             else if (slot == 22) startExactWithdrawalPrompt(player, resource, holder.selectionKind());
+        } else if (holder.screen() == MenuHolder.Screen.CONFIRM) {
+            QuoteBook.Quote current = quotes.current(player.getUniqueId()).orElse(null);
+            if (!confirmationMatches(holder, current, quotes.catalogRevision())) {
+                tell(player, "This confirmation expired; request a new preview.");
+                closeNextTick(player);
+            } else if (slot == 11) { confirm(player, holder.quoteId()); closeNextTick(player); }
+            else if (slot == 15) { cancel(player, holder.quoteId()); closeNextTick(player); }
         }
     }
 
@@ -333,9 +370,9 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
         submit(() -> store().account(playerId).orElseThrow(() -> new IllegalStateException("Account is not initialized")), account -> {
             if (!quoteRequestActive(playerId, request, revision)) return;
             if (amount > config().settings().maxBalance() - account.balance()) { tell(player, "That deposit would exceed the maximum balance."); return; }
-            quotes.put(playerId, QuoteBook.Kind.DEPOSIT, resource.material(), count, amount,
+            QuoteBook.Quote quote = quotes.put(playerId, QuoteBook.Kind.DEPOSIT, resource.material(), count, amount,
                     revision, config().settings().quoteTimeoutSeconds());
-            tell(player, "Deposit preview: " + count + " " + resource.id() + " for " + money(amount) + "; balance after: " + money(Math.addExact(account.balance(), amount)) + ". Use /goldbag confirm or /goldbag cancel.");
+            menus.openConfirmation(player, quote, account.balance());
         }, player, "Could not read your balance.");
     }
 
@@ -362,9 +399,9 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
         submit(() -> store().account(playerId).orElseThrow(() -> new IllegalStateException("Account is not initialized")), account -> {
             if (!quoteRequestActive(playerId, request, revision)) return;
             if (totalAmount > config().settings().maxBalance() - account.balance()) { tell(player, "That deposit would exceed the maximum balance."); return; }
-            quotes.put(playerId, QuoteBook.Kind.DEPOSIT, "*", totalItems, totalAmount,
+            QuoteBook.Quote quote = quotes.put(playerId, QuoteBook.Kind.DEPOSIT, "*", totalItems, totalAmount,
                     revision, config().settings().quoteTimeoutSeconds(), payload);
-            tell(player, "Deposit-all preview: " + entries.stream().map(value -> value.replace('=', 'x')).collect(java.util.stream.Collectors.joining(", ")) + " for " + money(totalAmount) + "; balance after: " + money(account.balance() + totalAmount) + ". Use /goldbag confirm or /goldbag cancel.");
+            menus.openConfirmation(player, quote, account.balance());
         }, player, "Could not read your balance.");
     }
 
@@ -373,11 +410,14 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
         beginPrompt(player, new StringPrompt() {
             @Override public String getPromptText(ConversationContext context) { return "Enter recipient and amount (for example: Alice 2.50), or cancel:"; }
             @Override public org.bukkit.conversations.Prompt acceptInput(ConversationContext context, String input) {
-                if (input == null || input.trim().equalsIgnoreCase("cancel")) { tell(player, "Payment cancelled."); return null; }
+                if (input == null || input.trim().equalsIgnoreCase("cancel")) { promptTell(player, "Payment cancelled."); return null; }
                 String[] parts = input.trim().split("\\s+", 3);
-                if (parts.length != 2) { tell(player, "Use: <player|uuid> <amount>"); return this; }
-                try { commands.onCommand(player, getCommand("goldbag"), "goldbag", new String[]{"pay", parts[0], parts[1]}); return null; }
-                catch (RuntimeException error) { tell(player, ChatColor.RED + error.getMessage()); return this; }
+                if (parts.length != 2) { promptTell(player, "Use: <player|uuid> <amount>"); return this; }
+                String[] commandArgs = new String[]{"pay", parts[0], parts[1]};
+                try { CommandParser.parse(commandArgs); }
+                catch (RuntimeException error) { promptTell(player, ChatColor.RED + error.getMessage()); return this; }
+                runMain(() -> commands.onCommand(player, getCommand("goldbag"), "goldbag", commandArgs));
+                return null;
             }
         });
     }
@@ -387,9 +427,12 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
         beginPrompt(player, new StringPrompt() {
             @Override public String getPromptText(ConversationContext context) { return "Enter banknote amount, or cancel:"; }
             @Override public org.bukkit.conversations.Prompt acceptInput(ConversationContext context, String input) {
-                if (input == null || input.trim().equalsIgnoreCase("cancel")) { tell(player, "Banknote cancelled."); return null; }
-                try { commands.onCommand(player, getCommand("goldbag"), "goldbag", new String[]{"note", input.trim()}); return null; }
-                catch (RuntimeException error) { tell(player, ChatColor.RED + error.getMessage()); return this; }
+                if (input == null || input.trim().equalsIgnoreCase("cancel")) { promptTell(player, "Banknote cancelled."); return null; }
+                String[] commandArgs = new String[]{"note", input.trim()};
+                try { CommandParser.parse(commandArgs); }
+                catch (RuntimeException error) { promptTell(player, ChatColor.RED + error.getMessage()); return this; }
+                runMain(() -> commands.onCommand(player, getCommand("goldbag"), "goldbag", commandArgs));
+                return null;
             }
         });
     }
@@ -412,9 +455,9 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
             int selected = chooseMax ? maximum : count;
             if (selected < 1) { tell(player, "Insufficient balance or inventory capacity."); return; }
             long amount = config().catalog().withdrawalCost(resource.material(), selected);
-            quotes.put(playerId, QuoteBook.Kind.WITHDRAW, resource.material(), selected, amount,
+            QuoteBook.Quote quote = quotes.put(playerId, QuoteBook.Kind.WITHDRAW, resource.material(), selected, amount,
                     revision, config().settings().quoteTimeoutSeconds());
-            tell(player, "Withdrawal preview: " + selected + " " + resource.id() + " for " + money(amount) + "; balance after: " + money(account.balance() - amount) + ". Use /goldbag confirm or /goldbag cancel.");
+            menus.openConfirmation(player, quote, account.balance());
         }, player, "Could not read your balance.");
     }
 
@@ -426,22 +469,23 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
         submit(() -> store().account(playerId).orElseThrow(() -> new IllegalStateException("Account is not initialized")), account -> {
             if (!quoteRequestActive(playerId, request, revision)) return;
             if (amount > account.balance()) { tell(player, "Insufficient balance for that banknote."); return; }
-            quotes.put(playerId, QuoteBook.Kind.NOTE, null, 0, amount,
+            QuoteBook.Quote quote = quotes.put(playerId, QuoteBook.Kind.NOTE, null, 0, amount,
                     revision, config().settings().quoteTimeoutSeconds());
-            tell(player, "Banknote preview for " + money(amount) + "; balance after: " + money(account.balance() - amount) + ". Use /goldbag confirm or /goldbag cancel.");
+            menus.openConfirmation(player, quote, account.balance());
         }, player, "Could not read your balance.");
     }
 
     private void selectQuantity(Player player, Resource resource, int count, boolean max, QuoteBook.Kind kind) {
-        player.closeInventory();
+        closeNextTick(player);
         if (kind == QuoteBook.Kind.DEPOSIT) {
-            if (max) count = inventory.count(player.getInventory(), Material.matchMaterial(resource.material()));
+            if (max) count = MenuService.depositMaxCount(inventory.count(player.getInventory(), Material.matchMaterial(resource.material())),
+                    config().settings().maxItemsPerTransaction());
             quoteDeposit(player, resource, count);
         } else quoteWithdrawal(player, resource, count, max);
     }
 
     private void startExactWithdrawalPrompt(Player player, Resource resource, QuoteBook.Kind kind) {
-        player.closeInventory();
+        closeNextTick(player);
         if (kind == QuoteBook.Kind.DEPOSIT) {
             beginExactPrompt(player, resource, true);
         } else beginExactPrompt(player, resource, false);
@@ -451,37 +495,56 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
         beginPrompt(player, new StringPrompt() {
             @Override public String getPromptText(ConversationContext context) { return "Enter an exact whole item count for " + resource.id() + ", or cancel:"; }
             @Override public org.bukkit.conversations.Prompt acceptInput(ConversationContext context, String input) {
-                if (input == null || input.trim().equalsIgnoreCase("cancel")) { tell(player, "Quantity selection cancelled."); return null; }
+                if (input == null || input.trim().equalsIgnoreCase("cancel")) { promptTell(player, "Quantity selection cancelled."); return null; }
                 try {
                     int count = Integer.parseInt(input.trim());
                     if (count <= 0) throw new NumberFormatException();
-                    if (deposit) quoteDeposit(player, resource, count); else quoteWithdrawal(player, resource, count, false);
+                    if (deposit) runMain(() -> quoteDeposit(player, resource, count));
+                    else runMain(() -> quoteWithdrawal(player, resource, count, false));
                     return null;
-                } catch (NumberFormatException error) { tell(player, "Enter a positive whole number."); return this; }
+                } catch (NumberFormatException error) { promptTell(player, "Enter a positive whole number."); return this; }
             }
         });
     }
 
     public void confirm(Player player) {
+        confirm(player, null);
+        closeConfirmationNextTick(player);
+    }
+
+    private void confirm(Player player, UUID expectedQuoteId) {
         QuoteBook.Quote quote = quotes.current(player.getUniqueId()).orElse(null);
         if (quote == null || quote.catalogRevision() != quotes.catalogRevision()) { tell(player, "Your quote expired; request a new preview."); return; }
+        if (expectedQuoteId != null && !expectedQuoteId.equals(quote.id())) {
+            tell(player, "This confirmation expired; request a new preview.");
+            return;
+        }
         if (!gameModeAllowed(player)) { cancel(player); tell(player, ChatColor.RED + "GoldBag exchanges are unavailable in your current game mode."); return; }
         if (quote.kind() == QuoteBook.Kind.NOTE) {
             if (!permissions.has(player, "goldbag.note", "goldpurse.use")) { tell(player, ChatColor.RED + "You no longer have permission."); return; }
-            quotes.remove(player.getUniqueId(), quote.id());
+            if (!quotes.remove(player.getUniqueId(), quote.id())) { tell(player, "This confirmation was already handled."); return; }
             invalidateQuoteRequest(player.getUniqueId());
             issueNote(player, quote.amount()); return;
         }
         if (quote.kind() == QuoteBook.Kind.DEPOSIT && !permissions.has(player, "goldbag.deposit", "goldpurse.use")) { tell(player, ChatColor.RED + "You no longer have permission."); return; }
         if (quote.kind() == QuoteBook.Kind.WITHDRAW && !permissions.has(player, "goldbag.withdraw", "goldpurse.use")) { tell(player, ChatColor.RED + "You no longer have permission."); return; }
-        quotes.remove(player.getUniqueId(), quote.id());
+        if (!quotes.remove(player.getUniqueId(), quote.id())) { tell(player, "This confirmation was already handled."); return; }
         invalidateQuoteRequest(player.getUniqueId());
         if (quote.kind() == QuoteBook.Kind.DEPOSIT) executeDeposit(player, quote); else executeWithdrawal(player, quote);
     }
 
     public void cancel(Player player) {
+        cancel(player, null);
+        closeConfirmationNextTick(player);
+    }
+
+    private void cancel(Player player, UUID expectedQuoteId) {
         QuoteBook.Quote quote = quotes.current(player.getUniqueId()).orElse(null);
         if (quote == null) { invalidateQuoteRequest(player.getUniqueId()); tell(player, "There is no active GoldBag quote."); return; }
+        if (expectedQuoteId != null && !expectedQuoteId.equals(quote.id())) {
+            tell(player, "This confirmation expired; request a new preview.");
+            return;
+        }
         String permission = quote.kind() == QuoteBook.Kind.DEPOSIT ? "goldbag.deposit" : quote.kind() == QuoteBook.Kind.WITHDRAW ? "goldbag.withdraw" : "goldbag.note";
         if (!permissions.has(player, permission, "goldpurse.use")) { tell(player, message("permission", "You do not have permission.")); return; }
         quotes.remove(player.getUniqueId(), quote.id());
@@ -668,6 +731,26 @@ public final class GoldBagPlugin extends JavaPlugin implements Listener {
         }
     }
 
+    private void closeNextTick(Player player) {
+        Bukkit.getScheduler().runTask(this, () -> { if (player.isOnline()) player.closeInventory(); });
+    }
+    private void closeConfirmationNextTick(Player player) {
+        Inventory top = player.getOpenInventory().getTopInventory();
+        if (!(top.getHolder() instanceof MenuHolder holder)
+                || holder.screen() != MenuHolder.Screen.CONFIRM
+                || holder.quoteId() == null) return;
+        UUID quoteId = holder.quoteId();
+        Bukkit.getScheduler().runTask(this, () -> {
+            if (!player.isOnline()) return;
+            Inventory current = player.getOpenInventory().getTopInventory();
+            if (current.getHolder() instanceof MenuHolder currentHolder
+                    && currentHolder.screen() == MenuHolder.Screen.CONFIRM
+                    && quoteId.equals(currentHolder.quoteId())) player.closeInventory();
+        });
+    }
+    private void promptTell(Player player, String message) {
+        runMain(() -> tell(player, message));
+    }
     private void runMain(Runnable action) { Bukkit.getScheduler().runTask(this, action); }
     private String rootMessage(Throwable error) { Throwable current = error; while (current.getCause() != null) current = current.getCause(); return current.getMessage() == null ? "" : current.getMessage(); }
     public void tell(org.bukkit.command.CommandSender sender, String message) { sender.sendMessage(ChatColor.translateAlternateColorCodes('&', message)); }

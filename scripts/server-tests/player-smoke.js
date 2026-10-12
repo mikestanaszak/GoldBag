@@ -61,6 +61,7 @@ function connect(name, createBot = mineflayer.createBot, timeout = TIMEOUT) {
       if (settled) return;
       settled = true;
       clearTimeout(timer);
+      if (process.env.GOLDBAG_DISABLE_PHYSICS === "1") bot.physicsEnabled = false;
       resolve(bot);
     });
     bot.once('error', (error) => fail(error));
@@ -144,8 +145,49 @@ async function openMenuCommand(bot, text) {
   return opened;
 }
 
+async function waitForWindow(bot, title, timeout = TIMEOUT) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    if (bot.currentWindow && JSON.stringify(bot.currentWindow.title).includes(title)) return bot.currentWindow;
+    await sleep(50);
+  }
+  throw new Error(`Timed out waiting for ${title} menu`);
+}
+
+async function confirmPreview(bot, matcher, description) {
+  const window = await waitForWindow(bot, 'GoldBag Confirm');
+  const start = bot.lines.length;
+  await bot.clickWindow(11, 0, 0);
+  const result = matcher ? await waitForLine(bot, start, matcher, description) : null;
+  const deadline = Date.now() + TIMEOUT;
+  while (bot.currentWindow === window && Date.now() < deadline) await sleep(50);
+  assert(bot.currentWindow !== window, 'confirmation menu did not close');
+  return result;
+}
+
+async function preview(bot, text, expected) {
+  bot.chat(text);
+  const window = await waitForWindow(bot, 'GoldBag Confirm');
+  assert(expected.test(JSON.stringify(window.slots[13])), `Unexpected confirmation summary: ${JSON.stringify(window.slots[13])}`);
+  return window;
+}
+
+async function clickMenu(bot, slot, title) {
+  const old = bot.currentWindow;
+  await bot.clickWindow(slot, 0, 0);
+  const deadline = Date.now() + TIMEOUT;
+  while (bot.currentWindow === old && Date.now() < deadline) await sleep(50);
+  return waitForWindow(bot, title);
+}
+
 async function expectBalance(bot, amount) {
   await command(bot, '/goldbag balance', new RegExp(`Balance.*${amount.replace('.', '\\.')}`), `balance ${amount}`);
+}
+
+async function useNote(bot, offhand = false) {
+  // Aim into air so an incidental block interaction cannot consume the click.
+  await bot.look(0, Math.PI / 2, true);
+  bot.activateItem(offhand);
 }
 
 async function restartCheck(a, b) {
@@ -162,11 +204,11 @@ async function restartCheck(a, b) {
   assert(copiedNote, 'restart fixture note was not copyable to B');
   await b.equip(copiedNote, 'hand');
   const aRedeemStart = a.lines.length;
-  a.activateItem();
+  await useNote(a);
   await waitForLine(a, aRedeemStart, /Banknote redeemed/i, 'post-restart note redemption');
   await expectBalance(a, '90.00');
   const bReplayStart = b.lines.length;
-  b.activateItem();
+  await useNote(b);
   await waitForLine(b, bReplayStart, /unresolved|cancelled|already|redeem/i, 'post-restart duplicate-note rejection');
   await expectBalance(b, '15.00');
   passed.push('no-reset restart preserved balances and one issued note; redemption then rejected replay');
@@ -197,6 +239,8 @@ async function run() {
     a.closeWindow(menu);
     await sleep(500);
 
+    await command(a, '/goldbag help', /select items and click Confirm/i, 'command help');
+    await command(a, '/gb balance', /Balance.*0\.00/i, 'canonical alias');
     await command(a, '/goldbag rates', /raw_iron|diamond/i, 'catalog rates');
     passed.push('rates list the live catalog');
     await command(a, '/goldbag storage status', /schema|healthy|pending/i, 'storage status');
@@ -204,13 +248,42 @@ async function run() {
 
     await clear(a);
     await give(a, 'raw_iron', 25);
-    await command(a, '/goldbag deposit raw_iron 25', /Deposit preview.*50\.00/i, 'deposit preview');
-    await command(a, '/goldbag confirm', /Deposited.*50\.00/i, 'deposit confirmation');
+    await openMenu(a);
+    const depositMenu = await clickMenu(a, 12, 'GoldBag Deposit');
+    const ironSlot = depositMenu.slots.slice(0, 45).findIndex(item => item && item.name === 'raw_iron');
+    assert(ironSlot >= 0, 'deposit menu omitted raw iron');
+    await clickMenu(a, ironSlot, 'quantity');
+    await clickMenu(a, 10, 'GoldBag Confirm');
+    const cancelStart = a.lines.length;
+    await a.clickWindow(15, 0, 0);
+    await waitForLine(a, cancelStart, /cancelled/i, 'cancel button');
+    await sleep(300);
+    assert(count(a, 'raw_iron') === 25, 'cancel button consumed resources');
+    await expectBalance(a, '0.00');
+    passed.push('menu deposit quantity and Cancel preserve items and balance');
+
+    await openMenu(a);
+    const exactDeposit = await clickMenu(a, 12, 'GoldBag Deposit');
+    const exactIron = exactDeposit.slots.slice(0, 45).findIndex(item => item && item.name === 'raw_iron');
+    await clickMenu(a, exactIron, 'quantity');
+    const exactStart = a.lines.length;
+    await a.clickWindow(22, 0, 0);
+    await waitForLine(a, exactStart, /exact whole item count/i, 'exact quantity prompt');
+    a.chat('25');
+    await waitForWindow(a, 'GoldBag Confirm');
+
+    await confirmPreview(a, /Deposited.*50\.00/i, 'deposit confirmation');
     await expectBalance(a, '50.00');
     passed.push('25 raw iron deposits as exactly 50.00 G through preview/confirm');
 
-    await command(a, '/goldbag withdraw diamond 1', /Withdrawal preview.*50\.00/i, 'diamond withdrawal preview');
-    await command(a, '/goldbag confirm', /Withdrew.*1/i, 'diamond withdrawal confirmation');
+    await openMenu(a);
+    const withdrawMenu = await clickMenu(a, 14, 'GoldBag Withdraw');
+    const diamondSlot = withdrawMenu.slots.slice(0, 45).findIndex(item => item && item.name === 'diamond');
+    assert(diamondSlot >= 0, 'withdrawal menu omitted diamonds');
+    await clickMenu(a, diamondSlot, 'quantity');
+    await clickMenu(a, 10, 'GoldBag Confirm');
+
+    await confirmPreview(a, /Withdrew.*1/i, 'diamond withdrawal confirmation');
     await sleep(800);
     assert(count(a, 'diamond') === 1, 'diamond withdrawal did not add exactly one diamond');
     await expectBalance(a, '0.00');
@@ -219,24 +292,41 @@ async function run() {
     await clear(a);
     await give(a, 'raw_iron', 25);
     await give(a, 'raw_gold', 1);
-    await command(a, '/goldbag deposit all', /Deposit-all preview.*raw_iron.*raw_gold/i, 'deposit-all preview');
-    await command(a, '/goldbag confirm', /Deposited.*26/i, 'deposit-all confirmation');
+    await openMenu(a);
+    await clickMenu(a, 12, 'GoldBag Deposit');
+    const allMenu = await clickMenu(a, 52, 'GoldBag Confirm');
+    const allSummary = JSON.stringify(allMenu.slots[13]);
+    assert(/RAW_IRON|raw_iron/.test(allSummary) && /RAW_GOLD|raw_gold/.test(allSummary), 'deposit-all omitted resource breakdown');
+
+    await confirmPreview(a, /Deposited.*26/i, 'deposit-all confirmation');
     await expectBalance(a, '55.00');
     passed.push('deposit-all previews and consumes multiple resources with the configured prices');
 
-    await command(a, `/goldbag pay ${BOT_B} 5.00`, /Paid.*5\.00/i, 'player payment');
+    await openMenu(a);
+    const payStart = a.lines.length;
+    await a.clickWindow(15, 0, 0);
+    await waitForLine(a, payStart, /recipient and amount/i, 'payment prompt');
+    await command(a, `${BOT_B} 5.00`, /Paid.*5\.00/i, 'player payment');
+
     await expectBalance(a, '50.00');
     await expectBalance(b, '5.00');
     passed.push('online two-player payment debits and credits atomically');
 
     await clear(a);
     await give(a, 'raw_iron', 25);
-    await command(a, '/goldbag deposit raw_iron 25', /Deposit preview.*50\.00/i, 'second deposit preview');
-    await command(a, '/goldbag confirm', /Deposited.*50\.00/i, 'second deposit confirmation');
+    await preview(a, '/goldbag deposit raw_iron 25', /50\.00/i);
+    await confirmPreview(a, /Deposited.*50\.00/i, 'second deposit confirmation');
     await expectBalance(a, '100.00');
 
-    await command(a, '/goldbag note 10.00', /Banknote preview.*10\.00/i, 'banknote preview');
-    await command(a, '/goldbag confirm', /Banknote issued.*10\.00/i, 'banknote confirmation');
+    await openMenu(a);
+    const noteStart = a.lines.length;
+    await a.clickWindow(16, 0, 0);
+    await waitForLine(a, noteStart, /banknote amount/i, 'banknote prompt');
+    await command(a, 'invalid', /amount|number|decimal/i, 'invalid banknote amount');
+    a.chat('10.00');
+    await waitForWindow(a, 'GoldBag Confirm');
+
+    await confirmPreview(a, /Banknote issued.*10\.00/i, 'banknote confirmation');
     await sleep(800);
     const mainNote = findNote(a);
     assert(mainNote && mainNote.count === 1, 'issued banknote is not one paper item');
@@ -245,26 +335,26 @@ async function run() {
     assert(mainIdentity, 'issued banknote has no readable identity');
     assert(/note-id|goldbag/i.test(noteData), `issued paper has no visible GoldBag identity data: ${noteData}`);
     await a.equip(mainNote, 'hand');
-    a.activateItem();
+    await useNote(a);
     await sleep(1200);
     await expectBalance(a, '100.00');
     assert(count(a, 'paper') === 0, 'main-hand banknote was not consumed');
     passed.push('issued banknote carries identity data and redeems once from the main hand');
 
-    await command(a, '/goldbag note 5.00', /Banknote preview.*5\.00/i, 'offhand note preview');
-    await command(a, '/goldbag confirm', /Banknote issued.*5\.00/i, 'offhand note confirmation');
+    await preview(a, '/goldbag note 5.00', /5\.00/i);
+    await confirmPreview(a, /Banknote issued.*5\.00/i, 'offhand note confirmation');
     await sleep(700);
     const offhandNote = findNote(a);
     assert(offhandNote, 'second banknote was not issued');
     await a.equip(offhandNote, 'off-hand');
-    a.activateItem(true);
+    await useNote(a, true);
     await sleep(1200);
     await expectBalance(a, '100.00');
     assert(count(a, 'paper') === 0, 'offhand banknote was not consumed');
     passed.push('offhand banknote redemption works through the actual interaction event');
 
-    await command(a, '/goldbag note 10.00', /Banknote preview.*10\.00/i, 'copy-replay note preview');
-    await command(a, '/goldbag confirm', /Banknote issued.*10\.00/i, 'copy-replay note confirmation');
+    await preview(a, '/goldbag note 10.00', /10\.00/i);
+    await confirmPreview(a, /Banknote issued.*10\.00/i, 'copy-replay note confirmation');
     await sleep(700);
     const sourceNote = findNote(a);
     assert(sourceNote, 'copy-replay source banknote was not issued');
@@ -276,13 +366,13 @@ async function run() {
     const copiedNote = findNote(b, sourceIdentity);
     assert(copiedNote, 'copy-replay target did not receive the copied note');
     await b.equip(copiedNote, 'hand');
-    b.activateItem();
+    await useNote(b);
     await sleep(1200);
     await expectBalance(b, '15.00');
     const sourceAfterCopy = findNote(a, sourceIdentity);
     assert(sourceAfterCopy, 'source note disappeared before duplicate redemption attempt');
     await a.equip(sourceAfterCopy, 'hand');
-    a.activateItem();
+    await useNote(a);
     await sleep(1200);
     await expectBalance(a, '90.00');
     await expectBalance(b, '15.00');
@@ -294,9 +384,8 @@ async function run() {
     const customBefore = inventoryItems(a).find((item) => item.name === 'raw_iron');
     assert(customBefore, 'custom raw iron fixture was not given');
     const customStart = a.lines.length;
-    await command(a, '/goldbag deposit raw_iron 1', /Your inventory does not contain that quantity|Deposit preview/i, 'custom-item rejection');
+    await command(a, '/goldbag deposit raw_iron 1', /Your inventory does not contain that quantity/i, 'custom-item rejection');
     const customLines = currentLines(a, customStart);
-    if (customLines.some((line) => /Deposit preview/i.test(line))) await command(a, '/goldbag confirm', null);
     assert(!currentLines(a, customStart).some((line) => /Deposited/i.test(line)), 'custom item was deposited');
     assert(count(a, 'raw_iron') === 1, 'custom raw iron was consumed');
     passed.push('renamed/custom raw iron is rejected and remains in the inventory');
@@ -306,8 +395,7 @@ async function run() {
     await sleep(900);
     assert(mainInventoryEmptySlots(a) === 0, `full inventory fixture has ${mainInventoryEmptySlots(a)} empty ordinary slots`);
     const fullStart = a.lines.length;
-    await command(a, '/goldbag withdraw diamond 1', /Withdrawal preview|That quantity exceeds your balance, capacity, or transaction limit/i, 'full-inventory withdrawal rejection');
-    if (currentLines(a, fullStart).some((line) => /Withdrawal preview/i.test(line))) await command(a, '/goldbag confirm', null);
+    await command(a, '/goldbag withdraw diamond 1', /That quantity exceeds your balance, capacity, or transaction limit/i, 'full-inventory withdrawal rejection');
     assert(!currentLines(a, fullStart).some((line) => /Withdrew/i.test(line)), 'withdrawal succeeded into a full inventory');
     assert(count(a, 'diamond') === 0, 'full inventory received an unexpected diamond');
     passed.push('full ordinary inventory rejects withdrawal without scattering an item');
@@ -330,8 +418,8 @@ async function run() {
     passed.push('leaderboard command returns live player data');
 
     await clear(a);
-    await command(a, '/goldbag note 5.00', /Banknote preview.*5\.00/i, 'restart note preview');
-    await command(a, '/goldbag confirm', /Banknote issued.*5\.00/i, 'restart note confirmation');
+    await preview(a, '/goldbag note 5.00', /5\.00/i);
+    await confirmPreview(a, /Banknote issued.*5\.00/i, 'restart note confirmation');
     const duplicateConfirmStart = a.lines.length;
     await command(a, '/goldbag confirm', /no active|expired|quote/i, 'duplicate confirmation rejection');
     assert(!currentLines(a, duplicateConfirmStart).some((line) => /Banknote issued/i.test(line)), 'duplicate confirm issued a second banknote');
@@ -355,4 +443,4 @@ if (require.main === module) {
   });
 }
 
-module.exports = { closeBots, connect, findNote, noteIdentity };
+module.exports = { closeBots, connect, findNote, noteIdentity, confirmPreview, waitForWindow };

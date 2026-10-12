@@ -1,6 +1,5 @@
 package io.github.mikestanaszak.goldbag.plugin;
 
-import io.github.mikestanaszak.goldbag.core.Catalog;
 import io.github.mikestanaszak.goldbag.core.Money;
 import io.github.mikestanaszak.goldbag.core.Resource;
 import io.github.mikestanaszak.goldbag.storage.SqliteStore;
@@ -30,12 +29,12 @@ public final class MenuService {
         Inventory menu = Bukkit.createInventory(holder, 27, ChatColor.GOLD + "GoldBag");
         holder.inventory(menu);
         set(menu, 10, Material.GOLD_INGOT, "Balance", "View your purse balance");
-        set(menu, 12, Material.CHEST, "Deposit", "Deposit eligible inventory items");
-        set(menu, 14, Material.DIAMOND, "Withdraw Resources", "Withdraw catalog resources");
-        set(menu, 15, Material.PAPER, "Pay Player", "Use /goldbag pay");
-        set(menu, 16, Material.PAPER, "Create Banknote", "Use /goldbag note");
+        set(menu, 12, Material.CHEST, "Deposit", "Click to choose inventory items");
+        set(menu, 14, Material.DIAMOND, "Withdraw Resources", "Click to choose a resource");
+        set(menu, 15, Material.PAPER, "Pay Player", "Click to enter a payment");
+        set(menu, 16, Material.PAPER, "Create Banknote", "Click to enter a banknote amount");
         set(menu, 22, Material.EMERALD, "Top Balances", "View the leaderboard");
-        player.openInventory(menu);
+        display(player, menu);
     }
 
     public void openDeposit(Player player) {
@@ -58,7 +57,7 @@ public final class MenuService {
         if (hasNextResourcePage(page, eligible.size())) set(menu, 53, Material.ARROW, "Next page");
         set(menu, 49, Material.BARRIER, "Close", "Cancel");
         set(menu, 52, Material.GOLD_INGOT, "Deposit all eligible", "Preview every eligible main-inventory stack");
-        player.openInventory(menu);
+        display(player, menu);
     }
 
     public void openWithdraw(Player player, int page) {
@@ -70,12 +69,12 @@ public final class MenuService {
         for (int i = 0; i < 45 && from + i < resources.size(); i++) {
             Resource resource = resources.get(from + i);
             Material material = Material.matchMaterial(resource.material());
-            set(menu, i, material, resource.id(), "Price: " + plugin.money(resource.withdrawPrice()), "Use /goldbag withdraw " + resource.id() + " <count|max>");
+            set(menu, i, material, resource.id(), "Price: " + plugin.money(resource.withdrawPrice()), "Click to choose an amount");
         }
         if (page > 1) set(menu, 45, Material.ARROW, "Previous page");
         if (hasNextResourcePage(page, resources.size())) set(menu, 53, Material.ARROW, "Next page");
         set(menu, 49, Material.BARRIER, "Close", "Cancel");
-        player.openInventory(menu);
+        display(player, menu);
     }
 
     public void openTop(Player player, List<SqliteStore.Account> accounts, int page) {
@@ -96,27 +95,82 @@ public final class MenuService {
         if (page > 1) set(menu, 18, Material.ARROW, "Previous page");
         if (hasNext) set(menu, 26, Material.ARROW, "Next page");
         set(menu, 22, Material.BARRIER, "Close", "Cancel");
-        player.openInventory(menu);
+        display(player, menu);
     }
 
     public void openQuantity(Player player, Resource resource, QuoteBook.Kind kind) {
-        MenuHolder holder = new MenuHolder(player.getUniqueId(), MenuHolder.Screen.PREVIEW, resource.material(), kind);
+        MenuHolder holder = new MenuHolder(player.getUniqueId(), MenuHolder.Screen.PREVIEW, resource.material(), kind,
+                plugin.quotes().catalogRevision());
         Inventory menu = Bukkit.createInventory(holder, 27, ChatColor.YELLOW + "Choose " + resource.id() + " quantity");
         holder.inventory(menu);
         set(menu, 10, Material.IRON_NUGGET, "1", "Preview one item");
-        set(menu, 12, Material.IRON_INGOT, "16", "Preview a stack");
+        set(menu, 12, Material.IRON_INGOT, "16", "Preview 16 items");
         set(menu, 14, Material.IRON_BLOCK, "64", "Preview a full stack");
         set(menu, 16, Material.GOLD_BLOCK, "Max", "Preview the maximum allowed");
         set(menu, 22, Material.NAME_TAG, "Exact count", "Enter a whole item count privately");
         set(menu, 26, Material.BARRIER, "Close", "Cancel");
-        player.openInventory(menu);
+        display(player, menu);
     }
 
     public boolean belongs(Inventory inventory) { return inventory != null && inventory.getHolder() instanceof MenuHolder; }
 
+    /** Opens the transaction confirmation after the quote has been stored. */
+    public void openConfirmation(Player player, QuoteBook.Quote quote, long balanceBefore) {
+        MenuHolder holder = MenuHolder.confirmation(player.getUniqueId(), quote, balanceBefore);
+        Inventory menu = Bukkit.createInventory(holder, 27, ChatColor.GOLD + "GoldBag Confirm");
+        holder.inventory(menu);
+        set(menu, 11, Material.LIME_WOOL, "Confirm", "Complete this transaction");
+        long balanceAfter = quote.kind() == QuoteBook.Kind.DEPOSIT
+                ? Math.addExact(balanceBefore, quote.amount()) : Math.subtractExact(balanceBefore, quote.amount());
+        set(menu, 13, Material.PAPER, "Transaction summary",
+                confirmationSummary(quote, balanceBefore, plugin.money(quote.amount()),
+                        plugin.money(balanceBefore), plugin.money(balanceAfter)).split("\\n"));
+        set(menu, 15, Material.RED_WOOL, "Cancel", "Cancel this transaction");
+        display(player, menu);
+    }
+
     static boolean hasNextResourcePage(int page, int total) { return page > 0 && page * 45 < total; }
 
+    static int depositMaxCount(int available, int transactionLimit) {
+        return Math.max(0, Math.min(available, transactionLimit));
+    }
+
     static boolean hasNextTopPage(List<SqliteStore.Account> nextPage) { return nextPage != null && !nextPage.isEmpty(); }
+
+    static String confirmationSummary(QuoteBook.Quote quote, long balanceBefore) {
+        long balanceAfter = quote.kind() == QuoteBook.Kind.DEPOSIT
+                ? Math.addExact(balanceBefore, quote.amount()) : Math.subtractExact(balanceBefore, quote.amount());
+        return confirmationSummary(quote, balanceBefore, Money.format(quote.amount()),
+                Money.format(balanceBefore), Money.format(balanceAfter));
+    }
+
+    static String confirmationSummary(QuoteBook.Quote quote, long balanceBefore,
+                                      String amountText, String balanceBeforeText, String balanceAfterText) {
+        String operation = quote.kind() == QuoteBook.Kind.DEPOSIT ? "Deposit"
+                : quote.kind() == QuoteBook.Kind.WITHDRAW ? "Withdrawal" : "Banknote";
+        String count = quote.kind() == QuoteBook.Kind.NOTE ? "1 banknote"
+                : quote.payload() == null ? quote.count() + " x " + quote.material() : payloadSummary(quote.payload());
+        return "Operation: " + operation + "\n"
+                + "Count: " + count + "\n"
+                + "Amount: " + amountText + "\n"
+                + "Balance before: " + balanceBeforeText + "\n"
+                + "Balance after: " + balanceAfterText;
+    }
+
+    private static String payloadSummary(String payload) {
+        List<String> entries = new ArrayList<>();
+        for (String entry : payload.split(";")) {
+            String[] parts = entry.split("=", 2);
+            if (parts.length == 2) entries.add(parts[1] + " x " + parts[0]);
+        }
+        return entries.isEmpty() ? "items" : String.join(", ", entries);
+    }
+
+    private void display(Player player, Inventory menu) {
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            if (player.isOnline()) player.openInventory(menu);
+        });
+    }
 
     private static void set(Inventory inventory, int slot, Material material, String name, String... lore) {
         if (material == null) return;

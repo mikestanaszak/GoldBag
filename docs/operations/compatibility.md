@@ -4,7 +4,8 @@ Compilation and a successful Maven build do not prove that GoldBag runs on a Min
 
 | Minecraft server | Platform/build | Java runtime | GoldBag artifact | Status | Evidence |
 | --- | --- | --- | --- | --- | --- |
-| 26.3 | Paper build 175, bd9daa8 | Temurin 25.0.4.1+1, Linux amd64 | GoldBag 2.0.0 release preparation | Startup/storage/catalog/console checks PASS; player flows unverified | [26.3 runtime report](../development/reports/26.3-runtime.md) |
+| 26.3 | Paper build 175, bd9daa8 | Temurin 25.0.4.1+1, Linux amd64 | GoldBag 2.0.0 with clickable confirmation | Startup/storage/catalog/console checks PASS; player flows unverified | [UI follow-up runtime report](../development/reports/ui-live-validation.md) |
+| 1.21.11 | Paper build 132, c5eb079 | Temurin 25.0.4.1+1, Linux amd64 | GoldBag UI follow-up; final 2.0.0 restart | 17 live player checks and no-reset restart PASS | [UI follow-up runtime report](../development/reports/ui-live-validation.md) |
 | 1.21.11 | Paper build 132, c5eb079 | Temurin 21.0.11+10, Windows 11 amd64 | GoldBag 2.0.0-SNAPSHOT, runtime source 37fb85f, packaging 63331a0; SHA C48C54EC…D9785535 | Automated smoke PASS; extended validation pending | [Server/recovery/restart evidence](../development/reports/T6-server-validation.md), [16 player checks](../development/reports/T6-player-server-tests.md) |
 | 1.17.x | Spigot exact build: unverified | Required Java: unverified | GoldBag 2.0.0-SNAPSHOT: unverified | Unverified | No server test recorded |
 | 1.17.x | Paper exact build: unverified | Required Java: unverified | GoldBag 2.0.0-SNAPSHOT: unverified | Unverified | No server test recorded |

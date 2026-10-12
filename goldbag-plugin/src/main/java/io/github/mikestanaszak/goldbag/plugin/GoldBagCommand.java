@@ -47,7 +47,7 @@ public final class GoldBagCommand implements CommandExecutor, TabCompleter {
         return lower.equals("purse") && args.length > 0 && (args[0].equalsIgnoreCase("give") || args[0].equalsIgnoreCase("take") || args[0].equalsIgnoreCase("set"));
     }
 
-    private CommandParser.Command parseAlias(String label, String[] args) {
+    static CommandParser.Command parseAlias(String label, String[] args) {
         String lower = normalizedLabel(label);
         if (lower.equals("balance") || lower.equals("money")) return CommandParser.parse(join(new String[]{"balance"}, args));
         if (lower.equals("pursetop")) return CommandParser.parse(join(new String[]{"top"}, args));
@@ -57,7 +57,7 @@ public final class GoldBagCommand implements CommandExecutor, TabCompleter {
         return CommandParser.parse(args);
     }
 
-    private String normalizedLabel(String label) {
+    private static String normalizedLabel(String label) {
         String lower = label == null ? "" : label.toLowerCase(Locale.ROOT);
         int separator = lower.lastIndexOf(':');
         return separator >= 0 ? lower.substring(separator + 1) : lower;
@@ -67,6 +67,16 @@ public final class GoldBagCommand implements CommandExecutor, TabCompleter {
         switch (parsed.action()) {
             case MAIN:
                 require(sender, "goldbag.use", "goldpurse.use"); player(sender).ifPresent(plugin.menus()::openMain); return true;
+            case HELP:
+                require(sender, "goldbag.use", "goldpurse.use");
+                plugin.tell(sender, "/goldbag — open the menu; select items and click Confirm or Cancel.");
+                plugin.tell(sender, "/goldbag balance [player], rates [material], top [page]");
+                plugin.tell(sender, "/goldbag deposit <material> <count>|all, withdraw <material> <count|max>");
+                plugin.tell(sender, "/goldbag pay <player|uuid> <amount>, note <amount>, cancel");
+                if (plugin.permissions().has(sender, "goldbag.admin.balance", "goldpurse.admin")) plugin.tell(sender, "/goldbag admin <give|take|set> <player|uuid> <amount> <reason>");
+                if (plugin.permissions().has(sender, "goldbag.admin.reload", "goldpurse.admin")) plugin.tell(sender, "/goldbag reload");
+                if (plugin.permissions().has(sender, "goldbag.admin.storage", "goldpurse.admin")) plugin.tell(sender, "/goldbag storage <status|export|import>, recovery list|resolve <op> <apply|cancel> <reason>");
+                return true;
             case BALANCE:
                 if (parsed.target() != null && !parsed.target().isBlank()) {
                     if (!plugin.permissions().has(sender, "goldbag.balance.others", "goldpurse.admin")) throw new IllegalArgumentException("You may not view another balance.");
@@ -151,10 +161,59 @@ public final class GoldBagCommand implements CommandExecutor, TabCompleter {
     private static String[] join(String[] prefix, String[] rest) { String[] all = Arrays.copyOf(prefix, prefix.length + rest.length); System.arraycopy(rest, 0, all, prefix.length, rest.length); return all; }
     private void require(CommandSender sender, String modern, String legacy) { if (!plugin.permissions().has(sender, modern, legacy)) throw new IllegalArgumentException("You do not have permission."); }
     private void requirePlayerPermission(CommandSender sender, String modern, String legacy) { require(sender, modern, legacy); if (!(sender instanceof Player)) throw new IllegalArgumentException("This command requires a player."); }
-    private java.util.Optional<Player> player(CommandSender sender) { return sender instanceof Player ? java.util.Optional.of((Player) sender) : java.util.Optional.empty(); }
+    static java.util.Optional<Player> player(CommandSender sender) { if (!(sender instanceof Player)) throw new IllegalArgumentException("This command requires a player."); return java.util.Optional.of((Player) sender); }
+
+    static List<String> topLevelCompletions(CommandSender sender, PermissionService permissions, String prefix) {
+        return List.of("help", "balance", "rates", "deposit", "withdraw", "pay", "note", "top", "cancel", "admin", "reload", "storage", "recovery").stream()
+                .filter(verb -> verb.startsWith(prefix.toLowerCase(Locale.ROOT)))
+                .filter(verb -> permissions.has(sender, permissionFor(verb), verb.equals("admin") || verb.equals("reload") || verb.equals("storage") || verb.equals("recovery") ? "goldpurse.admin" : "goldpurse.use"))
+                .collect(Collectors.toList());
+    }
+
+    private static String permissionFor(String verb) {
+        return switch (verb) {
+            case "admin" -> "goldbag.admin.balance";
+            case "reload" -> "goldbag.admin.reload";
+            case "storage", "recovery" -> "goldbag.admin.storage";
+            case "help", "rates", "cancel" -> "goldbag.use";
+            default -> "goldbag." + verb;
+        };
+    }
 
     @Override public List<String> onTabComplete(CommandSender sender, Command command, String alias, String[] args) {
-        if (args.length == 1) return List.of("balance", "rates", "deposit", "withdraw", "pay", "note", "top", "confirm", "cancel", "admin", "reload", "storage", "recovery").stream().filter(s -> s.startsWith(args[0].toLowerCase(Locale.ROOT))).collect(Collectors.toList());
-        return Collections.emptyList();
+        if (args.length == 0) return Collections.emptyList();
+        if (!plugin.config().settings().legacyAliases() && isLegacyAlias(alias, args)) return Collections.emptyList();
+        String label = normalizedLabel(alias);
+        if (label.equals("balance") || label.equals("money")) args = join(new String[]{"balance"}, args);
+        else if (label.equals("pursetop")) args = join(new String[]{"top"}, args);
+        else if (label.equals("withdraw")) args = join(new String[]{"note"}, args);
+        else if (label.equals("purse") && List.of("give", "take", "set").contains(args[0].toLowerCase(Locale.ROOT))) args = join(new String[]{"admin"}, args);
+        if (args.length == 1) return topLevelCompletions(sender, plugin.permissions(), args[0]);
+        String verb = args[0].toLowerCase(Locale.ROOT);
+        if (!plugin.permissions().has(sender, permissionFor(verb), List.of("admin", "reload", "storage", "recovery").contains(verb) ? "goldpurse.admin" : "goldpurse.use")) return Collections.emptyList();
+        List<String> options = new ArrayList<>();
+        if (args.length == 2) {
+            switch (verb) {
+                case "deposit", "withdraw", "rates":
+                    if (verb.equals("deposit")) options.add("all");
+                    for (Resource resource : plugin.config().catalog().resources()) {
+                        if (verb.equals("rates") || (verb.equals("deposit") ? resource.depositEnabled() : resource.withdrawEnabled())) options.add(resource.id());
+                    }
+                    break;
+                case "admin": options.addAll(List.of("give", "take", "set")); break;
+                case "storage": options.addAll(List.of("status", "export", "import")); break;
+                case "recovery": options.addAll(List.of("list", "resolve")); break;
+                case "top": options.add("1"); break;
+                case "pay": Bukkit.getOnlinePlayers().forEach(player -> options.add(player.getName())); break;
+                case "balance": if (plugin.permissions().has(sender, "goldbag.balance.others", "goldpurse.admin")) Bukkit.getOnlinePlayers().forEach(player -> options.add(player.getName())); break;
+                default: break;
+            }
+        } else if (args.length == 3) {
+            if (verb.equals("deposit") && !args[1].equalsIgnoreCase("all")) options.addAll(List.of("1", "16", "64"));
+            else if (verb.equals("withdraw")) options.addAll(List.of("1", "16", "64", "max"));
+            else if (verb.equals("admin")) Bukkit.getOnlinePlayers().forEach(player -> options.add(player.getName()));
+        } else if (args.length == 4 && verb.equals("recovery") && args[1].equalsIgnoreCase("resolve")) options.addAll(List.of("apply", "cancel"));
+        String prefix = args[args.length - 1].toLowerCase(Locale.ROOT);
+        return options.stream().filter(option -> option.toLowerCase(Locale.ROOT).startsWith(prefix)).collect(Collectors.toList());
     }
 }
