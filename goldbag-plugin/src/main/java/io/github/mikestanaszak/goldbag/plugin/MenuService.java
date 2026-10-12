@@ -30,11 +30,11 @@ public final class MenuService {
         Inventory menu = Bukkit.createInventory(holder, 27, ChatColor.GOLD + "[GoldBag]");
         holder.inventory(menu);
         set(menu, 10, Material.GOLD_INGOT, "Purse Balance", "See how much gold you have saved");
-        set(menu, 12, Material.CHEST, "Deposit Resources", "Open the vault and sell your resources");
+        set(menu, 12, Material.CHEST, "Deposit Resources", "Fill the chest, then click Deposit");
         set(menu, 14, Material.DIAMOND, "Withdraw Resources", "Spend gold on resources right away");
         set(menu, 15, Material.PAPER, "Pay a Player", "Send gold to another player");
         set(menu, 16, Material.PAPER, "Make a Banknote", "Turn gold into a portable note");
-        set(menu, 22, Material.EMERALD, "Top Balances", "See who is leading the gold rush");
+        set(menu, 22, Material.EMERALD, "Top Balances", "View the balance leaderboard");
         display(player, menu);
     }
 
@@ -48,15 +48,15 @@ public final class MenuService {
         Inventory menu = Bukkit.createInventory(holder, 54, ChatColor.GOLD + "[GoldBag] Deposit");
         holder.inventory(menu);
         for (int slot = 45; slot < 54; slot++) set(menu, slot, Material.YELLOW_STAINED_GLASS_PANE, " ");
-        set(menu, 45, Material.ARROW, "Back to GoldBag", "Return to your gold dashboard");
-        set(menu, 48, Material.DIAMOND, "Withdraw Resources", "Switch to the resource shop");
-        set(menu, 49, Material.BARRIER, "Close Vault", "Return items when you leave");
-        set(menu, 50, Material.PAPER, "Vault Instructions",
+        set(menu, 45, Material.ARROW, "Back to GoldBag", "Return to the main menu");
+        set(menu, 48, Material.DIAMOND, "Withdraw Resources", "Switch to withdrawals");
+        set(menu, 49, Material.BARRIER, "Close Deposit Chest", "Return items when you leave");
+        set(menu, 50, Material.PAPER, "Deposit Instructions",
                 "Place sellable resources in the top 45 slots",
                 "Shift-click stacks from your inventory",
                 "Your unsold items return when you close",
                 "The button shows this batch's value");
-        set(menu, 52, Material.LIME_WOOL, "Deposit for Gold", "Sell the resources in your vault", "Only enabled, ordinary items are accepted");
+        set(menu, 52, Material.LIME_WOOL, "Deposit for Gold", "Sell eligible resources in the chest", "Only enabled, ordinary items are accepted");
         display(player, menu);
     }
 
@@ -71,14 +71,14 @@ public final class MenuService {
             Material material = Material.matchMaterial(resource.material());
             set(menu, i, material, resource.id(), "Price: " + plugin.money(resource.withdrawPrice()), "Left-click: buy 1", "Right-click: buy up to 16", "Shift-click: buy up to 64", "Purchased items go to your inventory");
         }
-        if (page > 1) set(menu, 45, Material.ARROW, "Previous Page", "View the previous shelf");
-        if (hasNextResourcePage(page, resources.size())) set(menu, 53, Material.ARROW, "Next Page", "View the next shelf");
-        set(menu, 48, Material.CHEST, "Deposit Resources", "Switch to the vault");
-        set(menu, 49, Material.BARRIER, "Close Shop");
+        if (page > 1) set(menu, 45, Material.ARROW, "Previous Page", "View the previous page");
+        if (hasNextResourcePage(page, resources.size())) set(menu, 53, Material.ARROW, "Next Page", "View the next page");
+        set(menu, 48, Material.CHEST, "Deposit Resources", "Switch to deposits");
+        set(menu, 49, Material.BARRIER, "Close Withdraw Menu");
         set(menu, 50, Material.PAPER, "Your Gold Balance",
                 "Buy with left-click: 1 / right-click: up to 16",
                 "Shift-click buys up to 64", "Purchases need enough gold and space");
-        set(menu, 51, Material.ARROW, "Back to GoldBag", "Return to your gold dashboard");
+        set(menu, 51, Material.ARROW, "Back to GoldBag", "Return to the main menu");
         display(player, menu);
     }
 
@@ -95,11 +95,11 @@ public final class MenuService {
         int slot = 0;
         for (SqliteStore.Account account : accounts) {
             if (slot >= 18) break;
-            set(menu, slot++, Material.GOLD_NUGGET, account.name(), "Balance: " + plugin.money(account.balance()), "A bright spot on the gold rush");
+            set(menu, slot++, Material.GOLD_NUGGET, account.name(), "Balance: " + plugin.money(account.balance()));
         }
         if (page > 1) set(menu, 18, Material.ARROW, "Previous Page");
         if (hasNext) set(menu, 26, Material.ARROW, "Next Page");
-        set(menu, 22, Material.BARRIER, "Close Leaderboard", "Head back to your adventure");
+        set(menu, 22, Material.BARRIER, "Close Leaderboard", "Close this menu");
         display(player, menu);
     }
 
@@ -193,7 +193,7 @@ public final class MenuService {
                 }
                 set(menu, 52, Material.LIME_WOOL, "Deposit " + selected + " Items",
                         "Receive: " + plugin.money(value), "Click once to sell this batch",
-                        "Unsold items stay in the vault", "Limit: " + limit + " items per exchange");
+                        "Unsold items stay in the chest", "Limit: " + limit + " items per exchange");
             } catch (RuntimeException error) {
                 set(menu, 52, Material.LIME_WOOL, "Deposit", "This batch exceeds the configured value limit");
             }
