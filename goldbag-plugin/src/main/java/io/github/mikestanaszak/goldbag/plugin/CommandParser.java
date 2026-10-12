@@ -9,7 +9,7 @@ import java.util.Locale;
 
 /** Strict parser shared by the Bukkit command executor and tab completion. */
 public final class CommandParser {
-    public enum Action { MAIN, BALANCE, RATES, DEPOSIT, WITHDRAW, PAY, NOTE, TOP,
+    public enum Action { MAIN, HELP, BALANCE, RATES, DEPOSIT, WITHDRAW, PAY, NOTE, TOP,
         ADMIN, RELOAD, STORAGE_STATUS, STORAGE_EXPORT, STORAGE_IMPORT, RECOVERY_LIST, RECOVERY_RESOLVE,
         CONFIRM, CANCEL }
 
@@ -29,6 +29,7 @@ public final class CommandParser {
         if (args.isEmpty()) return new Command(Action.MAIN, null, null, 0, 0, false, false, 1, List.of(), null);
         String verb = lower(args.remove(0));
         switch (verb) {
+            case "help": requireNoArgs(args, "help"); return simple(Action.HELP);
             case "balance": return balance(args);
             case "rates": return rates(args);
             case "deposit": return deposit(args);
@@ -100,7 +101,7 @@ public final class CommandParser {
     }
 
     private static Command storage(List<String> args) {
-        if (args.size() != 1) throw usage("storage <status|export>");
+        if (args.size() != 1) throw usage("storage <status|export|import>");
         String sub = lower(args.get(0));
         if (sub.equals("status")) return simple(Action.STORAGE_STATUS);
         if (sub.equals("export")) return simple(Action.STORAGE_EXPORT);

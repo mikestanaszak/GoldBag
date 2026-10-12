@@ -6,7 +6,7 @@ The executable task plan is `docs/superpowers/plans/2026-09-05-goldbag-rebuild.m
 
 ## Current follow-up (2026-10-11)
 
-The current user request supersedes historical rebuild branch/integration instructions: work on `codex/minecraft-26.3-semantic-release`, validate Minecraft 26.3 and semantic release automation, and open a PR against `main`. Do not merge this PR. Keep the Spigot 1.17/Java 16 API baseline unless an observed compatibility failure requires changing it; use Java 25 for Paper 26.3 runtime validation.
+The current user request supersedes historical rebuild branch/integration instructions: work on `codex/minecraft-26.3-semantic-release`, validate Minecraft 26.3 and semantic release automation, and open a PR against `main`. The user follow-up also requests clickable UI confirmation and a full menu/command experience review; continue that work on the same PR. Do not merge this PR. Keep the Spigot 1.17/Java 16 API baseline unless an observed compatibility failure requires changing it; use Java 25 for Paper 26.3 runtime validation.
 
 ## Working agreement
 

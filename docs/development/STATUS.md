@@ -20,6 +20,16 @@ Branch: `codex/goldbag-rebuild`; original code preserved in Git history and remo
 | T7 README follow-up | Complete; Luna review clear; PR publication tracked on GitHub | Controller: README/STATUS; Luna: review report | PR #1 merged | `reports/T7-readme-review.md` |
 | T8 Remove superseded files and stale build outputs | Complete; clean build, packaged verification, and Luna review clear; included in PR #2 | Controller: legacy directories, README/STATUS, build outputs; Luna: review report | T7 | `reports/T8-cleanup.md`, `reports/T8-cleanup-review.md` |
 
+## Clickable confirmation and experience review (2026-10-11)
+
+- User follow-up continues on `codex/minecraft-26.3-semantic-release` / [PR #3](https://github.com/mikestanaszak/GoldBag/pull/3), PR-only.
+- All deposit/withdrawal/deposit-all/banknote previews now open green Confirm / red Cancel UI with resource breakdown, configured currency and before/after balance. Typed confirmation remains a compatibility fallback rather than the player flow.
+- Fixed deposit next-page navigation, stale quantity menus, identity-safe cancellation/duplicate confirmation, deferred inventory transitions, prompt validation/retry/threading, console player-only feedback, help and permission-aware completion.
+- Final release preparation on Java 25 PASS: 79 Java tests (12 core, 17 storage, 50 plugin) and shaded SQLite/restore/descriptor checks. Six harness unit tests and five release-analysis checks PASS.
+- Native Paper 1.21.11 build 132 / Java 25: 17 live player checks PASS, then no-reset restart balances/note/replay PASS. Final UI release also passes Paper 26.3 build 175 startup/storage/rates/reload/shutdown. 26.3 player protocol remains unverified after bridge-client disconnects; see `reports/ui-live-validation.md`.
+- Independent command/UI audit has no remaining source finding after gating other-player balance suggestions. Reports: `ui-confirmation.md`, `ui-command-audit.md`, `ui-live-validation.md`.
+- With the user's existing staging authorization, updated `/opt/stacks/maya-funtimes/data/plugins/GoldBag-2.0.0.jar`; SHA-256 `6dfdae69137b506b583fc1ccd0262530c3b4e3294c8ef616c579de7392a06c71`. Prior JAR preserved outside plugins at `/opt/stacks/maya-funtimes/data/plugin-backups/GoldBag-2.0.0-before-confirm-ui.jar`. The production service was not restarted and live account data was not changed.
+
 ## Minecraft 26.3 and semantic releases (2026-10-11)
 
 - Active branch: `codex/minecraft-26.3-semantic-release`, based on `main` at `ea464d7`. Current request is to open a PR only; historical rebuild merge authorization does not apply to this PR.

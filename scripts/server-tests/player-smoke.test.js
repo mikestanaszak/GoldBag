@@ -53,3 +53,16 @@ test('connect resolves spawned clients for normal cleanup', async () => {
   closeBots([connected]);
   assert.equal(bot.quitCalls, 1);
 });
+
+test('confirmation uses the menu button without sending a command', async () => {
+  const { confirmPreview } = require('./player-smoke');
+  const bot = { currentWindow: { title: 'GoldBag Confirm', slots: [] }, lines: [],
+    clickWindow: async (slot, mouse, mode) => {
+      assert.deepEqual([slot, mouse, mode], [11, 0, 0]);
+      bot.lines.push('Deposited 25 for G50.00.');
+      bot.currentWindow = null;
+    },
+    chat: () => assert.fail('confirmation must not require chat'),
+  };
+  await confirmPreview(bot, /Deposited/, 'button deposit');
+});

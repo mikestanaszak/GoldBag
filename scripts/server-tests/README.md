@@ -2,7 +2,7 @@
 
 This directory contains the Mineflayer protocol smoke intended for an isolated local Paper test server. Its default address is `127.0.0.1:25575`; the host is configurable. It does not start a server or accept an EULA. The full smoke resets its test accounts and inventories.
 
-Minecraft 26.3 validation is currently blocked: pinned Mineflayer 4.38.0 rejects protocol 777, and tested latest 4.39.0 reports `No data available for version 26.3`. Unit lifecycle tests still run, but they do not validate live 26.3 player behavior. Keep the pin until a client update supplies working protocol support; use an actual 26.3 client for manual inventory/banknote checks. See the [runtime report](../../docs/development/reports/26.3-runtime.md).
+Minecraft 26.3 validation is currently blocked: Mineflayer 4.38.0 rejects protocol 777, and pinned 4.39.0 reports `No data available for version 26.3`. Unit lifecycle tests still run, but they do not validate live 26.3 player behavior. Keep the pin until a client update supplies native protocol support; use an actual 26.3 client for manual inventory/banknote checks. See the [runtime report](../../docs/development/reports/26.3-runtime.md).
 
 ## Setup
 
@@ -49,3 +49,9 @@ java -cp goldbag-plugin/target/GoldBag-2.0.0-SNAPSHOT.jar scripts/server-tests/S
 ```
 
 The helper refuses existing fixture accounts and acquires GoldBag's database lock. It creates two labeled pending deposits without changing any physical inventory. After startup, use the printed operation IDs with the recovery commands: apply should credit `GBRecoveryApply` G2.00; cancel should leave `GBRecoveryCancel` G0.00. The exact executed commands and outcomes are in [the server report](../../docs/development/reports/T6-server-validation.md).
+
+## Confirmation UI smoke
+
+The current full smoke clicks the actual green Confirm button. It also exercises deposit navigation, Cancel, exact quantity input, withdrawal navigation, Deposit All, payment input, invalid banknote input/retry, banknote issuance/redemption, and the existing rejection/restart checks. It does not type `/goldbag confirm` for successful exchanges; one compatibility-command replay check remains.
+
+For the isolated Paper 26.3 bridge experiment, ViaVersion/ViaBackwards 5.12.1 translate an older test client. Use client 1.21.8 or 1.21.4, Mineflayer 4.39.0, and `GOLDBAG_DISABLE_PHYSICS=1` (disables physics at spawn). The short bridge probes connected but the full run still disconnected; this configuration does not certify 26.3 player behavior. Final full UI validation instead passed on native Paper 1.21.11 build 132. See [UI live validation](../../docs/development/reports/ui-live-validation.md).
