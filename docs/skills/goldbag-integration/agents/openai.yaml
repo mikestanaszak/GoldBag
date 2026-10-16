@@ -1,0 +1,4 @@
+interface:
+  display_name: "GoldBag Integration"
+  short_description: "Review, merge and verify semantic releases"
+  default_prompt: "Use $goldbag-integration to complete the requested GoldBag work."

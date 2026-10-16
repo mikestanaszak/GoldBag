@@ -1,0 +1,4 @@
+interface:
+  display_name: "GoldBag Development"
+  short_description: "Implement and verify GoldBag player flows"
+  default_prompt: "Use $goldbag-development to complete the requested GoldBag work."

@@ -1,0 +1,4 @@
+interface:
+  display_name: "GoldBag Workflow"
+  short_description: "Develop, release and maintain GoldBag"
+  default_prompt: "Use $goldbag-workflow to complete the requested GoldBag work."

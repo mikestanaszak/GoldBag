@@ -1,0 +1,4 @@
+interface:
+  display_name: "GoldBag Deployment"
+  short_description: "Install and validate GoldBag in Dockge"
+  default_prompt: "Use $goldbag-deployment to complete the requested GoldBag work."
